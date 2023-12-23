@@ -8,7 +8,6 @@ In addition to LPEG itself (linked above) we have:
 
 - [LPEG Paper](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf) paper describing the implementation of LPEG.
 
-- [LuLPeg](https://github.com/pygy/LuLPeg) an implementation of LPeg in pure Lua, which may even be preferable when it comes to understanding how LPeg is supposed to work.  This port is not going to be a slavish imitation of the C idioms used to create the original.  ...Although maybe not, since it turns out this is a parser-combinator implementation and the point here is to write an instruction VM which is stupid fast. 
 
 ## Prior Art
 
@@ -24,15 +23,21 @@ In addition to LPEG itself (linked above) we have:
 - [Match.jl](https://juliaservices.github.io/Match.jl/stable/): a macro for match/case style statements, which is an approach to the VM proper.
 
 
-## Angle of Attack
+## Notes on OG Lpeg
 
 The OG code contains the basic algorithms we need, but they're expressed in a way which makes a close translation useless. For one thing they heavily manipulate the Lua VM, and for another, it's written in C, with all that implies. 
 
 The flow in the OG begins at the bottom of `lpltree.c`, where the Lua interface is created and registered, and works its way backward from the perspective I need to take to translate it. 
 
-The interface is various ways of creating patterns, the details of which are largely useless for us, since it's all about pulling the relevant information out of Lua into C.  This involves creating two structs, `Pattern`s and `TTree`s, where a Pattern is a container for both a Tree and its bytecode.  Trees are tagged with an enum 
+The interface is various ways of creating patterns, the details of which are largely useless for us, since it's all about pulling the relevant information out of Lua into C.  This involves creating two structs, `Pattern`s and `TTree`s, where a Pattern is a container for both a Tree and its bytecode.  Trees are tagged with an enum saying what variety of tree we're dealing with, a second enum indicating the variety of capture (if it is one), either zero, one, or two children, and sometimes a counter. 
 
+Trees are built into more complex patterns through combinator rules, which become parent to the existing patterns, and as grammars, where they eventually get checked and resolved in various ways. 
 
+`lp_match` causes the tree to be compiled, and these instructions are passed to the VM for match proper, which runs the bytecode. 
+
+## Strategy
+
+The distinction between Pattern and TTree isn't something we really need, I don't think.  The distinction is basically between the encapsulation of Lua-side userdata, code, and a TTree, where the latter is used to do manipulation of the pattern stuff without affecting the Lua VM.  We can just have Patterns as containers that also do the Tree-like things. 
 
 ## Implementation Notes and Details
 

@@ -3,6 +3,9 @@ uuid = "97e74182-bfe2-47a2-ae45-8df8c6895190"
 authors = ["Sam Atman"]
 version = "1.0.0-DEV"
 
+[deps]
+Match = "7eb4fadd-790c-5f42-8a69-bfa0b872bfbf"
+
 [compat]
 julia = "1"
 
