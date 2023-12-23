@@ -120,17 +120,18 @@ function compile(patt::Pattern)
 end
 
 function compile(patt::PSeq)
-    if isempty(patt.code)
-        for p in patt.val
-            code = compile(p)
-            if code[end] == OpEnd
-                code = code[1:end-1]
-            end
-            append!(patt.code, code)
-            # optimizations?
-        end
-        push!(patt.code, OpEnd)
+    if !isempty(patt.code)
+        return patt.code
     end
+    for p in patt.val
+        code = compile(p)
+        if code[end] == OpEnd
+            code = code[1:end-1]
+        end
+        append!(patt.code, code)
+        # optimizations?
+    end
+    push!(patt.code, OpEnd)
     patt.code
 end
 
