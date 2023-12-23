@@ -25,8 +25,13 @@ function Base.show(io::IO, ::MIME"text/plain", code::Vector{Instruction})
         return
     end
     lines = []
-    for (idx, op) in enumerate(code)
-        push!(lines, "$idx: $(repr(op))")
+    for (idx, inst) in enumerate(code)
+        if hasfield(typeof(inst), :l)
+            off = idx + inst.l
+            push!(lines, "$idx: ⟪$(inst.op): ($off)⟫")
+        else
+            push!(lines, "$idx: $(repr(inst))")
+        end
     end
     print(io, join(lines, "\n"))
 end

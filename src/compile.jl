@@ -104,6 +104,11 @@ struct OpenCallInst <: Instruction
     OpenCallInst(r::AbstractString) = new(IOpenCall, r)
 end
 
+"A placeholder for a (usually labeled) Instruction"
+struct HoldInst <: Instruction
+    op::Opcode
+end
+
 # To be continued...
 
 ### Compilers
@@ -147,5 +152,30 @@ function compile!(patt::PChar)
         push!(patt.code, CharInst(patt.val))
     end
     return patt.code 
+end
+
+function compile!(patt::PChoice)
+    # Unoptimized versions first
+    if !isempty(patt.code)
+        return patt.code
+    end
+    c = patt.code
+    for (idx, p) in enumerate(patt.val)
+        pcode = compile!(p)
+        if idx == length(patt.val)
+            append!(c, pcode)
+            break
+        end
+        len = length(pcode)
+        push!(c, ChoiceInst(len + 2))
+        append!(c, pcode)
+        push!(c, HoldInst(ICommit)) 
+    end
+    for (idx, inst) in enumerate(c)
+        if isa(inst, HoldInst) && inst.op == ICommit
+            c[idx] = CommitInst(length(c) - idx)
+        end
+    end
+    return patt.code
 end
 
