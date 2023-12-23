@@ -2,23 +2,14 @@
 
 """
 Container for various patterns and grammars.
+Always has `val`, which may be primitive or a Vector{Pattern},
+and `code`, a Vector{Instruction}.
 """
 abstract type Pattern end
 
 "A bytecode instruction"
 abstract type Instruction end
 
-function Base.show(io::IO, i::Instruction)
-    str = "⟪$(i.op)"
-    for field in fieldnames(typeof(i))
-        if field ≠ :op 
-            val = getfield(i, field)
-            str *= ", $field→$val"
-        end
-    end
-    str *= "⟫"
-    print(io, str)
-end
 
 function Inst()
     Vector{Instruction}(undef, 0)

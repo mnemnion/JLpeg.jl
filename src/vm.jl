@@ -30,3 +30,5 @@ mutable struct VMState
       return new(s, p, s_end, 1, 1, stack, cap)
    end
 end
+
+include("printing.jl")

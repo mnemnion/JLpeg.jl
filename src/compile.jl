@@ -148,3 +148,4 @@ function compile(patt::PChar)
     end
     return patt.code 
 end
+
