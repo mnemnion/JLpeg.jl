@@ -48,7 +48,7 @@ end
 
 
 function PSeq(a::Pattern, b::Pattern)
-    val = optimizeP(a, b)
+    val = optimizePSeq(a, b)
     PSeq(val, Inst())
 end
 
