@@ -78,9 +78,9 @@ struct LabelInst <: Instruction
 end
 
 ChoiceInst(l::Integer) = LabelInst(IChoice, l)
+CommitInst(l::Integer) = LabelInst(ICommit, l)
 CallInst(l::Integer) = LabelInst(ICall, l)
 JumpInst(l::Integer) = LabelInst(IJump, l)
-CommitInst(l::Integer) = LabelInst(ICommit, l)
 PartialCommitInst(l::Integer) = LabelInst(ICommit, l)
 BackCommitInst(l::Integer) = LabelInst(ICommit, l)
 
@@ -167,8 +167,9 @@ function compile!(patt::PChoice)
             break
         end
         len = length(pcode)
-        push!(c, ChoiceInst(len + 2))
+        push!(c, ChoiceInst(len + 1))
         append!(c, pcode)
+        pop!(c)  # drop the IEnd
         push!(c, HoldInst(ICommit)) 
     end
     for (idx, inst) in enumerate(c)
