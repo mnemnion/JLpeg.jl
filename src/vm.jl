@@ -51,7 +51,7 @@ end
 
 Match `program` to `subject`, returning the farthest match index.
 """
-function match(program::Vector{Instruction}, subject::AbstractString)
+function Base.match(program::Vector{Instruction}, subject::AbstractString)
     vm = VMState(subject, program)
     vm.running = true
     while vm.running
@@ -69,7 +69,12 @@ function match(program::Vector{Instruction}, subject::AbstractString)
     end
 end
 
-function match(patt::Pattern, subject::AbstractString)
+"""
+    match(patt::Pattern, subject::AbstractString)
+
+Match `patt` to `subject`, returning the farthest match index
+"""
+function Base.match(patt::Pattern, subject::AbstractString)
     code = compile!(patt)
     return match(code, subject)
 end

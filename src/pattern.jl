@@ -24,10 +24,15 @@ end
 struct PAny <: Pattern
     val::UInt32
     code::Vector{Instruction}
-    PAny(val::Int) = new(val, Inst())
+    PAny(val::UInt) = new(val, Inst())
 end
 
 struct PSeq <: Pattern 
+    val::Vector{Pattern}
+    code::Vector{Instruction}
+end
+
+struct PChoice<:Pattern
     val::Vector{Pattern}
     code::Vector{Instruction}
 end
@@ -41,14 +46,26 @@ function PSeq(str::AbstractString)
     PSeq(val, code)
 end
 
+
 function PSeq(a::Pattern, b::Pattern)
     val = optimizeP(a, b)
     PSeq(val, Inst())
 end
 
+optimizePSeq(a::Pattern, b::Pattern) = [a, b]
+optimizePSeq(a::PSeq, b::PSeq) = vcat(a.val, b.val)
 
+function PChoice(a::Pattern, b::Pattern)
+    val = optimizePChoice(a, b)
+    PChoice(val, Inst())
+end
 
-optimizeP(a::Pattern, b::Pattern) = [a, b]
+optimizePChoice(a::PChoice, b::PChoice) = vcat(a.val, b.val)
+optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 
-optimizeP(a::PSeq, b::PSeq) = vcat(a.val, b.val)
+P(s::AbstractString) = PSeq(s)
+P(c::AbstractChar) = PChar(c)
+P(n::UInt) = PAny(n)
 
+Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
+Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
