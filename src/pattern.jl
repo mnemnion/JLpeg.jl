@@ -8,6 +8,18 @@ abstract type Pattern end
 "A bytecode instruction"
 abstract type Instruction end
 
+function Base.show(io::IO, i::Instruction)
+    str = "⟪$(i.op)"
+    for field in fieldnames(typeof(i))
+        if field ≠ :op 
+            val = getfield(i, field)
+            str *= ", $field→$val"
+        end
+    end
+    str *= "⟫"
+    print(io, str)
+end
+
 function Inst()
     Vector{Instruction}(undef, 0)
 end
@@ -19,7 +31,7 @@ struct PChar <: Pattern
 end
 
 struct PAny <: Pattern
-    val::Int
+    val::UInt32
     code::Vector{Instruction}
     PAny(val::Int) = new(val, Inst())
 end
@@ -39,6 +51,13 @@ function PSeq(str::AbstractString)
 end
 
 function PSeq(a::Pattern, b::Pattern)
-    val = [a, b]
+    val = optimizeP(a, b)
     PSeq(val, Inst())
 end
+
+
+
+optimizeP(a::Pattern, b::Pattern) = [a, b]
+
+optimizeP(a::PSeq, b::PSeq) = vcat(a.val, b.val)
+
