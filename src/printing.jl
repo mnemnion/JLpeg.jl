@@ -1,3 +1,6 @@
+# Printing methods for elements of JLpeg
+
+"Show an Instruction"
 function Base.show(io::IO, i::Instruction)
     str = "⟪$(i.op)"
     for field in fieldnames(typeof(i))

@@ -115,16 +115,16 @@ Translate the Pattern to Instruction codes, appending them to
 the `code` field and returning same.  Performs various optimizations
 in the process. 
 """
-function compile(patt::Pattern) 
+function compile!(patt::Pattern) 
     error("Not Yet Implemented for $(typeof(patt))")
 end
 
-function compile(patt::PSeq)
+function compile!(patt::PSeq)
     if !isempty(patt.code)
         return patt.code
     end
     for p in patt.val
-        code = compile(p)
+        code = compile!(p)
         if code[end] == OpEnd
             code = code[1:end-1]
         end
@@ -135,14 +135,14 @@ function compile(patt::PSeq)
     patt.code
 end
 
-function compile(patt::PAny)
+function compile!(patt::PAny)
     if isempty(patt.code)
         push!(patt.code, AnyInst(patt.val))
     end
     return patt.code
 end
 
-function compile(patt::PChar)
+function compile!(patt::PChar)
     if isempty(patt.code)
         push!(patt.code, CharInst(patt.val))
     end
