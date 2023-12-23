@@ -61,6 +61,13 @@ function PChoice(a::Pattern, b::Pattern)
 end
 
 optimizePChoice(a::PChoice, b::PChoice) = vcat(a.val, b.val)
+
+function optimizePChoice(a::PChoice, b::Pattern)
+    val = copy(a.val)
+    push!(val, b)
+    val
+end
+
 optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 
 P(s::AbstractString) = PSeq(s)
