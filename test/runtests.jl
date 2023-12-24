@@ -57,4 +57,11 @@ using Test
     @test match(glom, "q") == 2
     @test match(glom, "*") == 2
     @test match(glom, "!") === nothing
+    # Tests Kleene *
+    abstar = P("ab")^0
+    @test match(abstar, "") == 1
+    @test match(abstar, "ab") == 3
+    @test match(abstar, "abababab") == 9
+    @test match(abstar, "abc") == 3
+    @test match(abstar, "bc") == 1
 end

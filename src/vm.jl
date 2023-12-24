@@ -15,6 +15,28 @@ struct CapEntry
     
 end
 
+"""
+    VMState(subject::String, program::Vector{Instruction})
+
+Contains the state of a match on `subject` by `program`.
+
+## Fields
+
+    Other than the `subject` and `program`, we have:
+- top: the byte length of `subject`
+- i: Instruction counter 
+- i: Subject pointer 
+- stack: Contains stack frames for calls and backtracks 
+- cap: A stack for captures
+- running: a boolean which is true when the VM is executing
+- matched: true if we matched the program on the subject.
+
+## Implementation 
+
+I'm currently using functions to manipulate the stack, because it 
+may be a good optimization to cache the top of the stack in registers,
+in which case I won't have manipulations scattered throughout the program.
+"""
 mutable struct VMState
    subject::AbstractString # The subject we're parsing
    program::Vector{Instruction} # Our program
@@ -35,7 +57,31 @@ mutable struct VMState
 end
 
 @inline
-thischar(vm::VMState) = vm.subject[vm.s]
+function thischar(vm::VMState)
+    # TODO I don't think this condition should ever obtain, if 
+    #      that turns out to be true, we can remove the check.
+    #      If it isn't true, we can remove the warning.
+    if vm.s > vm.top
+        @warn "access beyond top of string, probably an error"
+        return nothing
+    end 
+    vm.subject[vm.s]
+end
+
+@inline
+function pushframe!(vm::VMState, frame::StackFrame)
+    push!(vm.stack,frame)
+end
+
+@inline
+function popframe!(vm::VMState)
+    pop!(vm.stack)
+end
+
+@inline
+function updatetop_s!(vm::VMState)
+    vm.stack[end].s = vm.s
+end
 
 @inline
 function failmatch(vm::VMState)
@@ -56,16 +102,6 @@ function failmatch(vm::VMState)
         vm.s = frame.s
         vm.i = frame.i
     end
-end
-
-@inline
-function pushframe!(vm::VMState, frame::StackFrame)
-    push!(vm.stack,frame)
-end
-
-@inline
-function popframe!(vm::VMState)
-    pop!(vm.stack)
 end
 
 """
@@ -129,6 +165,9 @@ end
 "onChar"
 function onInst(inst::CharInst, vm::VMState)::Bool
     this = thischar(vm)
+    if this === nothing
+        return false
+    end
     if this == inst.c 
         vm.i += 1
         vm.s = nextind(vm.subject, vm.s)
@@ -185,10 +224,10 @@ function onInst(inst::LabelInst, vm::VMState)
     @match inst.op begin
         $ICommit         => return onCommit(inst, vm)
         $IJump           => return onJump(inst, vm)
-        # NYI, these will all take inst 
-        $ICall           => return onCall(vm)
-        $IPartialCommit  => return onPartialCommit(vm)
-        $IBackCommit     => return onBackCommit(vm)
+        $IPartialCommit  => return onPartialCommit(inst, vm)
+        # NYI
+        $ICall           => return onCall(inst, vm)
+        $IBackCommit     => return onBackCommit(inst, vm)
     end
 end
 
@@ -222,13 +261,18 @@ function onJump(inst::LabelInst, vm::VMState)
     return true
 end
 
+@inline
+function onPartialCommit(inst::LabelInst, vm::VMState)
+    updatetop_s!(vm) 
+    vm.i += inst.l
+    return true
+end
+
 onFail(vm) = error("NYI")
 onFailTwice(vm) = error("NYI")
 onReturn(vm) = error("NYI")
-onCall(vm) = error("NYI")
-onJump(vm) = error("NYI")
-onPartialCommit(vm) = error("NYI")
-onBackCommit(vm) = error("NYI")
+onCall(inst, vm) = error("NYI")
+onBackCommit(inst, vm) = error("NYI")
 
 
 include("printing.jl")
