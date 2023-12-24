@@ -21,6 +21,12 @@ struct PChar <: Pattern
     PChar(val::AbstractChar) = new(val, Inst())
 end
 
+struct PSet<: Pattern
+    val::AbstractString
+    code::Vector{Instruction}
+    PSet(val::AbstractString) = new(val, Inst())
+end
+
 struct PAny <: Pattern
     val::UInt32
     code::Vector{Instruction}
@@ -73,6 +79,7 @@ optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::UInt) = PAny(n)
+S(s::AbstractString) = PSet(s)
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)

@@ -13,6 +13,20 @@ function Base.show(io::IO, i::Instruction)
     print(io, str)
 end
 
+"Show a Set Instruction"
+function Base.show(io::IO, inst::SetInst)
+    str = "⟪$(inst.op), {" 
+    chars = []
+    for (idx, test) in enumerate(inst.vec)
+        if test
+            push!(chars, Char(idx))
+        end
+    end
+    str *= join(chars, ",")
+    str *= "}⟫"
+    print(io, str)
+end
+
 "Show a vector of Bytecode instructions"
 function Base.show(io::IO, ::MIME"text/plain", code::Vector{Instruction})
     compact = get(io, :compact, false)

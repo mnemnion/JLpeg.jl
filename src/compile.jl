@@ -54,16 +54,23 @@ OpFailTwice = MereInst(IFailTwice)
 OpReturn = MereInst(IReturn)
 OpNoOp = MereInst(INoOp)
 
+
+struct AnyInst <: Instruction
+    op::Opcode
+    n::UInt32
+    AnyInst(n::Integer) = n ≥ 0 ? new(IAny, n) : error("n must be a natural number")
+end
+
 struct CharInst <: Instruction
     op::Opcode
     c::AbstractChar
     CharInst(c::AbstractChar) = new(IChar, c)
 end
 
-struct AnyInst <: Instruction
+struct SetInst <: Instruction
     op::Opcode
-    n::UInt32
-    AnyInst(n::Integer) = n ≥ 0 ? new(IAny, n) : error("n must be a natural number")
+    vec::BitVector
+    SetInst(vec::BitVector) = new(ISet, vec)
 end
 
 struct BehindInst <: Instruction
@@ -152,6 +159,22 @@ function compile!(patt::PChar)
         push!(patt.code, CharInst(patt.val))
     end
     return patt.code 
+end
+
+function compile!(patt::PSet)
+    if !isempty(patt.code)
+        return patt.code
+    end
+    # All ascii?
+    if isascii(patt.val)
+        bvec = falses(127)
+        for byte in codeunits(patt.val)
+            bvec[byte] = true
+        end 
+        push!(patt.code, SetInst(bvec), OpEnd)
+    end
+    # Others are a bit more complex! heh. bit.
+    return patt.code
 end
 
 function compile!(patt::PChoice)

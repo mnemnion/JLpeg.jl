@@ -36,6 +36,7 @@ mutable struct VMState
    end
 end
 
+@inline
 thischar(vm::VMState) = vm.subject[vm.s]
 
 @inline
@@ -83,7 +84,9 @@ function Base.match(program::Vector{Instruction}, subject::AbstractString)
             continue
         end
         inst = vm.program[vm.i]
-        matchInst(inst, vm)
+        if !onInst(inst, vm)
+            failmatch(vm)
+        end
     end
     if vm.matched 
         return vm.s 
@@ -102,46 +105,71 @@ function Base.match(patt::Pattern, subject::AbstractString)
     return match(code, subject)
 end
 
-function matchInst(any::AnyInst, vm::VMState)
+"""
+    onInst(inst::Instruction, vm::VMState)::Bool
+
+Dispatch an instruction by structure, with match statements by opcode for
+further dispatch. Returns `false` if the instruction fails, otherwise `true`,
+in which case the dispatch function is expected to have altered the VM state.
+"""
+function onInst(inst::Instruction, vm::VMState)::Bool end
+
+"onAny"
+function onInst(any::AnyInst, vm::VMState)::Bool
     idx = vm.s 
     for i in any.n:-1:1 
         idx = nextind(vm.subject, idx)
         if idx > vm.top && i > 1
-            failmatch(vm)
-            return
+            return false
         end
     end
     vm.s = idx
     vm.i += 1
+    return true
 end
 
-function matchInst(inst::CharInst, vm::VMState )
+"onChar"
+function onInst(inst::CharInst, vm::VMState)::Bool
     this = thischar(vm)
     if this == inst.c 
         vm.i += 1
         vm.s = nextind(vm.subject, vm.s)
-    else 
-        failmatch(vm)
+        return true
+    else
+        return false
     end
 end
 
-function matchInst(inst::LabelInst, vm::VMState)
-    @match inst.op begin
-        $IChoice         => onChoice(inst, vm)
-        $ICommit         => onCommit(inst, vm)
-        $ICall           => onCall(vm)
-        $IJump           => onJump(vm)
-        $IPartialCommit  => onPartialCommit(vm)
-        $IBackCommit     => onBackCommit(vm)
+"onSet"
+function onInst(inst::SetInst, vm::VMState)::Bool
+    code = UInt(vm.subject[vm.s])
+    if inst.vec[code]
+        vm.i +=1
+        vm.s = nextind(vm.subject, vm.s)
+        return true
+    else
+        return false
     end
 end
 
-function matchInst(inst::MereInst, vm::VMState)
+function onInst(inst::LabelInst, vm::VMState)
     @match inst.op begin
-        $IEnd       => onEnd(vm)
-        $IFail      => onFail(vm)
-        $IFailTwice => onFailTwice(vm)
-        $IReturn    => onReturn(vm)
+        $IChoice         => return onChoice(inst, vm)
+        $ICommit         => return onCommit(inst, vm)
+        # NYI, these will all take inst 
+        $ICall           => return onCall(vm)
+        $IJump           => return onJump(vm)
+        $IPartialCommit  => return onPartialCommit(vm)
+        $IBackCommit     => return onBackCommit(vm)
+    end
+end
+
+function onInst(inst::MereInst, vm::VMState)
+    @match inst.op begin
+        $IEnd       => return onEnd(vm)
+        $IFail      => return onFail(vm)
+        $IFailTwice => return onFailTwice(vm)
+        $IReturn    => return onReturn(vm)
     end
 end
 
@@ -150,19 +178,21 @@ function onEnd(vm::VMState)
     @assert isempty(vm.stack) lazy"hit end instruction with $(length(vm.stack)) on stack"
     vm.running = false
     vm.matched = true
-    return
+    return true
 end
 
 @inline
 function onChoice(inst::LabelInst, vm::VMState)
     pushframe!(vm, StackFrame(vm.i + inst.l, vm.s))
     vm.i += 1
+    return true
 end
 
 @inline
 function onCommit(inst::LabelInst, vm::VMState)
     popframe!(vm)
     vm.i += inst.l
+    return true
 end
 
 onFail(vm) = error("NYI")

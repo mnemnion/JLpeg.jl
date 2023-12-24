@@ -18,4 +18,12 @@ using Test
     @test match(abc, "defg") == 4
     @test match(abc, "ghi") == 4
     @test match(abc, "bcd") === nothing
+    bcf = S("bcf")
+    @test match(bcf, "b") == 2
+    @test match(bcf, "ba") == 2
+    @test match(bcf, "q") === nothing
+    atwords = bcf * P("at")
+    @test match(atwords, "bat") == 4
+    @test match(atwords, "cat") == 4
+    @test match(atwords, "mat") === nothing
 end
