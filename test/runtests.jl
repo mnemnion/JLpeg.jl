@@ -31,4 +31,7 @@ using Test
     @test match(threeL, "BAR") === nothing
     @test match(threeL, "quux") == 4
     @test match(threeL, "123") === nothing
+    numeven = R("09") * S("02468")
+    @test match(numeven, "12") == 3
+    @test match(numeven, "13") === nothing
 end
