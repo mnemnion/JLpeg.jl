@@ -201,6 +201,7 @@ function compile!(patt::PChoice)
         return patt.code
     end
     c = patt.code
+    choices = []
     for (idx, p) in enumerate(patt.val)
         pcode = compile!(p)
         if idx == length(patt.val)
@@ -209,6 +210,7 @@ function compile!(patt::PChoice)
         end
         len = length(pcode)
         push!(c, ChoiceInst(len + 1))
+        push!(choices, length(c))
         append!(c, pcode)
         pop!(c)  # drop the IEnd
         push!(c, HoldInst(ICommit)) 
@@ -218,26 +220,31 @@ function compile!(patt::PChoice)
             c[idx] = CommitInst(length(c) - idx)
         end
     end
-    # Peephole looking for headfail condition == test instruction
-    last, this = (OpNoOp, OpNoOp)
-    clobber_commit = false
-    for(idx, inst) in enumerate(c)
-        last, this = (this, inst)
-        if last.op == IChoice && this.op == IChar
-            c[idx - 1] = TestCharInst(this.c, last.l)
-            c[idx] = AnyInst(1)
-            clobber_commit = true
-        elseif last.op == IChoice && this.op == ISet
-            c[idx - 1] = TestSetInst(this.vec, last.l)
-            c[idx] = AnyInst(1)
-            clobber_commit = true
-        end
-        if clobber_commit && this.op == ICommit
-            c[idx] = JumpInst(this.l)
-            clobber_commit = false
+    # Check headfails on our new choices
+    this, next = OpNoOp, OpNoOp
+    for idx in choices
+        this, next = c[idx], c[idx+1]
+        if next.op == IChar
+            c[idx] = TestCharInst(next.c, this.l)
+            c[idx+1] = AnyInst(1)
+            clobber_commit(c, idx)
+        elseif next.op == ISet
+            c[idx] = TestSetInst(next.vec, this.l)
+            c[idx+1] = AnyInst(1)
+            clobber_commit(c, idx)
         end
     end
     return patt.code
+end
+
+function clobber_commit(c::Vector{Instruction}, idx::Int)
+    for i = idx:1:length(c)
+        inst = c[i]
+        if inst.op == ICommit
+            c[i] = JumpInst(inst.l)
+            break
+        end
+    end
 end
 
 """
