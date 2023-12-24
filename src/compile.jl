@@ -258,18 +258,21 @@ function _compile!(patt::PStar)::Pattern
     # val always has one member, so we can pull it now:
     p = patt.val[1]
     c = patt.code
+    code = copy(p.code) 
+    trimEnd!(code)
     if patt.n == 0
-        code = copy(p.code) 
-        trimEnd!(code)
         addstar!(c, code)
     elseif patt.n == 1
-        code = copy(p.code) 
-        trimEnd!(code)
         append!(c, code)
         addstar!(c, code)
-    else 
+    elseif patt.n == -1
+        addstar!(c, code)
+        pop!(c)
+        push!(c, CommitInst(1))
+    else
         @warn lazy"not yet handling PStar.n == $(patt.n)"
     end
+    push!(c, OpEnd)
     return patt
 end
 
@@ -277,7 +280,7 @@ function addstar!(c::Vector{Instruction}, code::Vector{})
     l = length(code) + 1
     push!(c, ChoiceInst(l + 1))
     append!(c, code)
-    push!(c, PartialCommitInst(-l + 1), OpEnd)
+    push!(c, PartialCommitInst(-l + 1))
 end
 
 

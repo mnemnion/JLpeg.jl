@@ -151,3 +151,7 @@ R(s::AbstractString) = PRange(s)
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
 Base.:^(a::Pattern, b::Int)  = PStar(a, b)
+# This little dance gets around a quirk of how negative powers
+# are handled by Julia:
+Base.:^(a::Tuple{Pattern, Nothing}, b::Int) = PStar(a[1], -b)
+Base.inv(a::Pattern) = (a, nothing)

@@ -70,5 +70,12 @@ using Test
     @test match(abplus, "ab") == 3
     @test match(abplus, "abababab") == 9
     @test match(abplus, "abc") == 3
-    @test match(abplus, "bc") === nothing     
+    @test match(abplus, "bc") === nothing
+    # Tests ?
+    opt = P("ab")^-1
+    @test match(opt, "") == 1
+    @test match(opt, "ab") == 3
+    @test match(opt, "abababab") == 3
+    @test match(opt, "abc") == 3
+    @test match(opt, "bc") == 1
 end
