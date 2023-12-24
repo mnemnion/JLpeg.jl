@@ -124,6 +124,9 @@ end
 function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
     lines=[typeof(patt), "("]
     push!(lines, "val→", repr("text/plain", patt.val, context=:compact=>true), ", ")
+    if hasfield(typeof(patt), :n)
+        push!(lines, "n=", string(patt.n), ", ")
+    end
     push!(lines, repr("text/plain", patt.code, context=:compact=>true), ")")
     print(io, join(lines) * ")")
 end

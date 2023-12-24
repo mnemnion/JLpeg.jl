@@ -94,8 +94,8 @@ end
 CommitInst(l::Integer) = LabelInst(ICommit, l)
 CallInst(l::Integer) = LabelInst(ICall, l)
 JumpInst(l::Integer) = LabelInst(IJump, l)
-PartialCommitInst(l::Integer) = LabelInst(ICommit, l)
-BackCommitInst(l::Integer) = LabelInst(ICommit, l)
+PartialCommitInst(l::Integer) = LabelInst(IPartialCommit, l)
+BackCommitInst(l::Integer) = LabelInst(IBackCommit, l)
 
 struct TestAnyInst <: Instruction
     op::Opcode
@@ -244,6 +244,33 @@ function _compile!(patt::PSeq)::Pattern
     push!(patt.code, OpEnd)
     return patt
 end
+
+function _compile!(patt::PStar)::Pattern
+    # TODO there are several cases:
+    # [ ] n == 0, aka *
+    # [ ] n == 1, aka +
+    # [ ] n == -1 aka ?
+    # [ ] n > 1, which is + with repetitions 
+    # [ ] n < -1, which is the weird one I'll do last
+    #
+    # val always has one member, so we can pull it now:
+    p = patt.val[1]
+    c = patt.code
+    if patt.n == 0
+        # TODO figure out when TestChar etc come into play 
+        code = copy(p.code) 
+        trimEnd!(code)
+        l = length(code) + 1
+        push!(c, ChoiceInst(l + 1))
+        append!(c, code)
+        push!(c, PartialCommitInst(-l + 1), OpEnd)
+        return patt 
+    else
+        @warn lazy"not yet handling PStar.n == $(patt.n)"
+    end
+    return patt
+end
+
 
 function _compile!(patt::PChoice)::Pattern
     if !isempty(patt.code)
@@ -404,5 +431,16 @@ function prefix!(map::Dict, key, val)
     else
         map[key] = []
         push(map[key], val)
+    end
+end
+
+"""
+    trimEnd!(code::Vector{Instruction})
+
+Remove an OpEnd, if present.
+"""
+function trimEnd!(code::Vector{Instruction})
+    if code[end] == OpEnd
+        pop!(code)
     end
 end
