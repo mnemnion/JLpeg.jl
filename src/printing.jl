@@ -39,20 +39,24 @@ function Base.show(io::IO, ::MIME"text/plain", code::Vector{Instruction})
         return
     end
     lines = []
+    pad = length(code) > 99 ? 3 : 2
     for (idx, inst) in enumerate(code)
-        line = ["$idx: ⟪$(inst.op):"]
+        ipad = lpad(idx, pad, "0")
+        line = ["$ipad: $(inst.op)"]
         t = typeof(inst)
         if hasfield(t, :c)
             push!(line, " '$(inst.c)'" )
         end
-        if hasfield(t, :vec)
-            push!(line, " $(printset(inst.vec))")
+        if hasfield(t, :n)
+            push!(line, " $(inst.n)")
         end
         if hasfield(t, :l)
             off = idx + inst.l
             push!(line, " ($off)")
         end
-        push!(line, "⟫")
+        if hasfield(t, :vec)
+            push!(line, " $(printset(inst.vec))")
+        end
         push!(lines, join(line))
     end
     print(io, join(lines, "\n"))

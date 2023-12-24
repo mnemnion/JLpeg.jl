@@ -105,6 +105,13 @@ struct TestCharInst <: Instruction
     TestCharInst(c::AbstractChar, l::Int32) = new(ITestChar, c, l)
 end
 
+struct TestSetInst <: Instruction
+    op::Opcode
+    vec::BitVector
+    l::Int32
+    TestSetInst(vec::BitVector, l::Int32) = new(ITestSet, vec, l)
+end
+
 struct OpenCallInst <: Instruction
     op::Opcode
     rule::AbstractString # Symbol?
@@ -218,6 +225,10 @@ function compile!(patt::PChoice)
         last, this = (this, inst)
         if last.op == IChoice && this.op == IChar
             c[idx - 1] = TestCharInst(this.c, last.l)
+            c[idx] = AnyInst(1)
+            clobber_commit = true
+        elseif last.op == IChoice && this.op == ISet
+            c[idx - 1] = TestSetInst(this.vec, last.l)
             c[idx] = AnyInst(1)
             clobber_commit = true
         end

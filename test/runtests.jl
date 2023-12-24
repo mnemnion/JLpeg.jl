@@ -34,4 +34,8 @@ using Test
     numeven = R("09") * S("02468")
     @test match(numeven, "12") == 3
     @test match(numeven, "13") === nothing
+    afew = S("123") | P("abc") | S("xyz")
+    @test match(afew, "1") == 2
+    @test match(afew, "abc") == 4
+    @test match(afew, "z") == 2
 end

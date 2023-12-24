@@ -152,6 +152,7 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     end
 end
 
+"onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
     this = thischar(vm)
     if this == inst.c
@@ -160,6 +161,18 @@ function onInst(inst::TestCharInst, vm::VMState)::Bool
     else
         vm.i += inst.l
         return true  # Not an unwinding fail 
+    end
+end
+
+"onTestSet"
+function onInst(inst::TestSetInst, vm::VMState)::Bool
+    code = UInt(vm.subject[vm.s])
+    if inst.vec[code]
+        vm.i +=1
+        return true
+    else
+        vm.i += inst.l
+        return true  # Still not an unwinding fail
     end
 end
 
