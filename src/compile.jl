@@ -154,7 +154,10 @@ function compile!(patt::PSeq)::Pattern
     if !isempty(patt.code)
         return patt
     end
-    # TODO various optimizations e.g. P("") -> PTrue
+    # As an optimization, a Seq of one member can just be that member
+    if length(patt.val) == 1
+        return compile!(patt.val[1])
+    end
     for (idx, p) in enumerate(patt.val)
         patt.val[idx] = compile!(p)
         code = patt.val[idx].code 
@@ -180,6 +183,20 @@ function compile!(patt::PChar)::Pattern
         push!(patt.code, CharInst(patt.val))
     end
     return patt 
+end
+
+function compile!(patt::PTrue)::Pattern
+    if isempty(patt.code)
+        push!(patt.code, OpEnd)
+    end
+    return patt
+end
+
+function compile!(patt::PFalse)::Pattern 
+    if isempty(patt.code)
+        push!(patt.code, OpFail)
+    end
+    return patt
 end
 
 function compile!(patt::PSet)::Pattern

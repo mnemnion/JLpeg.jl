@@ -40,4 +40,13 @@ using Test
     @test match(afew, "z") == 2
     aacd = P("aabc") | P("aacd")
     @test match(aacd, "aacd") == 5
+    nofail = P("")
+    @test match(nofail, "abc") == 1
+    @test match(nofail, "") == 1
+    nope = P(false)
+    @test match(nope, "") === nothing
+    @test match(nope, "something") === nothing 
+    yep = P(true)
+    @test match(yep, "") == 1 
+    @test match(yep, "abc") == 1
 end

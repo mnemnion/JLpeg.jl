@@ -197,7 +197,7 @@ end
 function onInst(inst::MereInst, vm::VMState)
     @match inst.op begin
         $IEnd       => return onEnd(vm)
-        $IFail      => return onFail(vm)
+        $IFail      => return false
         $IFailTwice => return onFailTwice(vm)
         $IReturn    => return onReturn(vm)
     end

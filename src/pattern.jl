@@ -85,6 +85,9 @@ struct PFalse <: Pattern
 function PSeq(str::AbstractString)
     val = Vector{Pattern}(undef, 0)
     code = Inst()
+    if length(str) == 0
+        push!(val, PTrue())
+    end
     for char in str
         push!(val, PChar(char))
     end
@@ -120,6 +123,7 @@ optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::UInt) = PAny(n)
+P(b::Bool) = if b PTrue() else PFalse() end
 S(s::AbstractString) = PSet(s)
 R(s::AbstractString) = PRange(s)
 
