@@ -148,7 +148,9 @@ the return value to the variable bound to the original for the general case.
 """
 function compile!(patt::Pattern)::Pattern
     if typeof(patt.val) == Vector{Pattern}
-        map(compile!, patt.val)
+        for (idx, val) in enumerate(patt.val)
+            patt.val[idx] = compile!(val)
+        end
     end
     _compile!(patt)
 end
@@ -260,8 +262,8 @@ function _compile!(patt::PChoice)::Pattern
             if typeof(p) == PSet || typeof(p) == PRange 
                 bvec = bvec .| p.code[1].vec
             elseif typeof(p) == PChar 
-                if isascii(p.c)
-                    bvec[UInt(p.c)] = true
+                if isascii(p.val)
+                    bvec[UInt(p.val)] = true
                 else
                     # Bail until we handle multibyte chars 
                     @warn "multibyte chars not yet optimized"

@@ -49,4 +49,12 @@ using Test
     yep = P(true)
     @test match(yep, "") == 1 
     @test match(yep, "abc") == 1
+    # TODO start grouping these 
+    # Tests charset amalgamation 
+    glom = S("146") | R("AZ") | P("q") | P("*")
+    @test match(glom, "1") == 2
+    @test match(glom, "B") == 2
+    @test match(glom, "q") == 2
+    @test match(glom, "*") == 2
+    @test match(glom, "!") === nothing
 end
