@@ -51,7 +51,7 @@ function failmatch(vm::VMState)
         frame = popframe!(vm)
         if !frame break end
     end # until we find a choice frame or exhaust the stack
-    if frame == nothing 
+    if frame === nothing 
         vm.running = false
         vm.matched = false
     else 
@@ -152,13 +152,24 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     end
 end
 
+function onInst(inst::TestCharInst, vm::VMState)::Bool
+    this = thischar(vm)
+    if this == inst.c
+        vm.i += 1
+        return true
+    else
+        vm.i += inst.l
+        return true  # Not an unwinding fail 
+    end
+end
+
 function onInst(inst::LabelInst, vm::VMState)
     @match inst.op begin
         $IChoice         => return onChoice(inst, vm)
         $ICommit         => return onCommit(inst, vm)
         # NYI, these will all take inst 
         $ICall           => return onCall(vm)
-        $IJump           => return onJump(vm)
+        $IJump           => return onJump(inst, vm)
         $IPartialCommit  => return onPartialCommit(vm)
         $IBackCommit     => return onBackCommit(vm)
     end
@@ -192,6 +203,12 @@ end
 function onCommit(inst::LabelInst, vm::VMState)
     popframe!(vm)
     vm.i += inst.l
+    return true
+end
+
+@inline
+function onJump(inst::LabelInst, vm::VMState)
+    vm.i += inst.l 
     return true
 end
 

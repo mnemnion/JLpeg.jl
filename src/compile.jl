@@ -102,7 +102,7 @@ struct TestCharInst <: Instruction
     op::Opcode
     c::AbstractChar
     l::Int32
-    TestAnyInst(c::AbstractChar, l::Int32) = new(ITestChar, c, l)
+    TestCharInst(c::AbstractChar, l::Int32) = new(ITestChar, c, l)
 end
 
 struct OpenCallInst <: Instruction
@@ -190,7 +190,6 @@ function compile!(patt::PRange)
 end
 
 function compile!(patt::PChoice)
-    # Unoptimized versions first
     if !isempty(patt.code)
         return patt.code
     end
@@ -210,6 +209,21 @@ function compile!(patt::PChoice)
     for (idx, inst) in enumerate(c)
         if isa(inst, HoldInst) && inst.op == ICommit
             c[idx] = CommitInst(length(c) - idx)
+        end
+    end
+    # Peephole looking for headfail condition == test instruction
+    last, this = (OpNoOp, OpNoOp)
+    clobber_commit = false
+    for(idx, inst) in enumerate(c)
+        last, this = (this, inst)
+        if last.op == IChoice && this.op == IChar
+            c[idx - 1] = TestCharInst(this.c, last.l)
+            c[idx] = AnyInst(1)
+            clobber_commit = true
+        end
+        if clobber_commit && this.op == ICommit
+            c[idx] = JumpInst(this.l)
+            clobber_commit = false
         end
     end
     return patt.code

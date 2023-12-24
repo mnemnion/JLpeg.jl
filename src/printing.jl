@@ -13,18 +13,18 @@ function Base.show(io::IO, i::Instruction)
     print(io, str)
 end
 
-"Show a Set Instruction"
-function Base.show(io::IO, inst::SetInst)
-    str = "⟪$(inst.op), {" 
+"String for Set Vector"
+function printset(vec::BitVector)::String
     chars = []
-    for (idx, test) in enumerate(inst.vec)
+    str = "{"
+    for (idx, test) in enumerate(vec)
         if test
             push!(chars, Char(idx))
         end
     end
     str *= join(chars, ",")
-    str *= "}⟫"
-    print(io, str)
+    str *= "}"
+    return str
 end
 
 "Show a vector of Bytecode instructions"
@@ -40,12 +40,20 @@ function Base.show(io::IO, ::MIME"text/plain", code::Vector{Instruction})
     end
     lines = []
     for (idx, inst) in enumerate(code)
-        if hasfield(typeof(inst), :l)
-            off = idx + inst.l
-            push!(lines, "$idx: ⟪$(inst.op): ($off)⟫")
-        else
-            push!(lines, "$idx: $(repr(inst))")
+        line = ["$idx: ⟪$(inst.op):"]
+        t = typeof(inst)
+        if hasfield(t, :c)
+            push!(line, " '$(inst.c)'" )
         end
+        if hasfield(t, :vec)
+            push!(line, " $(printset(inst.vec))")
+        end
+        if hasfield(t, :l)
+            off = idx + inst.l
+            push!(line, " ($off)")
+        end
+        push!(line, "⟫")
+        push!(lines, join(line))
     end
     print(io, join(lines, "\n"))
 end
