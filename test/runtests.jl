@@ -78,4 +78,14 @@ using Test
     @test match(opt, "abababab") == 3
     @test match(opt, "abc") == 3
     @test match(opt, "bc") == 1
+    # Makes sure recursive reps don't hang 
+    inside = ((P("ab")^0))^0
+    @test match(inside, "abab") == 5
+    @test match(inside, "") == 1
+    inside = ((P("ab")^-1))^1
+    @test match(inside, "abab") == 5
+    @test match(inside, "") == 1
+    inside = ((P("ab")^0))^1
+    @test match(inside, "abab") == 5
+    @test match(inside, "") == 1
 end

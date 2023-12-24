@@ -152,7 +152,11 @@ function compile!(patt::Pattern)::Pattern
             patt.val[idx] = compile!(val)
         end
     end
-    _compile!(patt)
+    if isempty(patt.code)
+        _compile!(patt)
+    else
+        patt 
+    end
 end
 
 
@@ -161,37 +165,26 @@ function _compile!(patt::Pattern)::Pattern
 end
 
 function _compile!(patt::PAny)::Pattern
-    if isempty(patt.code)
-        push!(patt.code, AnyInst(patt.val))
-    end
+    push!(patt.code, AnyInst(patt.val))
     return patt
 end
 
 function _compile!(patt::PChar)::Pattern 
-    if isempty(patt.code)
-        push!(patt.code, CharInst(patt.val))
-    end
+    push!(patt.code, CharInst(patt.val))
     return patt 
 end
 
 function _compile!(patt::PTrue)::Pattern
-    if isempty(patt.code)
-        push!(patt.code, OpEnd)
-    end
+    push!(patt.code, OpEnd)
     return patt
 end
 
 function _compile!(patt::PFalse)::Pattern 
-    if isempty(patt.code)
-        push!(patt.code, OpFail)
-    end
+    push!(patt.code, OpFail)
     return patt
 end
 
 function _compile!(patt::PSet)::Pattern
-    if !isempty(patt.code)
-        return patt
-    end
     # Special-case the empty set 
     # We'll turn into a Jump when we have the requisite info
     if patt.val == ""  # TODO I think this can return PFalse?
@@ -208,9 +201,6 @@ function _compile!(patt::PSet)::Pattern
 end
 
 function _compile!(patt::PRange)::Pattern
-    if !(isempty(patt.code))
-        return patt 
-    end
     a, b = patt.val
     vec = Vector{typeof(a)}(undef, b - a + 1)
     i = 1
@@ -226,9 +216,6 @@ function _compile!(patt::PRange)::Pattern
 end
 
 function _compile!(patt::PSeq)::Pattern 
-    if !isempty(patt.code)
-        return patt
-    end
     # As an optimization, a Seq of one member can just be that member
     if length(patt.val) == 1
         return compile!(patt.val[1])
@@ -247,16 +234,34 @@ end
 
 function _compile!(patt::PStar)::Pattern
     # TODO there are several cases:
-    # [ ] n == 0, aka *
-    # [ ] n == 1, aka +
-    # [ ] n == -1 aka ?
+    # [X] n == 0, aka *
+    # [X] n == 1, aka +
+    # [X] n == -1 aka ?
     # [ ] n > 1, which is + with repetitions 
     # [ ] n < -1, which is the weird one I'll do last
     #
     # TODO figure out when TestChar etc come into play 
     #
-    # val always has one member, so we can pull it now:
+    # bad things happen when val is  a PStar, specifically
+    # when the inner is optional, e.g. ("ab"?)*, so we check for this
+    # and fix it when we need to.
+    # TODO this problem may not occur for even lower than -1, check when we implement.
     p = patt.val[1]
+    if typeof(p) == PStar && (p.n ==  0 || p.n == -1)
+        if p.n == -1 && (patt.n == 0 || patt.n == 1)
+            # "As many optionals as you want, as long as you match one" aka P^0
+            return compile!(p.val[1]^0)
+        elseif p.n == 0 && (patt.n == 0 || patt.n == 1)
+            # Both of these mean "match as few as zero or as many as you can",
+            # Which is what p means already.
+            return p 
+        elseif p.n == 0 && patt.n == -1 
+            # Same outcome as the above, but this time it's an optimization,
+            # the code actually works fine, but the -1 isn't doing anything here 
+            return p 
+        end
+    end
+
     c = patt.code
     code = copy(p.code) 
     trimEnd!(code)
@@ -285,9 +290,6 @@ end
 
 
 function _compile!(patt::PChoice)::Pattern
-    if !isempty(patt.code)
-        return patt
-    end
     c = patt.code
     choices = []
     # Optimizations:
