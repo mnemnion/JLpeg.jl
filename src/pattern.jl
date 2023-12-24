@@ -5,7 +5,8 @@ using Match
 """
 Container for various patterns and grammars.
 Always has `val`, which may be primitive or a Vector{Pattern},
-and `code`, a Vector{Instruction}.
+and `code`, a Vector{Instruction}. Some patterns have a field
+unique to that pattern type.
 """
 abstract type Pattern end
 
@@ -56,10 +57,12 @@ struct PAny <: Pattern
     PAny(val::UInt) = new(val, Inst())
 end
 
+"Includes n, dictating the sort of repetition"
 struct PStar <: Pattern
-    val::Tuple{Pattern,Int}
+    val::Vector{Pattern}
     code::Vector{Instruction}
-    PStar(patt::Pattern, n::UInt) = new((patt, n), Inst())
+    n::Int
+    PStar(patt::Pattern, n::Int) = new([patt], Inst(), n)
 end
 
 struct PSeq <: Pattern 

@@ -160,26 +160,6 @@ function _compile!(patt::Pattern)::Pattern
     error("Not Yet Implemented for $(typeof(patt))")
 end
 
-function _compile!(patt::PSeq)::Pattern 
-    if !isempty(patt.code)
-        return patt
-    end
-    # As an optimization, a Seq of one member can just be that member
-    if length(patt.val) == 1
-        return compile!(patt.val[1])
-    end
-    for p in patt.val
-        code = p.code 
-        if code[end] == OpEnd
-            code = code[1:end-1]
-        end
-        append!(patt.code, code)
-        # optimizations?
-    end
-    push!(patt.code, OpEnd)
-    return patt
-end
-
 function _compile!(patt::PAny)::Pattern
     if isempty(patt.code)
         push!(patt.code, AnyInst(patt.val))
@@ -243,6 +223,26 @@ function _compile!(patt::PRange)::Pattern
        push!(patt.code, SetInst(bvec), OpEnd)
     end
     return patt  
+end
+
+function _compile!(patt::PSeq)::Pattern 
+    if !isempty(patt.code)
+        return patt
+    end
+    # As an optimization, a Seq of one member can just be that member
+    if length(patt.val) == 1
+        return compile!(patt.val[1])
+    end
+    for p in patt.val
+        code = p.code 
+        if code[end] == OpEnd
+            code = code[1:end-1]
+        end
+        append!(patt.code, code)
+        # optimizations?
+    end
+    push!(patt.code, OpEnd)
+    return patt
 end
 
 function _compile!(patt::PChoice)::Pattern
