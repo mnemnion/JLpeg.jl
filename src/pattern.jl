@@ -42,15 +42,22 @@ struct PRange <: Pattern
             end
         end
         if a ≥ b
-            error("Range must be from low to high, got $a > $b")
+            error(lazy"Range must be from low to high, got $a > $b")
         end
         new((a, b), Inst())
     end
 end
+
 struct PAny <: Pattern
     val::UInt32
     code::Vector{Instruction}
     PAny(val::UInt) = new(val, Inst())
+end
+
+struct PStar <: Pattern
+    val::Tuple{Pattern,Int}
+    code::Vector{Instruction}
+    PStar(patt::Pattern, n::UInt) = new((patt, n), Inst())
 end
 
 struct PSeq <: Pattern 
@@ -58,10 +65,22 @@ struct PSeq <: Pattern
     code::Vector{Instruction}
 end
 
-struct PChoice<:Pattern
+struct PChoice <: Pattern
     val::Vector{Pattern}
     code::Vector{Instruction}
 end
+
+struct PTrue <: Pattern 
+   val::Nothing
+   code::Vector{Instruction}
+   PTrue() = new(nothing, Inst())
+end
+
+struct PFalse <: Pattern 
+    val::Nothing
+    code::Vector{Instruction}
+    PFalse() = new(nothing, Inst())
+ end 
 
 function PSeq(str::AbstractString)
     val = Vector{Pattern}(undef, 0)
@@ -106,3 +125,4 @@ R(s::AbstractString) = PRange(s)
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
+Base.:^(a::Pattern, b::Int)  = PStar(a, b)

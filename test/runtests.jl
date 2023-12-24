@@ -38,4 +38,6 @@ using Test
     @test match(afew, "1") == 2
     @test match(afew, "abc") == 4
     @test match(afew, "z") == 2
+    aacd = P("aabc") | P("aacd")
+    @test match(aacd, "aacd") == 5
 end

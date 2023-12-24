@@ -101,7 +101,7 @@ end
 Match `patt` to `subject`, returning the farthest match index
 """
 function Base.match(patt::Pattern, subject::AbstractString)
-    code = compile!(patt)
+    code = compile!(patt).code
     return match(code, subject)
 end
 
@@ -176,13 +176,19 @@ function onInst(inst::TestSetInst, vm::VMState)::Bool
     end
 end
 
+"onChoice"
+function onInst(inst::ChoiceInst, vm::VMState)
+    pushframe!(vm, StackFrame(vm.i + inst.l, vm.s + inst.n))
+    vm.i += 1
+    return true
+end
+
 function onInst(inst::LabelInst, vm::VMState)
     @match inst.op begin
-        $IChoice         => return onChoice(inst, vm)
         $ICommit         => return onCommit(inst, vm)
+        $IJump           => return onJump(inst, vm)
         # NYI, these will all take inst 
         $ICall           => return onCall(vm)
-        $IJump           => return onJump(inst, vm)
         $IPartialCommit  => return onPartialCommit(vm)
         $IBackCommit     => return onBackCommit(vm)
     end
@@ -202,13 +208,6 @@ function onEnd(vm::VMState)
     @assert isempty(vm.stack) lazy"hit end instruction with $(length(vm.stack)) on stack"
     vm.running = false
     vm.matched = true
-    return true
-end
-
-@inline
-function onChoice(inst::LabelInst, vm::VMState)
-    pushframe!(vm, StackFrame(vm.i + inst.l, vm.s))
-    vm.i += 1
     return true
 end
 

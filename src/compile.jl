@@ -84,7 +84,13 @@ struct LabelInst <: Instruction
     l::Int32
 end
 
-ChoiceInst(l::Integer) = LabelInst(IChoice, l)
+struct ChoiceInst <: Instruction
+    op::Opcode
+    l::Int32
+    n::Int32
+    ChoiceInst(l::Integer) = new(IChoice, l, 0)
+end
+
 CommitInst(l::Integer) = LabelInst(ICommit, l)
 CallInst(l::Integer) = LabelInst(ICall, l)
 JumpInst(l::Integer) = LabelInst(IJump, l)
@@ -128,22 +134,30 @@ end
 ### Compilers
 
 """
+    compile!(patt::Pattern)::Pattern
+
 Compile a Pattern.
 
 Translate the Pattern to Instruction codes, appending them to
 the `code` field and returning same.  Performs various optimizations
 in the process. 
+
+In most cases, the return value of `compile!` is the same Pattern passed in.
+The exceptions are special cases of primitive types, but be sure to reassign 
+the return value to the variable bound to the original for the general case.  
 """
-function compile!(patt::Pattern) 
+function compile!(patt::Pattern)::Pattern 
     error("Not Yet Implemented for $(typeof(patt))")
 end
 
-function compile!(patt::PSeq)
+function compile!(patt::PSeq)::Pattern 
     if !isempty(patt.code)
-        return patt.code
+        return patt
     end
-    for p in patt.val
-        code = compile!(p)
+    # TODO various optimizations e.g. P("") -> PTrue
+    for (idx, p) in enumerate(patt.val)
+        patt.val[idx] = compile!(p)
+        code = patt.val[idx].code 
         if code[end] == OpEnd
             code = code[1:end-1]
         end
@@ -151,25 +165,31 @@ function compile!(patt::PSeq)
         # optimizations?
     end
     push!(patt.code, OpEnd)
-    patt.code
+    return patt
 end
 
-function compile!(patt::PAny)
+function compile!(patt::PAny)::Pattern
     if isempty(patt.code)
         push!(patt.code, AnyInst(patt.val))
     end
-    return patt.code
+    return patt
 end
 
-function compile!(patt::PChar)
+function compile!(patt::PChar)::Pattern 
     if isempty(patt.code)
         push!(patt.code, CharInst(patt.val))
     end
-    return patt.code 
+    return patt 
 end
 
-function compile!(patt::PSet)
+function compile!(patt::PSet)::Pattern
     if !isempty(patt.code)
+        return patt
+    end
+    # Special-case the empty set 
+    # We'll turn into a Jump when we have the requisite info
+    if patt.val == ""
+        push!(patt.code, SetInst(falses(127), OpEnd))
         return patt.code
     end
     bvec, prefix_map = vecsforstring(patt.val)
@@ -178,10 +198,13 @@ function compile!(patt::PSet)
     end
     # We'll deal with the prefix map some other time!
     # Others are a bit more complex! heh. bit.
-    return patt.code
+    return patt
 end
 
-function compile!(patt::PRange)
+function compile!(patt::PRange)::Pattern
+    if !(isempty(patt.code))
+        return patt 
+    end
     a, b = patt.val
     vec = Vector{typeof(a)}(undef, b - a + 1)
     i = 1
@@ -193,17 +216,21 @@ function compile!(patt::PRange)
     if bvec !== nothing
        push!(patt.code, SetInst(bvec), OpEnd)
     end
-    return patt.code  
+    return patt  
 end
 
-function compile!(patt::PChoice)
+function compile!(patt::PChoice)::Pattern
     if !isempty(patt.code)
-        return patt.code
+        return patt
     end
     c = patt.code
     choices = []
+    # Optimizations: 
+    # headfail
+    # disjoint 
     for (idx, p) in enumerate(patt.val)
-        pcode = compile!(p)
+        patt.val[idx] = compile!(p)
+        pcode = patt.val[idx].code
         if idx == length(patt.val)
             append!(c, pcode)
             break
@@ -220,32 +247,9 @@ function compile!(patt::PChoice)
             c[idx] = CommitInst(length(c) - idx)
         end
     end
-    # Check headfails on our new choices
-    this, next = OpNoOp, OpNoOp
-    for idx in choices
-        this, next = c[idx], c[idx+1]
-        if next.op == IChar
-            c[idx] = TestCharInst(next.c, this.l)
-            c[idx+1] = AnyInst(1)
-            clobber_commit(c, idx)
-        elseif next.op == ISet
-            c[idx] = TestSetInst(next.vec, this.l)
-            c[idx+1] = AnyInst(1)
-            clobber_commit(c, idx)
-        end  # Should headfail IAny as well
-    end
-    return c
+    return patt
 end
 
-function clobber_commit(c::Vector{Instruction}, idx::Int)
-    for i = idx:1:length(c)
-        inst = c[i]
-        if inst.op == ICommit
-            c[i] = JumpInst(inst.l)
-            break
-        end
-    end
-end
 
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
@@ -280,7 +284,7 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
             end
         end
     end
-    return (bvec, prefix_map)        
+    return bvec, prefix_map        
 end
 
 function prefix!(map::Dict, key, val)
