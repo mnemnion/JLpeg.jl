@@ -13,15 +13,57 @@ function Base.show(io::IO, i::Instruction)
     print(io, str)
 end
 
-"String for Set Vector"
-function printset(vec::BitVector)::String
-    chars = []
-    str = "{"
-    for (idx, test) in enumerate(vec)
-        if test
-            push!(chars, Char(idx))
+"""
+    bitvector_to_compact_repr(bitvec::BitVector)
+
+Shows a set while collapsing ranges.
+"""
+function bitvector_to_compact_repr(bitvec::BitVector)
+    fragments = String[]
+    start_idx = 0
+    end_idx = 0
+
+    for i in 1:length(bitvec)
+        if bitvec[i]
+            if start_idx == 0
+                start_idx = i
+            end
+            end_idx = i
+        elseif start_idx != 0
+            # End of a sequence
+            if end_idx - start_idx >= 2
+                # Three or more characters in succession
+                push!(fragments, "$(Char(start_idx))-$(Char(end_idx))")
+            else
+                # Individual characters
+                for j in start_idx:end_idx
+                    push!(fragments, string(Char(j)))
+                end
+            end
+            start_idx = 0
+            end_idx = 0
         end
     end
+
+    # Handle the case where the sequence reaches the end of the BitVector
+    if start_idx != 0
+        if end_idx - start_idx >= 2
+            push!(fragments, "$(Char(start_idx))-$(Char(end_idx))")
+        else
+            for j in start_idx:end_idx
+                push!(fragments, string(Char(j)))
+            end
+        end
+    end
+
+    return fragments
+end
+
+"String for Set Vector"
+function printset(vec::BitVector)::String
+    chars = bitvector_to_compact_repr(vec)
+    str = "{"
+
     str *= join(chars, ",")
     str *= "}"
     return str

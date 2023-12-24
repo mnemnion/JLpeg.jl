@@ -2,8 +2,6 @@
 
 include("compile.jl")
 
-using Match
-
 const FAIL = Int32(-1)
 
 mutable struct StackFrame 

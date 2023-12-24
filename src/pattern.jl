@@ -1,5 +1,7 @@
 # Patterns for JLpeg parser engine
 
+using Match
+
 """
 Container for various patterns and grammars.
 Always has `val`, which may be primitive or a Vector{Pattern},
@@ -81,6 +83,22 @@ struct PFalse <: Pattern
     code::Vector{Instruction}
     PFalse() = new(nothing, Inst())
  end 
+
+# TODO the rest of these need to be concrete:
+
+abstract type PRunTime <:Pattern end
+abstract type PNot <:Pattern end
+abstract type PBehind <:Pattern end
+abstract type PCapture <:Pattern end
+abstract type PGrammar <:Pattern end
+abstract type PRule <:Pattern end
+abstract type PTXInfo <:Pattern end
+abstract type PAnd <:Pattern end
+abstract type PThrow <:Pattern end
+abstract type PCall <:Pattern end
+abstract type POpenCall <:Pattern end
+
+# TODO this lets me smuggle them into tests and (with caution!) optimizations 
 
 function PSeq(str::AbstractString)
     val = Vector{Pattern}(undef, 0)

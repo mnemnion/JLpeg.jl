@@ -146,11 +146,19 @@ In most cases, the return value of `compile!` is the same Pattern passed in.
 The exceptions are special cases of primitive types, but be sure to reassign 
 the return value to the variable bound to the original for the general case.  
 """
-function compile!(patt::Pattern)::Pattern 
+function compile!(patt::Pattern)::Pattern
+    if typeof(patt.val) == Vector{Pattern}
+        map(compile!, patt.val)
+    end
+    _compile!(patt)
+end
+
+
+function _compile!(patt::Pattern)::Pattern 
     error("Not Yet Implemented for $(typeof(patt))")
 end
 
-function compile!(patt::PSeq)::Pattern 
+function _compile!(patt::PSeq)::Pattern 
     if !isempty(patt.code)
         return patt
     end
@@ -158,9 +166,8 @@ function compile!(patt::PSeq)::Pattern
     if length(patt.val) == 1
         return compile!(patt.val[1])
     end
-    for (idx, p) in enumerate(patt.val)
-        patt.val[idx] = compile!(p)
-        code = patt.val[idx].code 
+    for p in patt.val
+        code = p.code 
         if code[end] == OpEnd
             code = code[1:end-1]
         end
@@ -171,43 +178,43 @@ function compile!(patt::PSeq)::Pattern
     return patt
 end
 
-function compile!(patt::PAny)::Pattern
+function _compile!(patt::PAny)::Pattern
     if isempty(patt.code)
         push!(patt.code, AnyInst(patt.val))
     end
     return patt
 end
 
-function compile!(patt::PChar)::Pattern 
+function _compile!(patt::PChar)::Pattern 
     if isempty(patt.code)
         push!(patt.code, CharInst(patt.val))
     end
     return patt 
 end
 
-function compile!(patt::PTrue)::Pattern
+function _compile!(patt::PTrue)::Pattern
     if isempty(patt.code)
         push!(patt.code, OpEnd)
     end
     return patt
 end
 
-function compile!(patt::PFalse)::Pattern 
+function _compile!(patt::PFalse)::Pattern 
     if isempty(patt.code)
         push!(patt.code, OpFail)
     end
     return patt
 end
 
-function compile!(patt::PSet)::Pattern
+function _compile!(patt::PSet)::Pattern
     if !isempty(patt.code)
         return patt
     end
     # Special-case the empty set 
     # We'll turn into a Jump when we have the requisite info
-    if patt.val == ""
-        push!(patt.code, SetInst(falses(127), OpEnd))
-        return patt.code
+    if patt.val == ""  # TODO I think this can return PFalse?
+        push!(patt.code, SetInst(falses(127)), OpEnd)
+        return patt
     end
     bvec, prefix_map = vecsforstring(patt.val)
     if bvec !== nothing
@@ -218,15 +225,15 @@ function compile!(patt::PSet)::Pattern
     return patt
 end
 
-function compile!(patt::PRange)::Pattern
+function _compile!(patt::PRange)::Pattern
     if !(isempty(patt.code))
         return patt 
     end
     a, b = patt.val
     vec = Vector{typeof(a)}(undef, b - a + 1)
     i = 1
-    for code in a:b
-        vec[i] = code 
+    for char in a:b
+        vec[i] = char
         i += 1
     end
     bvec, prefix_map = vecsforstring(Vector{AbstractChar}(vec))
@@ -236,18 +243,42 @@ function compile!(patt::PRange)::Pattern
     return patt  
 end
 
-function compile!(patt::PChoice)::Pattern
+function _compile!(patt::PChoice)::Pattern
     if !isempty(patt.code)
         return patt
     end
     c = patt.code
     choices = []
-    # Optimizations: 
+    # Optimizations:
+    # Merge Set and Char choices 
+    # TODO this will need more work once sets include higher characters 
+    allchars = all(p -> begin t = typeof(p); t == PSet || t == PChar || t == PRange end, patt.val)
+    if allchars
+        bvec = falses(127)
+        correct = true
+        for p in patt.val 
+            if typeof(p) == PSet || typeof(p) == PRange 
+                bvec = bvec .| p.code[1].vec
+            elseif typeof(p) == PChar 
+                if isascii(p.c)
+                    bvec[UInt(p.c)] = true
+                else
+                    # Bail until we handle multibyte chars 
+                    @warn "multibyte chars not yet optimized"
+                    correct = false 
+                    break
+                end
+            end
+        end
+        if correct
+            push!(c, SetInst(bvec), OpEnd)
+            return patt 
+        end
+    end
     # headfail
     # disjoint 
     for (idx, p) in enumerate(patt.val)
-        patt.val[idx] = compile!(p)
-        pcode = patt.val[idx].code
+        pcode = p.code
         if idx == length(patt.val)
             append!(c, pcode)
             break
@@ -267,6 +298,65 @@ function compile!(patt::PChoice)::Pattern
     return patt
 end
 
+"""
+    headfail(patt::Pattern)::Bool
+
+Answer if the pattern fails (should it fail) on the first character.
+"""
+function headfail(patt::Pattern)::Bool
+    @match patt begin
+        ::PChar || ::PAny || ::PSet || ::PFalse => true
+        ::PTrue || ::PStar || ::PRunTime || ::PNot || ::PBehind || ::PThrow => false
+        ::PCapture || ::PGrammar || ::PRule || ::PTXInfo || ::PAnd => headfail(patt.val[1])
+        ::PCall => headfail(patt.val[2])
+        # This is different than in LPeg and I'm not sure why
+        ::PSeq =>  headfail(patt.val[1])
+        ::PChoice => all(p -> headfail(p), patt.val)
+        _ => error(lazy"headfail not defined for $(typeof(patt))")
+    end
+end
+
+"""
+    nofail(patt::Pattern)::Bool
+
+Answer if the pattern cannot fail.
+"""
+function nofail(patt::Pattern)::Bool
+    @match patt begin
+        ::PTrue => true
+        ::PStar, if patt.n ≤ 0 end => true
+        ::PChar || ::PAny || ::PSet || ::PFalse || ::PThrow => false
+        # OpenCall needs checked when resolved
+        ::POpenCall => false 
+        # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
+        ::PNot || ::PBehind || ::PRunTime => false
+        # PSeq nofail if entire sequence is nofail
+        ::PSeq => all(p -> nofail(p), patt.val)
+        # PChoice nofail if any branch is nofail
+        ::PChoice => any(p -> nofail(p), patt.val)
+        # Wrapped patterns nofail based on the pattern they enclose
+        ::PCapture || ::PGrammar || ::PRule || ::PTXInfo || ::PAnd => nofail(patt.val[1])
+        # Why is this true of PCall? Check this assumption when we implement it 
+        ::PCall => nofail(patt.val[2])
+        _ => error(lazy"nofail not defined for $(typeof(patt))")
+    end
+end
+
+"""
+    nullable(patt::Pattern)::Bool
+
+Answer if the pattern can consume no input.
+"""
+function nullable(patt::Pattern)::Bool
+    @match patt begin
+        ::PNot || ::PBehind || ::PAnd => true 
+        ::PRunTime => nullable(patt.val[1])
+        # Most patterns are nullable if nofail:
+        ::Pattern, if nofail(patt) end => true 
+        # By process of elimination:
+        _ => false
+    end
+end
 
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
