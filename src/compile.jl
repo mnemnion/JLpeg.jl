@@ -165,16 +165,28 @@ function compile!(patt::PSet)
     if !isempty(patt.code)
         return patt.code
     end
-    # All ascii?
-    if isascii(patt.val)
-        bvec = falses(127)
-        for byte in codeunits(patt.val)
-            bvec[byte] = true
-        end 
+    bvec, prefix_map = vecsforstring(patt.val)
+    if bvec !== nothing
         push!(patt.code, SetInst(bvec), OpEnd)
     end
+    # We'll deal with the prefix map some other time!
     # Others are a bit more complex! heh. bit.
     return patt.code
+end
+
+function compile!(patt::PRange)
+    a, b = patt.val
+    vec = Vector{typeof(a)}(undef, b - a + 1)
+    i = 1
+    for code in a:b
+        vec[i] = code 
+        i += 1
+    end
+    bvec, prefix_map = vecsforstring(Vector{AbstractChar}(vec))
+    if bvec !== nothing
+       push!(patt.code, SetInst(bvec), OpEnd)
+    end
+    return patt.code  
 end
 
 function compile!(patt::PChoice)
@@ -203,3 +215,49 @@ function compile!(patt::PChoice)
     return patt.code
 end
 
+"""
+    vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
+
+Take a string, or a vector of characters, and break it down into bitvectors which
+compactly and quickly test for those characters. 
+
+Return `(ascii, higher)` where `ascii` is all one-byte utf8 characters and higher is a somewhat
+complex dict of bitvectors useful for detecting practical multibyte ranges and sets. 
+"""
+function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
+    bvec = nothing
+    prefix_map = nothing
+    limit = Char(127)
+    for char in str
+        if char <= limit
+            if bvec === nothing
+                bvec = falses(127)
+            end
+            bvec[UInt(char)] = true
+        else
+            if prefix_map === nothing
+                prefix_map = Dict()
+            end
+            bytes = collect(codeunits(string(char)))
+            if length(bytes) == 2
+                prefix!(prefix_map, bytes[1], bytes[2])
+            elseif length(bytes) == 3
+                prefix!(prefix_map, (bytes[1], bytes[2]), bytes[3])
+            elseif length(bytes) == 4
+                prefix!(prefix_map, (bytes[1], bytes[2], bytes[3]), bytes[4])
+            end
+        end
+    end
+    return (bvec, prefix_map)        
+end
+
+function prefix!(map::Dict, key, val)
+    # mask off the top two bytes to save space later
+    val = val & 0b00111111
+    if haskey(map, key)
+        push!(map[key], val)
+    else
+        map[key] = []
+        push(map[key], val)
+    end
+end

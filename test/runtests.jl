@@ -26,4 +26,9 @@ using Test
     @test match(atwords, "bat") == 4
     @test match(atwords, "cat") == 4
     @test match(atwords, "mat") === nothing
+    threeL = R("az") * R("az") * R("az")
+    @test match(threeL, "foo") == 4
+    @test match(threeL, "BAR") === nothing
+    @test match(threeL, "quux") == 4
+    @test match(threeL, "123") === nothing
 end

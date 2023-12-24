@@ -21,12 +21,32 @@ struct PChar <: Pattern
     PChar(val::AbstractChar) = new(val, Inst())
 end
 
-struct PSet<: Pattern
+struct PSet <: Pattern
     val::AbstractString
     code::Vector{Instruction}
     PSet(val::AbstractString) = new(val, Inst())
 end
 
+struct PRange <: Pattern
+    val::Tuple{AbstractChar, AbstractChar}
+    code::Vector{Instruction}
+    function PRange(str::AbstractString)
+        a, b = (nothing, nothing)
+        for (idx, char) in enumerate(str)
+            if idx == 1
+                a = char
+            elseif idx == 2
+                b = char 
+            else
+                error("Range must be two characters")
+            end
+        end
+        if a ≥ b
+            error("Range must be from low to high, got $a > $b")
+        end
+        new((a, b), Inst())
+    end
+end
 struct PAny <: Pattern
     val::UInt32
     code::Vector{Instruction}
@@ -74,12 +94,15 @@ function optimizePChoice(a::PChoice, b::Pattern)
     val
 end
 
+# A choice between two sets is just the union of those sets
+optimizePChoice(a::PSet, b::PSet) = [PSet(a.val * b.val)]
 optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::UInt) = PAny(n)
 S(s::AbstractString) = PSet(s)
+R(s::AbstractString) = PRange(s)
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
