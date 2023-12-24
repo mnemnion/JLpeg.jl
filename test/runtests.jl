@@ -64,4 +64,11 @@ using Test
     @test match(abstar, "abababab") == 9
     @test match(abstar, "abc") == 3
     @test match(abstar, "bc") == 1
+    # Tests Kleene + 
+    abplus = P("ab")^1
+    @test match(abplus, "") === nothing 
+    @test match(abplus, "ab") == 3
+    @test match(abplus, "abababab") == 9
+    @test match(abplus, "abc") == 3
+    @test match(abplus, "bc") === nothing     
 end

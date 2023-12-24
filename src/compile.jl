@@ -253,22 +253,31 @@ function _compile!(patt::PStar)::Pattern
     # [ ] n > 1, which is + with repetitions 
     # [ ] n < -1, which is the weird one I'll do last
     #
+    # TODO figure out when TestChar etc come into play 
+    #
     # val always has one member, so we can pull it now:
     p = patt.val[1]
     c = patt.code
     if patt.n == 0
-        # TODO figure out when TestChar etc come into play 
         code = copy(p.code) 
         trimEnd!(code)
-        l = length(code) + 1
-        push!(c, ChoiceInst(l + 1))
+        addstar!(c, code)
+    elseif patt.n == 1
+        code = copy(p.code) 
+        trimEnd!(code)
         append!(c, code)
-        push!(c, PartialCommitInst(-l + 1), OpEnd)
-        return patt 
-    else
+        addstar!(c, code)
+    else 
         @warn lazy"not yet handling PStar.n == $(patt.n)"
     end
     return patt
+end
+
+function addstar!(c::Vector{Instruction}, code::Vector{})
+    l = length(code) + 1
+    push!(c, ChoiceInst(l + 1))
+    append!(c, code)
+    push!(c, PartialCommitInst(-l + 1), OpEnd)
 end
 
 

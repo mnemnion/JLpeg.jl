@@ -58,11 +58,8 @@ end
 
 @inline
 function thischar(vm::VMState)
-    # TODO I don't think this condition should ever obtain, if 
-    #      that turns out to be true, we can remove the check.
-    #      If it isn't true, we can remove the warning.
+    # TODO I'm not 100% convinced this is the best way to handle this.
     if vm.s > vm.top
-        @warn "access beyond top of string, probably an error"
         return nothing
     end 
     vm.subject[vm.s]
@@ -191,7 +188,7 @@ end
 
 "onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
-    this = thischar(vm)
+    this = thischar(vm)  # TODO `this` can be `nothing` but I think what follows is still correct
     if this == inst.c
         vm.i += 1
         return true
