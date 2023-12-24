@@ -232,9 +232,9 @@ function compile!(patt::PChoice)
             c[idx] = TestSetInst(next.vec, this.l)
             c[idx+1] = AnyInst(1)
             clobber_commit(c, idx)
-        end
+        end  # Should headfail IAny as well
     end
-    return patt.code
+    return c
 end
 
 function clobber_commit(c::Vector{Instruction}, idx::Int)
