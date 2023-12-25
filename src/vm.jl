@@ -177,7 +177,7 @@ end
 "onSet"
 function onInst(inst::SetInst, vm::VMState)::Bool
     code = UInt(vm.subject[vm.s])
-    if inst.vec[code]
+    if inst.vec[code + 1] # TODO code - 1 to allow for zero bytes
         vm.i +=1
         vm.s = nextind(vm.subject, vm.s)
         return true

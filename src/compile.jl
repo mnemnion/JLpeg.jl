@@ -218,7 +218,7 @@ end
 function _compile!(patt::PSeq)::Pattern 
     # As an optimization, a Seq of one member can just be that member
     if length(patt.val) == 1
-        return compile!(patt.val[1])
+        return patt.val[1]
     end
     for p in patt.val
         code = p.code 
@@ -297,14 +297,14 @@ function _compile!(patt::PChoice)::Pattern
     # TODO this will need more work once sets include higher characters 
     allchars = all(p -> begin t = typeof(p); t == PSet || t == PChar || t == PRange end, patt.val)
     if allchars
-        bvec = falses(127)
+        bvec = falses(128)
         correct = true
         for p in patt.val 
             if typeof(p) == PSet || typeof(p) == PRange 
                 bvec = bvec .| p.code[1].vec
             elseif typeof(p) == PChar 
                 if isascii(p.val)
-                    bvec[UInt(p.val)] = true
+                    bvec[UInt(p.val)+1] = true
                 else
                     # Bail until we handle multibyte chars 
                     @warn "multibyte chars not yet optimized"
@@ -417,9 +417,9 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
     for char in str
         if char <= limit
             if bvec === nothing
-                bvec = falses(127)
+                bvec = falses(128)
             end
-            bvec[UInt(char)] = true
+            bvec[UInt(char)+1] = true
         else
             if prefix_map === nothing
                 prefix_map = Dict()

@@ -4,6 +4,6 @@ module JLpeg
 include("vm.jl")
 
 export match, compile!, P, S, R, PSeq, PChar, PAny, PChoice
-export Pattern, Instruction
+export Pattern, Instruction, @P_str, @R_str, @S_str
 
 end

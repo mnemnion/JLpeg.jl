@@ -155,3 +155,15 @@ Base.:^(a::Pattern, b::Int)  = PStar(a, b)
 # are handled by Julia:
 Base.:^(a::Tuple{Pattern, Nothing}, b::Int) = PStar(a[1], -b)
 Base.inv(a::Pattern) = (a, nothing)
+
+macro P_str(str)
+    P(str)
+end
+
+macro R_str(str)
+    R(str)
+end
+
+macro S_str(str)
+    S(str)
+end
