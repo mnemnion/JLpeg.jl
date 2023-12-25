@@ -2,8 +2,6 @@
 
 include("compile.jl")
 
-const FAIL = Int32(-1)
-
 mutable struct StackFrame 
     i::Int32   # Instruction pointer
     s:: UInt32  # String index
@@ -11,6 +9,7 @@ end
 
 CallFrame(i::Int32) = StackFrame(i, 0)
 
+# TODO What's a CapEntry?
 struct CapEntry
     
 end
@@ -68,6 +67,11 @@ end
 @inline
 function pushframe!(vm::VMState, frame::StackFrame)
     push!(vm.stack,frame)
+end
+
+@inline
+function pushcall!(vm::VMstate, ptr::Int)
+    push!(vm.stack, CallFrame(ptr))
 end
 
 @inline
@@ -200,8 +204,8 @@ end
 
 "onTestSet"
 function onInst(inst::TestSetInst, vm::VMState)::Bool
-    code = UInt(vm.subject[vm.s])
-    if inst.vec[code]
+    code = UInt(thichar(vm))
+    if code < 128 && inst.vec[code+1]
         vm.i +=1
         return true
     else
@@ -221,9 +225,9 @@ function onInst(inst::LabelInst, vm::VMState)
     @match inst.op begin
         $ICommit         => return onCommit(inst, vm)
         $IJump           => return onJump(inst, vm)
-        $IPartialCommit  => return onPartialCommit(inst, vm)
-        # NYI
         $ICall           => return onCall(inst, vm)
+        $IPartialCommit  => return onPartialCommit(inst, vm)
+        # TODO NYI
         $IBackCommit     => return onBackCommit(inst, vm)
     end
 end
@@ -231,18 +235,11 @@ end
 function onInst(inst::MereInst, vm::VMState)
     @match inst.op begin
         $IEnd       => return onEnd(vm)
+        $IReturn    => return onReturn(vm)
+        # TODO NYI
         $IFail      => return false
         $IFailTwice => return onFailTwice(vm)
-        $IReturn    => return onReturn(vm)
     end
-end
-
-@inline
-function onEnd(vm::VMState)
-    @assert isempty(vm.stack) lazy"hit end instruction with $(length(vm.stack)) on stack"
-    vm.running = false
-    vm.matched = true
-    return true
 end
 
 @inline
@@ -259,6 +256,28 @@ function onJump(inst::LabelInst, vm::VMState)
 end
 
 @inline
+function onCall(inst::LabeInst, vm::VMState)
+    pushcall!(vm, vm.i + inst.l)
+    return true
+end
+
+@inline
+function onEnd(vm::VMState)
+    @assert isempty(vm.stack) lazy"hit end instruction with $(length(vm.stack)) on stack"
+    vm.running = false
+    vm.matched = true
+    return true
+end
+
+@inline
+function onReturn(vm::VMState)
+    # TODO if I cache the call stack this will start returning a Tuple, needs fix
+    frame = popframe!(vm)
+    @assert frame.s == 0 "rule left a choice frame on the stack"
+    return true
+end
+
+@inline
 function onPartialCommit(inst::LabelInst, vm::VMState)
     updatetop_s!(vm) 
     vm.i += inst.l
@@ -267,8 +286,6 @@ end
 
 onFail(vm) = error("NYI")
 onFailTwice(vm) = error("NYI")
-onReturn(vm) = error("NYI")
-onCall(inst, vm) = error("NYI")
 onBackCommit(inst, vm) = error("NYI")
 
 
