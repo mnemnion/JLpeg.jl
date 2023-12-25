@@ -87,19 +87,60 @@ struct PFalse <: Pattern
     PFalse() = new(nothing, Inst())
  end 
 
+struct POpenCall <: Pattern 
+    val::Symbol
+    code::Vector{Instruction}
+    meta::Dict{AbstractString, Any}
+    POpenCall(sym::Symbol) = new(sym, Inst(), Dict())
+end
+
+POpenCall(s::AbstractString) = POpenCall(Symbol(s))
+
+struct PCall <: Pattern 
+    val::Symbol
+    code::Vector{Instruction}
+    meta::Dict{AbstractString, Any}
+    ref::Pattern
+    """
+    PCall(patt::POpenCall, ref::Pattern)
+
+    Create a PCall from a POpenCall once the reference is established.
+    """
+    function PCall(patt::POpenCall, ref::Pattern)
+        new(patt.sym, patt.code, Dict(), ref)
+    end
+end
+
+struct PRule <: Pattern 
+    val::Pattern
+    code::Vector{Instruction}
+    name::Symbol
+    meta::Dict{AbstractString, Any}
+    PRule(name::Symbol, val::Pattern) = new(val, Inst(), name, Dict())
+end
+
+struct PGrammar <: Pattern
+    val::Vector{PRule}
+    code::Vector{Instruction}
+    start::Symbol
+    meta::Dict{AbstractString, Any}
+    function PGrammar(start::PRule, rest::Vararg{PRule})
+        start_sym = start.name 
+        val = [start]
+        append!(val, rest)
+        new(val, Inst(), start_sym, Dict())
+    end
+end
+
 # TODO the rest of these need to be concrete:
 
 abstract type PRunTime <:Pattern end
 abstract type PNot <:Pattern end
 abstract type PBehind <:Pattern end
 abstract type PCapture <:Pattern end
-abstract type PGrammar <:Pattern end
-abstract type PRule <:Pattern end
 abstract type PTXInfo <:Pattern end
 abstract type PAnd <:Pattern end
 abstract type PThrow <:Pattern end
-abstract type PCall <:Pattern end
-abstract type POpenCall <:Pattern end
 
 # TODO this lets me smuggle them into tests and (with caution!) optimizations 
 
@@ -141,16 +182,55 @@ end
 optimizePChoice(a::PSet, b::PSet) = [PSet(a.val * b.val)]
 optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 
+
+
+"""
+    P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern
+
+Create a Pattern. 
+
+If `p` is a String, this matches that string.
+If `p` is a positive Int, it matches that many characters.
+If `p` is `true`, the rules succeeds, if `false`, the rule fails.
+If `p` is a Symbol, this represents a call to the rule with that name. 
+"""
+function P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern end
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
-P(n::UInt) = PAny(n)
+P(n::Int) = n ≥ 0 ? PAny(n) : @error "P(-n) NYI"
 P(b::Bool) = if b PTrue() else PFalse() end
+P(sym::Symbol) = POpenCall(sym) 
+
+"""
+    S(s::AbstractString)
+
+Create a pattern matching any charcter in the string.
+"""
 S(s::AbstractString) = PSet(s)
+
+
+"""
+    R(s::AbstractString)
+
+Create a pattern ranging from the first to the second character. 
+`s` must be two codepoints long, and the first must be lower-valued 
+than the second. 
+"""
 R(s::AbstractString) = PRange(s)
 
+
+# Operators 
+
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
+Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
+Base.:*(a::Symbol, b::Pattern)  = PSeq(POpenCall(a), b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
+Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
+Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
 Base.:^(a::Pattern, b::Int)  = PStar(a, b)
+Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
+Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
+←(a::Symbol, b::Pattern) = PRule(a,b)   
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:
 Base.:^(a::Tuple{Pattern, Nothing}, b::Int) = PStar(a[1], -b)
@@ -167,24 +247,55 @@ function compile_raw_string(str::String)::String
     )
 
     # Replace each C escape sequence with its Julia equivalent
-    for (c_esc, julia_esc) in c_escapes
-        str = replace(str, c_esc => julia_esc)
-    end
+    
+    str = replace(str, c_escapes...)
 
-    # Handle hexadecimal escape sequences separately
-    str = replace(str, r"\\x[0-9a-fA-F]+" => s -> Char(parse(UInt8, match(r"[0-9a-fA-F]+", s).match, base=16)))
+    str = replace(str, r"\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\u[0-9a-fA-F]{1:6}" =>
+    s -> begin
+        esc = s[2]
+        base = (esc == 'u' || esc == 'x') ? 16 : 8
+        Char(parse(UInt32, s[3:end], base=base))
+    end)
 
     return str
 end
 
+"""  
+    P"str"
+
+Calls P(str) on the string, in close imitation of Lua's calling convention.
+"""
 macro P_str(str)
     P(compile_raw_string(str))
 end
 
+"""  
+    R"str"
+
+Calls R(str) on the string, in close imitation of Lua's calling convention.
+"""
 macro R_str(str)
     R(compile_raw_string(str))
 end
 
+"""  
+    S"str"
+
+Calls S(str) on the string, in close imitation of Lua's calling convention.
+"""
 macro S_str(str)
     S(compile_raw_string(str))
+end
+
+"""
+    @grammar(name, rules)
+
+Syntax sugar for defining a set of rules as a single grammar. Expects a block `rules`,
+each of which is a rule-pair as can be created with `<=` or `←`, with some differences:
+
+- Rule and call symbols don't need the `:`, although this is valid.
+- Strings, number, and booleans are converted to patterns, even at the head of a rule.
+"""
+macro grammar(name, rules)
+
 end
