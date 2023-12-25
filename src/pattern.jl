@@ -5,7 +5,7 @@ using Match
 """
 Container for various patterns and grammars.
 Always has `val`, which may be primitive or a Vector{Pattern},
-and `code`, a Vector{Instruction}. Some patterns have a field
+and `code`, an IVector. Some patterns have a field
 unique to that pattern type.
 """
 abstract type Pattern end
@@ -13,26 +13,29 @@ abstract type Pattern end
 "A bytecode instruction"
 abstract type Instruction end
 
+const IVector = Vector{Instruction}
+
+
 
 function Inst()
-    Vector{Instruction}(undef, 0)
+    IVector(undef, 0)
 end
 
 struct PChar <: Pattern
     val::AbstractChar
-    code::Vector{Instruction}
+    code::IVector
     PChar(val::AbstractChar) = new(val, Inst())
 end
 
 struct PSet <: Pattern
     val::AbstractString
-    code::Vector{Instruction}
+    code::IVector
     PSet(val::AbstractString) = new(val, Inst())
 end
 
 struct PRange <: Pattern
     val::Tuple{AbstractChar, AbstractChar}
-    code::Vector{Instruction}
+    code::IVector
     function PRange(str::AbstractString)
         a, b = (nothing, nothing)
         for (idx, char) in enumerate(str)
@@ -53,43 +56,43 @@ end
 
 struct PAny <: Pattern
     val::UInt32
-    code::Vector{Instruction}
+    code::IVector
     PAny(val::UInt) = new(val, Inst())
 end
 
 "Includes n, dictating the sort of repetition"
 struct PStar <: Pattern
     val::Vector{Pattern}
-    code::Vector{Instruction}
+    code::IVector
     n::Int
     PStar(patt::Pattern, n::Int) = new([patt], Inst(), n)
 end
 
 struct PSeq <: Pattern 
     val::Vector{Pattern}
-    code::Vector{Instruction}
+    code::IVector
 end
 
 struct PChoice <: Pattern
     val::Vector{Pattern}
-    code::Vector{Instruction}
+    code::IVector
 end
 
 struct PTrue <: Pattern 
    val::Nothing
-   code::Vector{Instruction}
+   code::IVector
    PTrue() = new(nothing, Inst())
 end
 
 struct PFalse <: Pattern 
     val::Nothing
-    code::Vector{Instruction}
+    code::IVector
     PFalse() = new(nothing, Inst())
  end 
 
 struct POpenCall <: Pattern 
     val::Symbol
-    code::Vector{Instruction}
+    code::IVector
     meta::Dict{AbstractString, Any}
     POpenCall(sym::Symbol) = new(sym, Inst(), Dict())
 end
@@ -98,7 +101,7 @@ POpenCall(s::AbstractString) = POpenCall(Symbol(s))
 
 struct PCall <: Pattern 
     val::Symbol
-    code::Vector{Instruction}
+    code::IVector
     meta::Dict{AbstractString, Any}
     ref::Pattern
     """
@@ -112,16 +115,16 @@ struct PCall <: Pattern
 end
 
 struct PRule <: Pattern 
-    val::Pattern
-    code::Vector{Instruction}
+    val::Vector{Pattern}
+    code::IVector
     name::Symbol
     meta::Dict{AbstractString, Any}
-    PRule(name::Symbol, val::Pattern) = new(val, Inst(), name, Dict())
+    PRule(name::Symbol, val::Pattern) = new([val], Inst(), name, Dict())
 end
 
 struct PGrammar <: Pattern
     val::Vector{PRule}
-    code::Vector{Instruction}
+    code::IVector
     start::Symbol
     meta::Dict{AbstractString, Any}
     function PGrammar(start::PRule, rest::Vararg{PRule})

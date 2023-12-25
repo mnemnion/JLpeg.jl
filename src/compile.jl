@@ -120,8 +120,8 @@ end
 
 struct OpenCallInst <: Instruction
     op::Opcode
-    rule::AbstractString # Symbol?
-    OpenCallInst(r::AbstractString) = new(IOpenCall, r)
+    rule::Symbol # Symbol?
+    OpenCallInst(r::Symbol) = new(IOpenCall, r)
 end
 
 "A placeholder for a (usually labeled) Instruction"
@@ -147,12 +147,13 @@ The exceptions are special cases of primitive types, but be sure to reassign
 the return value to the variable bound to the original for the general case.  
 """
 function compile!(patt::Pattern)::Pattern
-    if typeof(patt.val) == Vector{Pattern}
-        for (idx, val) in enumerate(patt.val)
-            patt.val[idx] = compile!(val)
-        end
-    end
     if isempty(patt.code)
+        t = typeof(patt.val)
+        if t == Vector{Pattern} || t == Vector{PRule}
+            for (idx, val) in enumerate(patt.val)
+                patt.val[idx] = compile!(val)
+            end
+        end
         _compile!(patt)
     else
         patt 
@@ -181,6 +182,11 @@ end
 
 function _compile!(patt::PFalse)::Pattern 
     push!(patt.code, OpFail)
+    return patt
+end
+
+function _compile!(patt::POpenCall)::Pattern 
+    push!(patt.code, OpenCallInst(patt.val))
     return patt
 end
 
@@ -281,7 +287,7 @@ function _compile!(patt::PStar)::Pattern
     return patt
 end
 
-function addstar!(c::Vector{Instruction}, code::Vector{})
+function addstar!(c::IVector, code::Vector{})
     l = length(code) + 1
     push!(c, ChoiceInst(l + 1))
     append!(c, code)
@@ -339,6 +345,74 @@ function _compile!(patt::PChoice)::Pattern
         end
     end
     return patt
+end
+
+function _compile!(patt::PRule)::Pattern
+    c = patt.code 
+    append!(c, patt.val[1].code)
+    trimEnd!(c)
+    push!(c, OpReturn)
+    return patt
+end
+
+function _compile!(patt::PGrammar)::Pattern 
+    rules = Dict{Symbol, PRule}()
+    for rule in patt.val
+        rules[rule.name] = rule 
+    end
+    c = patt.code
+    start = rules[patt.start]
+    fixup = []
+    callMap = Dict{Symbol, Int}()
+    # TODO we could be fancy and jump to the actual end 
+    push!(c, CallInst(2))
+    push!(c, OpEnd)
+    next = coderule!(c, start, rules, fixup, callMap)
+    while !isempty(next)
+        after = []
+        for rule in next 
+            append!(after, coderule!(c, rule, rules, fixup, callMap))
+        end
+        next = after
+    end
+    # fix up missed calls 
+    for (rulename, i) in fixup 
+        inst = c[i]
+        @assert (inst.op == IOpenCall && inst.rule == rulename) "bad fixup"
+        if haskey(callMap, rulename)
+            l =  callMap[rulename] - i
+            c[i] = CallInst(l)
+        else
+            @warn lazy"missing rule $rulename in grammar"
+        end
+    end
+    push!(c, OpEnd)
+    return patt
+end
+
+function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap::Dict)::Vector{PRule} 
+    next = []
+    # Add the instruction pointer to the callMap
+    callMap[rule.name] = length(c) + 1
+    for inst in rule.code
+        if inst.op == IOpenCall 
+            if haskey(callMap, inst.rule)
+                # We need this to be a relative jump
+                l = length(c) + 1 - callMap[inst.rule] 
+                push!(c, CallInst(l))
+            elseif haskey(rules, inst.rule)
+                push!(next, rules[inst.rule])
+                pop!(rules, inst.rule)
+                push!(c, inst)
+                push!(fixup, (inst.rule, length(c)))
+            else
+                push!(c, inst)
+            end
+        else
+            push!(c, inst)
+        end
+    end
+    return next 
 end
 
 """
@@ -449,11 +523,11 @@ function prefix!(map::Dict, key, val)
 end
 
 """
-    trimEnd!(code::Vector{Instruction})
+    trimEnd!(code::IVector)
 
 Remove an OpEnd, if present.
 """
-function trimEnd!(code::Vector{Instruction})
+function trimEnd!(code::IVector)
     if code[end] == OpEnd
         pop!(code)
     end

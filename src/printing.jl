@@ -70,7 +70,7 @@ function printset(vec::BitVector)::String
 end
 
 "Show a vector of Bytecode instructions"
-function Base.show(io::IO, ::MIME"text/plain", code::Vector{Instruction})
+function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     compact = get(io, :compact, false)
     if compact 
         if isempty(code)
@@ -95,6 +95,9 @@ function Base.show(io::IO, ::MIME"text/plain", code::Vector{Instruction})
         if hasfield(t, :l)
             off = idx + inst.l
             push!(line, " ($off)")
+        end
+        if hasfield(t, :rule)
+            push!(line, " :$(inst.rule)")
         end
         if hasfield(t, :vec)
             push!(line, " $(printset(inst.vec))")

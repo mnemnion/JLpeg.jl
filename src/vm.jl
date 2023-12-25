@@ -15,7 +15,7 @@ struct CapEntry
 end
 
 """
-    VMState(subject::String, program::Vector{Instruction})
+    VMState(subject::String, program::IVector)
 
 Contains the state of a match on `subject` by `program`.
 
@@ -38,7 +38,7 @@ in which case I won't have manipulations scattered throughout the program.
 """
 mutable struct VMState
    subject::AbstractString # The subject we're parsing
-   program::Vector{Instruction} # Our program
+   program::IVector # Our program
    top::UInt32  # Byte length of subject string
    # Registers
    i::Int32         # Instruction Counter 
@@ -47,7 +47,7 @@ mutable struct VMState
    cap::Vector{CapEntry}
    running::Bool
    matched::Bool
-   function VMState(s::AbstractString, p::Vector{Instruction})
+   function VMState(s::AbstractString, p::IVector)
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(s)
@@ -70,7 +70,7 @@ function pushframe!(vm::VMState, frame::StackFrame)
 end
 
 @inline
-function pushcall!(vm::VMstate, ptr::Int)
+function pushcall!(vm::VMState, ptr::Int)
     push!(vm.stack, CallFrame(ptr))
 end
 
@@ -106,11 +106,11 @@ function failmatch(vm::VMState)
 end
 
 """
-    match(program::Vector{Instruction}, subject::AbstractString)
+    match(program::IVector, subject::AbstractString)
 
 Match `program` to `subject`, returning the farthest match index.
 """
-function Base.match(program::Vector{Instruction}, subject::AbstractString)
+function Base.match(program::IVector, subject::AbstractString)
     vm = VMState(subject, program)
     vm.running = true
     while vm.running
@@ -256,7 +256,7 @@ function onJump(inst::LabelInst, vm::VMState)
 end
 
 @inline
-function onCall(inst::LabeInst, vm::VMState)
+function onCall(inst::LabelInst, vm::VMState)
     pushcall!(vm, vm.i + inst.l)
     return true
 end
