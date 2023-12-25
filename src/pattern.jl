@@ -41,7 +41,7 @@ struct PRange <: Pattern
             elseif idx == 2
                 b = char 
             else
-                error("Range must be two characters")
+                @error lazy"Range must be two characters: $char"
             end
         end
         if a ≥ b
@@ -156,14 +156,35 @@ Base.:^(a::Pattern, b::Int)  = PStar(a, b)
 Base.:^(a::Tuple{Pattern, Nothing}, b::Int) = PStar(a[1], -b)
 Base.inv(a::Pattern) = (a, nothing)
 
+"""Helper for macros"""
+function compile_raw_string(str::String)::String
+    # Mapping of C escape sequences to their Julia equivalents
+    c_escapes = Dict(
+        "\\a" => "\a", "\\b" => "\b", "\\f" => "\f", 
+        "\\n" => "\n", "\\r" => "\r", "\\t" => "\t", 
+        "\\v" => "\v", "\\\\" => "\\", "\\'" => "'", 
+        "\\\"" => "\"", "\\?" => "?", "\\0" => "\0"
+    )
+
+    # Replace each C escape sequence with its Julia equivalent
+    for (c_esc, julia_esc) in c_escapes
+        str = replace(str, c_esc => julia_esc)
+    end
+
+    # Handle hexadecimal escape sequences separately
+    str = replace(str, r"\\x[0-9a-fA-F]+" => s -> Char(parse(UInt8, match(r"[0-9a-fA-F]+", s).match, base=16)))
+
+    return str
+end
+
 macro P_str(str)
-    P(str)
+    P(compile_raw_string(str))
 end
 
 macro R_str(str)
-    R(str)
+    R(compile_raw_string(str))
 end
 
 macro S_str(str)
-    S(str)
+    S(compile_raw_string(str))
 end
