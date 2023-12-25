@@ -91,31 +91,31 @@ struct ChoiceInst <: Instruction
     ChoiceInst(l::Integer) = new(IChoice, l, 0)
 end
 
-CommitInst(l::Integer) = LabelInst(ICommit, l)
-CallInst(l::Integer) = LabelInst(ICall, l)
-JumpInst(l::Integer) = LabelInst(IJump, l)
-PartialCommitInst(l::Integer) = LabelInst(IPartialCommit, l)
-BackCommitInst(l::Integer) = LabelInst(IBackCommit, l)
+CommitInst(l::Integer) = LabelInst(ICommit, Int32(l))
+CallInst(l::Integer) = LabelInst(ICall, Int32(l))
+JumpInst(l::Integer) = LabelInst(IJump, Int32(l))
+PartialCommitInst(l::Integer) = LabelInst(IPartialCommit, Int32(l))
+BackCommitInst(l::Integer) = LabelInst(IBackCommit, Int32(l))
 
 struct TestAnyInst <: Instruction
     op::Opcode
     n::UInt32
     l::Int32
-    TestAnyInst(n::UInt32, l::Int32) = new(ITestAny, n, l)
+    TestAnyInst(n::UInt32, l::Int32) = new(ITestAny, n, Int32(l))
 end
 
 struct TestCharInst <: Instruction
     op::Opcode
     c::AbstractChar
     l::Int32
-    TestCharInst(c::AbstractChar, l::Int32) = new(ITestChar, c, l)
+    TestCharInst(c::AbstractChar, l::Int32) = new(ITestChar, c, Int32(l))
 end
 
 struct TestSetInst <: Instruction
     op::Opcode
     vec::BitVector
     l::Int32
-    TestSetInst(vec::BitVector, l::Int32) = new(ITestSet, vec, l)
+    TestSetInst(vec::BitVector, l::Int32) = new(ITestSet, vec, Int32(l))
 end
 
 struct OpenCallInst <: Instruction

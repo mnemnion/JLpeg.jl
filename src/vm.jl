@@ -8,6 +8,7 @@ mutable struct StackFrame
 end
 
 CallFrame(i::Int32) = StackFrame(i, 0)
+CallFrame(i::UInt32) = StackFrame(Int32(i), 0)
 
 # TODO What's a CapEntry?
 struct CapEntry
@@ -70,8 +71,8 @@ function pushframe!(vm::VMState, frame::StackFrame)
 end
 
 @inline
-function pushcall!(vm::VMState, ptr::Int)
-    push!(vm.stack, CallFrame(ptr))
+function pushcall!(vm::VMState)
+    push!(vm.stack, CallFrame(vm.i + UInt32(1)))
 end
 
 @inline
@@ -114,6 +115,7 @@ function Base.match(program::IVector, subject::AbstractString)
     vm = VMState(subject, program)
     vm.running = true
     while vm.running
+        print(vm_to_str(vm))
         if vm.i > length(vm.program)
             vm.running = false
             continue
@@ -257,13 +259,14 @@ end
 
 @inline
 function onCall(inst::LabelInst, vm::VMState)
-    pushcall!(vm, vm.i + inst.l)
+    pushcall!(vm)
+    vm.i += inst.l
     return true
 end
 
 @inline
 function onEnd(vm::VMState)
-    @assert isempty(vm.stack) lazy"hit end instruction with $(length(vm.stack)) on stack"
+    @assert isempty(vm.stack) "hit end instruction with $(length(vm.stack)) on stack:\n$(vm_to_str(vm))"
     vm.running = false
     vm.matched = true
     return true
@@ -273,7 +276,8 @@ end
 function onReturn(vm::VMState)
     # TODO if I cache the call stack this will start returning a Tuple, needs fix
     frame = popframe!(vm)
-    @assert frame.s == 0 "rule left a choice frame on the stack"
+    @assert frame.s == 0 "rule left a choice frame on the stack:\n$(repr(vm))"
+    vm.i = frame.i
     return true
 end
 
@@ -287,6 +291,5 @@ end
 onFail(vm) = error("NYI")
 onFailTwice(vm) = error("NYI")
 onBackCommit(inst, vm) = error("NYI")
-
 
 include("printing.jl")

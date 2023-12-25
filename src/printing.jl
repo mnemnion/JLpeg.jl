@@ -1,16 +1,26 @@
 # Printing methods for elements of JLpeg
 
 "Show an Instruction"
-function Base.show(io::IO, i::Instruction)
-    str = "⟪$(i.op)"
-    for field in fieldnames(typeof(i))
-        if field ≠ :op 
-            val = getfield(i, field)
-            str *= ", $field→$val"
-        end
+function Base.show(io::IO, inst::Instruction)
+    line = ["⟪$(inst.op)"]
+    t = typeof(inst)
+    if hasfield(t, :c)
+        push!(line, " '$(inst.c)'" )
     end
-    str *= "⟫"
-    print(io, str)
+    if hasfield(t, :n)
+        push!(line, " $(inst.n)")
+    end
+    if hasfield(t, :l)
+        push!(line, " ($(inst.l))")
+    end
+    if hasfield(t, :rule)
+        push!(line, " :$(inst.rule)")
+    end
+    if hasfield(t, :vec)
+        push!(line, " $(printset(inst.vec))")
+    end
+    push!(line, "⟫")
+    print(io, join(line))
 end
 
 """
@@ -23,7 +33,7 @@ function bitvector_to_compact_repr(bitvec::BitVector)
     start_idx = 0
     end_idx = 0
 
-    for i in 1:length(bitvec)
+    for i in eachindex(bitvec)
         if bitvec[i]
             if start_idx == 0
                 start_idx = i
@@ -58,6 +68,7 @@ function bitvector_to_compact_repr(bitvec::BitVector)
 
     return fragments
 end
+
 
 "String for Set Vector"
 function printset(vec::BitVector)::String
@@ -133,3 +144,90 @@ function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
     push!(lines, repr("text/plain", patt.code, context=:compact=>true), ")")
     print(io, join(lines) * ")")
 end
+
+# Printing the VMState 
+"Show a VMState"
+function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
+    print(io, vm_to_str(vm))
+end
+
+function vm_to_str(vm:: VMState)::String
+    lines = []
+    sub = vm.subject
+    state = "State: i:$(vm.i):$(vm.program[vm.i])"
+    subj = " s:$(in_red(sub, vm.s))\n"
+    push!(lines, state, subj)
+    if isempty(vm.stack) 
+        push!(lines, "Frame: []\n")
+    else
+        push!(lines, "Frames:\n")
+    end
+    for frame in vm.stack
+        if frame.s == 0 
+            push!(lines, "[i:$(frame.i)]:$(vm.program[frame.i])]")
+        else
+            push!(lines, "[i:$(frame.i)]:$(vm.program[frame.i]) s:$(in_red(sub, frame.s))")
+        end
+        push!(lines, "\n")
+    end
+    push!(lines, "---\n")
+    return join(lines)
+end
+
+function in_red(str::String, i::UInt32)
+    if i == 0
+        str1 = "\x1B[31m*\x1B[0m" 
+        str2, _ = substr_at_i(str, UInt32(1))
+        return str1 * str2 
+    elseif i > sizeof(str)
+        str2 = "\x1B[31m*\x1B[0m"
+        str1, _ = substr_at_i(str, UInt32(sizeof(str)))
+        return str1 * str2
+    end
+    red_i(substr_at_i(str, i)...)
+end
+
+function red_i(str::String, i::UInt32)
+    red_start = "\x1B[31m" 
+    red_end = "\x1B[0m" 
+    sstr = sizeof(str)   
+    i1 = clamp(i, 1, sstr)
+    i2 = clamp(i+1, 1, sstr)
+    highlighted_str = str[1:i1-1] * red_start * str[i1:i1] * red_end 
+    if i2 < sstr 
+        highlighted_str *= str[i2:end]
+    end
+
+    return highlighted_str
+end
+
+function substr_at_i(str::String, i::UInt32)
+    # Determine the start index
+    start_index = i
+    for _ = 1:10
+        start_index == 1 && break
+        start_index = prevind(str, start_index)
+    end
+
+    # Determine the end index with bounds checking
+    end_index = i
+    for _ = 1:10
+        if end_index > sizeof(str)
+            break
+        else
+            end_index = nextind(str, end_index)
+        end
+    end
+
+    if end_index > sizeof(str)
+        end_index = sizeof(str)
+    end
+    # Extract the substring
+    substring = str[start_index:end_index]
+
+    # Find the byte index of 'i' within the substring
+    byte_index_in_substring = i - start_index + 1
+
+    return (substring, UInt32(byte_index_in_substring))
+end
+
