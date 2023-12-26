@@ -278,7 +278,6 @@ function _compile!(patt::PDiff)::Pattern
         bvec = ba .& .! bb
         return PSet([SetInst(bvec), OpEnd])
     elseif headset && isa(v[2], PChar)
-        print("optimizing PDiff Set - Char")
         bvec = copy(v[1].code[1].vec)
         bvec[Int(v[2].val) + 1] = false
         return PSet([SetInst(bvec), OpEnd])
@@ -431,13 +430,15 @@ end
 
 function _compile!(patt::PGrammar)::Pattern
     rules = Dict{Symbol, PRule}()
+    meta = patt.meta
     for rule in patt.val
         rules[rule.name] = rule
     end
+    meta[:rules] = copy(rules)
     c = patt.code
     start = rules[patt.start]
     fixup = []
-    callMap = Dict{Symbol, Int}()
+    meta[:callsite] = callMap = Dict{Symbol, Int}()
     # TODO we could be fancy and jump to the actual end
     push!(c, CallInst(2))
     push!(c, OpEnd)
@@ -452,6 +453,7 @@ function _compile!(patt::PGrammar)::Pattern
     # fix up missed calls
     for (rulename, i) in fixup
         inst = c[i]
+        # println("fixup $rulename call at $i with l→$(meta[:callsite][rulename])")
         @assert (inst.op == IOpenCall && inst.rule == rulename) "bad fixup"
         if haskey(callMap, rulename)
             l =  callMap[rulename] - i
@@ -479,8 +481,9 @@ function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap:
                 pop!(rules, inst.rule)
                 push!(c, inst)
                 push!(fixup, (inst.rule, length(c)))
-            else
+            else  # Probably in the queue, if not, we detect that later
                 push!(c, inst)
+                push!(fixup, (inst.rule, length(c)))
             end
         else
             push!(c, inst)

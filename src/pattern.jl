@@ -217,8 +217,10 @@ If `p` is a String, this matches that string.
 If `p` is a positive Int, it matches that many characters.
 If `p` is `true`, the rules succeeds, if `false`, the rule fails.
 If `p` is a Symbol, this represents a call to the rule with that name.
+If `p` is a negative Int, matches if that many characters remain, consumes no input.
 """
 function P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern end
+
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::Int) = n ≥ 0 ? PAny(n) : PAnd(PAny(UInt(-n)))

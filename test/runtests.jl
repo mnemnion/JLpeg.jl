@@ -37,8 +37,8 @@ using Test
     @test match(numeven, "13") === nothing
     # Empty Set
     eset = S""
-    @test match(eset, "something") === nothing 
-    @test match(eset, "") === nothing 
+    @test match(eset, "something") === nothing
+    @test match(eset, "") === nothing
     #Choice
     afew = S("123") | P("abc") | S("xyz")
     @test match(afew, "1") == 2
@@ -51,12 +51,12 @@ using Test
     @test match(nofail, "") == 1
     nope = P(false)
     @test match(nope, "") === nothing
-    @test match(nope, "something") === nothing 
+    @test match(nope, "something") === nothing
     yep = P(true)
-    @test match(yep, "") == 1 
+    @test match(yep, "") == 1
     @test match(yep, "abc") == 1
-    # TODO start grouping these 
-    # Tests charset amalgamation 
+    # TODO start grouping these
+    # Tests charset amalgamation
     glom = S("146") | R("AZ") | P("q") | P("*")
     @test match(glom, "1") == 2
     @test match(glom, "B") == 2
@@ -70,9 +70,9 @@ using Test
     @test match(abstar, "abababab") == 9
     @test match(abstar, "abc") == 3
     @test match(abstar, "bc") == 1
-    # Tests Kleene + 
+    # Tests Kleene +
     abplus = P("ab")^1
-    @test match(abplus, "") === nothing 
+    @test match(abplus, "") === nothing
     @test match(abplus, "ab") == 3
     @test match(abplus, "abababab") == 9
     @test match(abplus, "abc") == 3
@@ -84,7 +84,7 @@ using Test
     @test match(opt, "abababab") == 3
     @test match(opt, "abc") == 3
     @test match(opt, "bc") == 1
-    # Makes sure recursive reps don't hang 
+    # Makes sure recursive reps don't hang
     inside = ((P("ab")^0))^0
     @test match(inside, "abab") == 5
     @test match(inside, "") == 1
@@ -107,9 +107,9 @@ using Test
     @test match(pand, "abcdddd") == 8
     @test match(pand, "abdcc") === nothing
     pnot = (!P"a" * R"az")^0 * P"after"
-    @test match(pnot, "after") == 6 
+    @test match(pnot, "after") == 6
     @test match(pnot, "bcxdafter") == 10
-    @test match(pnot, "aafter") === nothing 
+    @test match(pnot, "aafter") === nothing
     @test match(pnot, "bcadxafter") === nothing
     pdiff = (S"abc" - P"a")^1
     @test match(pdiff, "bcbc") == 5
@@ -117,11 +117,23 @@ using Test
     @test match(pdiff, "abcbca") === nothing
     pset = R"az" - S"bcd"
     @test match(pset, "a") == 2
-    @test match(pset, "c") === nothing 
+    @test match(pset, "c") === nothing
     # 🎄 🎄 Merry Christmas! 🎄 🎄
     pno_l = (R"az" - P"l")^1
     @test match(pno_l, "abcdefghijkmnopqrstuvwxyz") == 0x1a
     @test match(pno_l, "abcdefghijklmnopqrstuvwxyz") == 0x0c
     @test match(P(-3), "a") === nothing
     @test match(P(-3), "aaaa") == 1
+    # A Real Grammar
+    lisp = Grammar(
+        :lisp    ←  :_ * P"(" * :body * :_ * P")" * :_,
+        :body    ←  :_ * (P(:atom) | :number | :lisp)  * P(:body)^-1,
+        :atom    ←  (R"az" | R"AZ")^1,
+        :number  ←  R"09"^1,
+        :_       ←  S("\t\n ")^0 )
+    @test match(lisp, "(12)") == 5
+    @test match(lisp, "(12 23 bob)") == 12
+    @test match(lisp, "(12 23 bob (recursive (recursed)))") == 35
+    @test match(lisp, "(12 23 bob (recursive recursed))") == 33
+    @test match(lisp, "(not ,quote a real lisp)") === nothing
 end

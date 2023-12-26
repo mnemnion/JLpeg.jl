@@ -36,7 +36,28 @@ function bitvector_to_compact_repr(bitvec::BitVector)
     fragments = String[]
     start_idx = 0
     end_idx = 0
-
+    escaped_chars = Dict(
+        '\n' => "\\n",  # newline
+        '\t' => "\\t",  # horizontal tab
+        '\r' => "\\r",  # carriage return
+        '\b' => "\\b",  # backspace
+        '\f' => "\\f",  # form feed
+        '\\' => "\\\\", # backslash
+        '\"' => "\\\"", # double quote
+        '\'' => "\\'"   # single quote
+    )
+    function _encode(i::Integer)
+        c = Char(i -1)
+        if haskey(escaped_chars, c)
+            escaped_chars[c]
+        elseif i ≤ 31
+            "\\x" * string(i, base=16)
+        elseif c == ' '
+            "\" \""
+        else
+            string(c)
+        end
+    end
     for i in eachindex(bitvec)
         if bitvec[i]
             if start_idx == 0
@@ -47,11 +68,11 @@ function bitvector_to_compact_repr(bitvec::BitVector)
             # End of a sequence
             if end_idx - start_idx >= 2
                 # Three or more characters in succession
-                push!(fragments, "$(Char(start_idx-1))-$(Char(end_idx-1))")
+                push!(fragments, "$(_encode(start_idx))-$(_encode(end_idx))")
             else
                 # Individual characters
                 for j in start_idx:end_idx
-                    push!(fragments, string(Char(j-1)))
+                    push!(fragments, _encode(j))
                 end
             end
             start_idx = 0
