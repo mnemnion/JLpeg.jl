@@ -100,4 +100,10 @@ using Test
     # Grammars!
     g1 = PGrammar(:a <= P"123" * :b, :b <= S"abd" * (:a | P"q"))
     @test match(g1, "123a123b123dq") == 14
+    # more of that to come..
+    # Predicates
+    pand = ~P"abc" * S"abcd"^1
+    @test match(pand, "abcd") == 5
+    @test match(pand, "abcdddd") == 8
+    @test match(pand, "abdcc") === nothing
 end

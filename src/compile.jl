@@ -220,6 +220,20 @@ function _compile!(patt::PRange)::Pattern
     return patt  
 end
 
+function _compile!(patt::PAnd)::Pattern
+    @assert length(patt.val) == 1 "enclosing rule PAnd has more than one child"
+    c = patt.code
+    code = copy(patt.val[1].code)
+    trimEnd!(code)
+    l = length(code) + 2  # 2 -> Choice, BackCommit
+    push!(c, ChoiceInst(l))
+    append!(c, code)
+    push!(c, BackCommitInst(2))
+    push!(c, OpFail)
+    pushEnd!(c)
+    return patt
+end
+
 function _compile!(patt::PSeq)::Pattern 
     # As an optimization, a Seq of one member can just be that member
     if length(patt.val) == 1

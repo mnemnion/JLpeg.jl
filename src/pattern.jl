@@ -60,6 +60,12 @@ struct PAny <: Pattern
     PAny(val::UInt) = new(val, Inst())
 end
 
+struct PAnd <: Pattern 
+    val::Vector{Pattern}
+    code::IVector 
+    PAnd(val::Pattern) = new([val], Inst())
+end
+
 "Includes n, dictating the sort of repetition"
 struct PStar <: Pattern
     val::Vector{Pattern}
@@ -142,7 +148,6 @@ abstract type PNot <:Pattern end
 abstract type PBehind <:Pattern end
 abstract type PCapture <:Pattern end
 abstract type PTXInfo <:Pattern end
-abstract type PAnd <:Pattern end
 abstract type PThrow <:Pattern end
 
 # TODO this lets me smuggle them into tests and (with caution!) optimizations 
@@ -232,6 +237,7 @@ Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
 Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
 Base.:^(a::Pattern, b::Int)  = PStar(a, b)
 Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
+Base.:~(a::Pattern) = PAnd(a)
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
 ←(a::Symbol, b::Pattern) = PRule(a,b)   
 # This little dance gets around a quirk of how negative powers

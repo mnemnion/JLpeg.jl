@@ -300,8 +300,25 @@ function onPartialCommit(inst::LabelInst, vm::VMState)
     return true
 end
 
-onFail(vm) = error("NYI")
+@inline 
+function onBackCommit(inst::LabelInst, vm::VMState)
+    if isempty(vm.stack)
+        return
+    end
+    frame = popframe!(vm)
+    while frame.s == 0 # return from calls
+        frame = popframe!(vm)
+        if frame === nothing break end
+    end # until we find a choice frame or exhaust the stack
+    if frame === nothing 
+        return false 
+    else     
+        vm.i += inst.l 
+        vm.s = frame.s 
+        return true
+    end
+end
+
 onFailTwice(vm) = error("NYI")
-onBackCommit(inst, vm) = error("NYI")
 
 include("printing.jl")
