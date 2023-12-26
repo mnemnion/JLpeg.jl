@@ -91,4 +91,7 @@ using Test
     inside = ((P("ab")^0))^1
     @test match(inside, "abab") == 5
     @test match(inside, "") == 1
+    # Grammars!
+    g1 = PGrammar(:a <= P"123" * :b, :b <= S"abd" * (:a | P"q"))
+    @test match(g1, "123a123b123dq") == 14
 end

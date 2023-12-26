@@ -332,13 +332,15 @@ function _compile!(patt::PChoice)::Pattern
             append!(c, pcode)
             break
         end
-        len = length(pcode)
-        push!(c, ChoiceInst(len + 1))
+        trimEnd!(pcode)
+        len = length(pcode) 
+        push!(c, ChoiceInst(len + 2)) # +2 == Choice and Commit
         push!(choices, length(c))
         append!(c, pcode)
-        pop!(c)  # drop the IEnd
+ # drop the IEnd
         push!(c, HoldInst(ICommit)) 
     end
+    push!(c, OpEnd)
     for (idx, inst) in enumerate(c)
         if isa(inst, HoldInst) && inst.op == ICommit
             c[idx] = CommitInst(length(c) - idx)
@@ -398,7 +400,7 @@ function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap:
         if inst.op == IOpenCall 
             if haskey(callMap, inst.rule)
                 # We need this to be a relative jump
-                l = length(c) + 1 - callMap[inst.rule] 
+                l = callMap[inst.rule] - length(c) - 1
                 push!(c, CallInst(l))
             elseif haskey(rules, inst.rule)
                 push!(next, rules[inst.rule])

@@ -77,6 +77,9 @@ end
 
 @inline
 function popframe!(vm::VMState)
+    if isempty(vm.stack)
+        return nothing
+    end
     pop!(vm.stack)
 end
 
@@ -95,7 +98,7 @@ function failmatch(vm::VMState)
     frame = popframe!(vm)
     while frame.s == 0 # return from calls
         frame = popframe!(vm)
-        if !frame break end
+        if frame === nothing break end
     end # until we find a choice frame or exhaust the stack
     if frame === nothing 
         vm.running = false
@@ -115,7 +118,8 @@ function Base.match(program::IVector, subject::AbstractString)
     vm = VMState(subject, program)
     vm.running = true
     while vm.running
-        print(vm_to_str(vm))
+        # print(short_vm(vm))
+        # print(vm_to_str(vm))
         if vm.i > length(vm.program)
             vm.running = false
             continue

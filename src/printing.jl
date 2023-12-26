@@ -2,6 +2,10 @@
 
 "Show an Instruction"
 function Base.show(io::IO, inst::Instruction)
+    print(io, print_inst(inst, Int32(0)))
+end
+
+function print_inst(inst::Instruction, off::Int32)
     line = ["⟪$(inst.op)"]
     t = typeof(inst)
     if hasfield(t, :c)
@@ -11,7 +15,7 @@ function Base.show(io::IO, inst::Instruction)
         push!(line, " $(inst.n)")
     end
     if hasfield(t, :l)
-        push!(line, " ($(inst.l))")
+        push!(line, " ($(inst.l + off))")
     end
     if hasfield(t, :rule)
         push!(line, " :$(inst.rule)")
@@ -20,7 +24,7 @@ function Base.show(io::IO, inst::Instruction)
         push!(line, " $(printset(inst.vec))")
     end
     push!(line, "⟫")
-    print(io, join(line))
+    return join(line)
 end
 
 """
@@ -43,11 +47,11 @@ function bitvector_to_compact_repr(bitvec::BitVector)
             # End of a sequence
             if end_idx - start_idx >= 2
                 # Three or more characters in succession
-                push!(fragments, "$(Char(start_idx))-$(Char(end_idx))")
+                push!(fragments, "$(Char(start_idx-1))-$(Char(end_idx-1))")
             else
                 # Individual characters
                 for j in start_idx:end_idx
-                    push!(fragments, string(Char(j)))
+                    push!(fragments, string(Char(j-1)))
                 end
             end
             start_idx = 0
@@ -151,22 +155,24 @@ function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
     print(io, vm_to_str(vm))
 end
 
+function short_vm(vm::VMState)::String
+    "State: [i:$(vm.i)] $(print_inst(vm.program[vm.i], vm.i)) ⟨$(length(vm.stack))⟩ s:$(in_red(vm.subject, vm.s))\n"
+end 
+
 function vm_to_str(vm:: VMState)::String
-    lines = []
+    lines = [short_vm(vm)]
     sub = vm.subject
-    state = "State: i:$(vm.i):$(vm.program[vm.i])"
-    subj = " s:$(in_red(sub, vm.s))\n"
-    push!(lines, state, subj)
     if isempty(vm.stack) 
         push!(lines, "Frame: []\n")
     else
         push!(lines, "Frames:\n")
     end
     for frame in vm.stack
+        inst = vm.program[frame.i]
         if frame.s == 0 
-            push!(lines, "[i:$(frame.i)]:$(vm.program[frame.i])]")
+            push!(lines, "[i:$(frame.i)] $(print_inst(inst, frame.i))")
         else
-            push!(lines, "[i:$(frame.i)]:$(vm.program[frame.i]) s:$(in_red(sub, frame.s))")
+            push!(lines, "[i:$(frame.i)] $(print_inst(inst, frame.i)) s:$(in_red(sub, frame.s))")
         end
         push!(lines, "\n")
     end
@@ -175,12 +181,15 @@ function vm_to_str(vm:: VMState)::String
 end
 
 function in_red(str::String, i::UInt32)
+    if isempty(str)
+        return "\"\""
+    end
     if i == 0
-        str1 = "\x1B[31m*\x1B[0m" 
+        str1 = "\x1B[38;5;208m*\x1B[0m" 
         str2, _ = substr_at_i(str, UInt32(1))
         return str1 * str2 
     elseif i > sizeof(str)
-        str2 = "\x1B[31m*\x1B[0m"
+        str2 = "\x1B[38;5;208m*\x1B[0m"
         str1, _ = substr_at_i(str, UInt32(sizeof(str)))
         return str1 * str2
     end
@@ -194,7 +203,7 @@ function red_i(str::String, i::UInt32)
     i1 = clamp(i, 1, sstr)
     i2 = clamp(i+1, 1, sstr)
     highlighted_str = str[1:i1-1] * red_start * str[i1:i1] * red_end 
-    if i2 < sstr 
+    if i2 ≠ i1 
         highlighted_str *= str[i2:end]
     end
 
@@ -231,3 +240,4 @@ function substr_at_i(str::String, i::UInt32)
     return (substring, UInt32(byte_index_in_substring))
 end
 
+return
