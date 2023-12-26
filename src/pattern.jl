@@ -1,7 +1,5 @@
 # Patterns for JLpeg parser engine
 
-using Match
-
 """
 Container for various patterns and grammars.
 Always has `val`, which may be primitive or a Vector{Pattern},

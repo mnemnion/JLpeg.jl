@@ -33,11 +33,11 @@ Wherein I note how I'm building the thing.
 
 - [ ] P(-n) for n bytes remaining 
 
-- [ ] And and Not predicates 
+- [X] And and Not predicates 
 
 - [ ] Multibyte sets and chars 
 
-- [ ] BackCommits and B(patt)
+- [ ] B(patt)
 
 - [ ] Captures 
 

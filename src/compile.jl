@@ -461,15 +461,15 @@ end
 Answer if the pattern fails (should it fail) on the first character.
 """
 function headfail(patt::Pattern)::Bool
-    @match patt begin
-        ::PChar || ::PAny || ::PSet || ::PFalse => true
-        ::PTrue || ::PStar || ::PRunTime || ::PNot || ::PBehind || ::PThrow => false
-        ::PCapture || ::PGrammar || ::PRule || ::PTXInfo || ::PAnd => headfail(patt.val[1])
-        ::PCall => headfail(patt.val[2])
-        # This is different than in LPeg and I'm not sure why
-        ::PSeq =>  headfail(patt.val[1])
-        ::PChoice => all(p -> headfail(p), patt.val)
-        _ => error(lazy"headfail not defined for $(typeof(patt))")
+    if isof(patt, PChar, PAny, PSet, PFalse) return true
+    elseif isof(patt, PTrue, PStar, PRunTime, PNot, PBehind, PThrow) return false
+    elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return headfail(patt.val[1])
+    # Pretty sure this one is wrong...
+    elseif patt isa PCall return headfail(patt.val[2])
+    # This is different than in LPeg and I'm not sure why
+    elseif patt isa PSeq return headfail(patt.val[1])
+    elseif patt isa PChoice return all(p -> headfail(p), patt.val)
+    else @error "headfail not defined for $(typeof(patt))"
     end
 end
 
@@ -479,23 +479,23 @@ end
 Answer if the pattern cannot fail.
 """
 function nofail(patt::Pattern)::Bool
-    @match patt begin
-        ::PTrue => true
-        ::PStar, if patt.n ≤ 0 end => true
-        ::PChar || ::PAny || ::PSet || ::PFalse || ::PThrow => false
-        # OpenCall needs checked when resolved
-        ::POpenCall => false 
-        # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
-        ::PNot || ::PBehind || ::PRunTime => false
-        # PSeq nofail if entire sequence is nofail
-        ::PSeq => all(p -> nofail(p), patt.val)
-        # PChoice nofail if any branch is nofail
-        ::PChoice => any(p -> nofail(p), patt.val)
-        # Wrapped patterns nofail based on the pattern they enclose
-        ::PCapture || ::PGrammar || ::PRule || ::PTXInfo || ::PAnd => nofail(patt.val[1])
-        # Why is this true of PCall? Check this assumption when we implement it 
-        ::PCall => nofail(patt.val[2])
-        _ => error(lazy"nofail not defined for $(typeof(patt))")
+    if patt isa PTrue return true 
+    elseif patt isa PStar && patt.n ≤ 0 return true 
+    elseif isof(patt, PChar, PAny, PSet, PFalse, PThrow) return false
+    # POpenCall needs checked later 
+    elseif patt isa POpenCall return false 
+    # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
+    elseif isof(patt, PNot, PBehind, PRunTime) return false
+    # PSeq nofail if entire sequence is nofail
+    elseif patt isa PSeq return all(p -> nofail(p), patt.val)
+    # PChoice nofail if any branch is nofail
+    elseif patt isa PChoice return any(p -> nofail(p), patt.val)
+    # Wrapped patterns nofail based on the pattern they enclose
+    elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return nofail(patt.val[1])
+    # Why is this true of PCall? 
+    # TODO Check this assumption when we implement it 
+    elseif patt isa PCall return nofail(patt.val[2])
+    else @error "nofail not defined for $(typeof(patt))"
     end
 end
 
@@ -505,16 +505,21 @@ end
 Answer if the pattern can consume no input.
 """
 function nullable(patt::Pattern)::Bool
-    @match patt begin
-        ::PNot || ::PBehind || ::PAnd => true 
-        ::PRunTime => nullable(patt.val[1])
-        # Most patterns are nullable if nofail:
-        ::Pattern, if nofail(patt) end => true 
-        # By process of elimination:
-        _ => false
+    if isof(patt, PNot, PBehind, PAnd) return true 
+    elseif isof(patt, PRunTime) return nullable(patt.val[1])
+    elseif nofail(patt) return true 
+    else return false
     end
 end
 
+function isof(patt::Pattern, types::DataType...)
+    for t in types 
+        if patt isa t 
+            return true
+        end 
+    end
+    return false 
+end
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
 

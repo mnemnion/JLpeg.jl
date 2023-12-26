@@ -236,23 +236,22 @@ function onInst(inst::ChoiceInst, vm::VMState)
 end
 
 function onInst(inst::LabelInst, vm::VMState)
-    @match inst.op begin
-        $ICommit         => return onCommit(inst, vm)
-        $IJump           => return onJump(inst, vm)
-        $ICall           => return onCall(inst, vm)
-        $IPartialCommit  => return onPartialCommit(inst, vm)
+    if inst.op == ICommit            return onCommit(inst, vm)
+    elseif inst.op == IJump          return onJump(inst, vm)
+    elseif inst.op == ICall          return onCall(inst, vm)
+    elseif inst.op == IPartialCommit return onPartialCommit(inst, vm)
         # TODO NYI
-        $IBackCommit     => return onBackCommit(inst, vm)
+    elseif inst.op == IBackCommit     return onBackCommit(inst, vm)
     end
 end
 
 function onInst(inst::MereInst, vm::VMState)
-    @match inst.op begin
-        $IEnd       => return onEnd(vm)
-        $IReturn    => return onReturn(vm)
-        # TODO NYI
-        $IFail      => return false
-        $IFailTwice => return onFailTwice(vm)
+
+     if inst.op == IEnd           return onEnd(vm)
+     elseif inst.op == IReturn    return onReturn(vm)
+     # TODO NYI
+     elseif inst.op == IFail      return false
+     elseif inst.op == IFailTwice return onFailTwice(vm)
     end
 end
 
