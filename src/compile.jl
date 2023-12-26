@@ -247,6 +247,22 @@ function _compile!(patt::PNot)::Pattern
     return patt 
 end
 
+function _compile!(patt::PDiff)::Pattern
+    v = patt.val 
+    headset = isa(v[1], PSet) || isa(v[1], PRange)
+    if headset && isa(v[2], PSet) || isa(v[2], PRange)
+        ba, bb = v[1].code[1].vec, v[2].code[1].vec
+        bvec = ba .& .! bb
+        return PSet([SetInst(bvec), OpEnd])
+    elseif headset && isa(v[2], PChar)
+        print("optimizing PDiff Set - Char")
+        bvec = copy(v[1].code[1].vec)
+        bvec[Int(v[2].val) + 1] = false 
+        return PSet([SetInst(bvec), OpEnd])
+    end
+    compile!(PSeq(PNot(patt.val[2]), patt.val[1]))
+end
+
 function _compile!(patt::PSeq)::Pattern 
     # As an optimization, a Seq of one member can just be that member
     if length(patt.val) == 1

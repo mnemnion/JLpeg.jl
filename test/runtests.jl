@@ -111,4 +111,15 @@ using Test
     @test match(pnot, "bcxdafter") == 10
     @test match(pnot, "aafter") === nothing 
     @test match(pnot, "bcadxafter") === nothing
+    pdiff = (S"abc" - P"a")^1
+    @test match(pdiff, "bcbc") == 5
+    @test match(pdiff, "bcbca") == 5
+    @test match(pdiff, "abcbca") === nothing
+    pset = R"az" - S"bcd"
+    @test match(pset, "a") == 2
+    @test match(pset, "c") === nothing 
+    # 🎄 🎄 Merry Christmas! 🎄 🎄
+    pno_l = (R"az" - P"l")^1
+    @test match(pno_l, "abcdefghijkmnopqrstuvwxyz") == 0x1a
+    @test match(pno_l, "abcdefghijklmnopqrstuvwxyz") == 0x0c
 end

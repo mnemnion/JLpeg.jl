@@ -31,6 +31,12 @@ struct PSet <: Pattern
     val::AbstractString
     code::IVector
     PSet(val::AbstractString) = new(val, Inst())
+    PSet(a, b) = new(a, b)
+end
+
+"special PSet constructor direct from BitVec opcode"
+function PSet(val::IVector)
+    PSet("", val)
 end
 
 struct PRange <: Pattern
@@ -70,6 +76,12 @@ struct PNot <: Pattern
     val::Vector{Pattern}
     code::IVector 
     PNot(val::Pattern) = new([val], Inst())
+end
+
+struct PDiff <: Pattern 
+    val::Vector{Pattern}
+    code::IVector
+    PDiff(a::Pattern, b::Pattern) = new([a, b], Inst())
 end
 
 "Includes n, dictating the sort of repetition"
@@ -241,10 +253,15 @@ Base.:*(a::Symbol, b::Pattern)  = PSeq(POpenCall(a), b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
 Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
 Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
+Base.:-(a::Pattern, b::Pattern) = PDiff(a, b)
+Base.:-(a::Pattern, b::Symbol)  = PDiff(a, POpenCall(b))
+Base.:-(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
 Base.:^(a::Pattern, b::Int)  = PStar(a, b)
 Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
 Base.:~(a::Pattern) = PAnd(a)
+Base.:~(a::Symbol) = PAnd(POpenCall(a))
 Base.:!(a::Pattern) = PNot(a)
+Base.:!(a::Symbol) = PNot(POpenCall(a))
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
 ←(a::Symbol, b::Pattern) = PRule(a,b)   
 # This little dance gets around a quirk of how negative powers
