@@ -141,7 +141,7 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     if hasfield(t, :vec) && !hasfield(t, :lead)
         push!(line, " $(printset(inst.vec))")
     elseif hasfield(t, :vec) && hasfield(t, :lead)
-        push!(line, " {$(compact_bytevec(inst))}")
+        push!(line, " {$(multivec_string(inst))}")
     end
     line
 end
@@ -154,14 +154,18 @@ function multivec_string(set::Instruction)::String
     vec = set.vec
     si = 0
     ei = 0
-    tochar(i) = string(push!(copy(lead), UInt8(i-1) | 0b010000000))
+    function tochar(i)
+        b = (i | 0b10000000) - UInt8(1)
+        str = String(push!(copy(lead), b))
+        return str
+    end
     for i in eachindex(vec)
         if vec[i]
             if si == 0
                 si = i
             end
             ei = i
-        elseif si > 0
+        elseif si != 0
             # Sequence
             if ei - 2 > si
                 push!(frag, "$(tochar(si))-$(tochar(ei))")
@@ -170,8 +174,8 @@ function multivec_string(set::Instruction)::String
                     push!(frag, tochar(j))
                 end
             end
+            si, ei = 0, 0
         end
-        si, ei = 0, 0
     end
     if si > 0
         if ei - 2 > si
