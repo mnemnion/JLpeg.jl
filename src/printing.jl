@@ -7,13 +7,12 @@ end
 
 "Show a vector of Bytecode instructions"
 function Base.show(io::IO, ::MIME"text/plain", code::IVector)
+    if isempty(code)
+        return print(io, "IVec[]")
+    end
     compact = get(io, :compact, false)
     if compact
-        if isempty(code)
-            print(io, "VM[]")
-        else
-            print(io,"VM[1:$(length(code))]")
-        end
+        print(io,"IVec[1:$(length(code))]")
         return
     end
     lines = []

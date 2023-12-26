@@ -81,7 +81,12 @@ struct MultiSetInst <: Instruction
     lead::Vector{UInt8}
     vec::BitVector
     final::Bool
-    MultiSetInst(lead, vec, final) = new(IMultiSet, lead, vec, final)
+    function MultiSetInst(lead::Vector{UInt8}, vec::BitVector, final::Bool)
+        new(IMultiSet, lead, vec, final)
+    end
+    function MultiSetInst(multi::MultiSetInst, final::Bool)
+        new(IMultiSet, multi.lead, multi.vec, final)
+    end
 end
 
 struct BehindInst <: Instruction
@@ -357,37 +362,26 @@ end
 
 
 function _compile!(patt::PChoice)::Pattern
-    c = patt.code
+    changed, mcode, start_idx = setoptimize!(patt)
     choices = []
-    # Optimizations:
-    # Merge Set and Char choices
-    # TODO this will need more work once sets include higher characters
-    allchars = all(p -> begin t = typeof(p); t == PSet || t == PChar || t == PRange end, patt.val)
-    if allchars
-        bvec = falses(128)
-        correct = true
-        for p in patt.val
-            if typeof(p) == PSet || typeof(p) == PRange
-                bvec = bvec .| p.code[1].vec
-            elseif typeof(p) == PChar
-                if isascii(p.val)
-                    bvec[UInt(p.val)+1] = true
-                else
-                    # Bail until we handle multibyte chars
-                    @warn "multibyte chars not yet optimized"
-                    correct = false
-                    break
-                end
-            end
-        end
-        if correct
-            push!(c, SetInst(bvec), OpEnd)
+    c = patt.code
+    if changed
+        if start_idx == length(patt.val) + 1
+            # We merged everything, no backtrack
+            append!(c, mcode)
+            pushEnd!(c)
             return patt
+        else # This is just the first choice, more to come
+            len = length(mcode)
+            push!(c, ChoiceInst(len + 2))
+            push!(choices, length(c))  # Which is 1 but code follows intent
+            append!(c, mcode)
+            push!(c, HoldInst(ICommit))
         end
     end
-    # headfail
-    # disjoint
-    for (idx, p) in enumerate(patt.val)
+
+    for idx in start_idx:length(patt.val)
+        p = patt.val[idx]
         pcode = copy(p.code)
         trimEnd!(pcode)
         if idx == length(patt.val)
@@ -395,17 +389,19 @@ function _compile!(patt::PChoice)::Pattern
             break
         end
         len = length(pcode)
-        push!(c, ChoiceInst(len + 2)) # +2 == Choice and Commit
+        push!(c, ChoiceInst(len + 2))  # +2 == Choice and Commit
         push!(choices, length(c))
         append!(c, pcode)
         push!(c, HoldInst(ICommit))
     end
     pushEnd!(c)
+
     for (idx, inst) in enumerate(c)
         if isa(inst, HoldInst) && inst.op == ICommit
             c[idx] = CommitInst(length(c) - idx)
         end
     end
+
     return patt
 end
 
@@ -491,6 +487,57 @@ function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap:
         end
     end
     return next
+end
+
+"""
+    setoptimize!(patt::PChoice)::Bool
+
+Performs any set optimizations which are possible for this set of choices.
+"""
+function setoptimize!(patt::PChoice)::Tuple{Bool,IVector,Integer}
+    # Every choice is as good as another so we always merge them and put them first
+    setable, other = [], []
+    has_multi = false
+    for p in patt.val
+        if p isa PChar
+            push!(setable, p)
+        elseif p isa PSet || p isa PRange
+            # Check for multiset opcodes
+            has_multi = has_multi || any(code -> code.op == IMultiSet, p.code)
+            push!(setable, p)
+        else
+            push!(other, p)
+        end
+    end
+    # Can't merge 0 or 1 settable choices
+    if length(setable) ≤ 1
+        return false, patt.code, 1  # patt.code is a placeholder
+    elseif !has_multi
+        # We can merge these easier
+        # No multis means our Sets are final
+        mcode = Inst()
+        bvec = falses(128)
+        for p in setable
+            if p isa PSet || p isa PRange
+                bvec = bvec .| p.code[1].vec
+            else
+                if isascii(p.val)
+                    bvec[UInt(p.val)+1] = true
+                else  # TODO Whatever we do with multibytes we might want this separate
+                    push!(other, p)
+                end
+            end
+        end
+        push!(mcode, SetInst(bvec))
+        # Juggle the choices so the merged ones come first, we're done with them
+        empty!(patt.val)
+        append!(patt.val, setable)
+        i = length(patt.val) + 1
+        append!(patt.val, other)
+        return true, mcode, i
+    else  # Nothing else for now
+        return false, patt.code, 1
+    end
 end
 
 """
@@ -582,7 +629,7 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
             if prefix_map === nothing
                 prefix_map = Dict()
             end
-            len, bytes = encode_utf8(UInt32(char))
+            len, bytes = encode_utf8(char)
             if len == 2
                 prefix!(prefix_map, [bytes[1]], bytes[2])
             elseif len == 3
@@ -635,7 +682,8 @@ function encode_multibyte_set!(c::IVector, pre::Dict)
     end
 end
 
-function encode_utf8(codepoint::UInt32)::Tuple{Int, Vector{UInt8}}
+function encode_utf8(char::Char)::Tuple{Int, Vector{UInt8}}
+    codepoint = UInt32(char)
     # Check the range of the codepoint,
     # To determine the bytes we anoint.
     if codepoint <= 0x7F

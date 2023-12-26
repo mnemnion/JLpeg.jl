@@ -63,6 +63,9 @@ using Test
     @test match(glom, "q") == 2
     @test match(glom, "*") == 2
     @test match(glom, "!") === nothing
+    # Multibyte sets
+    greeks = (R"ΑΩ" | R"αω"| P"Ά" | P"ύ" | P" ")^1
+    @test match(greeks, "Το Πνεύμα Άγιοπ") == 29
     # Tests Kleene *
     abstar = P("ab")^0
     @test match(abstar, "") == 1

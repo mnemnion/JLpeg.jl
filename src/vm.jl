@@ -136,6 +136,21 @@ function failmatch(vm::VMState)
     end
 end
 
+function followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
+    if !inst.final
+        vm.i += 1
+        inst = vm.program[vm.i]
+        if match
+            followSet(inst, match, vm)
+        elseif onInst(inst, vm)
+            match = true
+        end
+    else  # if subject advanced, it happened on match
+        vm.i += 1
+    end
+    return match
+end
+
 """
     match(program::IVector, subject::AbstractString)
 
@@ -216,25 +231,45 @@ end
 
 "onSet"
 function onInst(inst::SetInst, vm::VMState)::Bool
+    match = false
     this = thischar(vm)
-    if this === nothing
-        return false
-    end
-    code = UInt32(this)
-    if code < 128 && inst.vec[code + 1]
-        vm.i +=1
-        vm.s = nextind(vm.subject, vm.s)
-        return true
-    end
-    while !inst.final
-        vm.i += 1
-        inst = vm.program[vm.i]
-        if onInst(inst, vm)
-            vm.i += 1
-            return true
+    if this !== nothing
+        code = UInt32(this)
+        if code < 128 && inst.vec[code + 1]
+            vm.s = nextind(vm.subject, vm.s)
+            match = true
         end
     end
-    return false
+    followSet(inst, match, vm)
+end
+
+function onInst(inst::MultiSetInst, vm::VMState)::Bool
+    # Check if there's room to match
+    match = false
+    this = thischar(vm)
+    if this !== nothing
+        lead = inst.lead
+        width, bytes = encode_utf8(this)
+        # Correct sort of codepoint?
+        if width == sizeof(lead) + 1
+            headmatch = true
+            for (idx, byte) in enumerate(lead)
+                headmatch = headmatch && bytes[idx] == byte
+            end
+            if headmatch
+                # Mask off the high bit, always 1 for follow char
+                # Add 1 for Julia indexing
+                comp = (bytes[end] & 0b01111111) + UInt8(1)
+                if inst.vec[comp]
+                    match = true
+                end
+            end
+        end
+        if match
+            vm.s += width
+        end
+    end
+    followSet(inst, match, vm)
 end
 
 "onTestChar"
