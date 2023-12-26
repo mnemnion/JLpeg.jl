@@ -56,6 +56,7 @@ struct PRange <: Pattern
         end
         new((a, b), Inst())
     end
+    PRange(a::AbstractChar, b::AbstractChar) = new((a, b), Inst())
 end
 
 struct PAny <: Pattern
@@ -245,7 +246,7 @@ Create a pattern ranging from the first to the second character.
 than the second.
 """
 R(s::AbstractString) = PRange(s)
-
+R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 
 # Operators
 

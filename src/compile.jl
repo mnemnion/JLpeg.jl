@@ -683,38 +683,8 @@ function encode_multibyte_set!(c::IVector, pre::Dict)
 end
 
 function encode_utf8(char::Char)::Tuple{Int, Vector{UInt8}}
-    codepoint = UInt32(char)
-    # Check the range of the codepoint,
-    # To determine the bytes we anoint.
-    if codepoint <= 0x7F
-        # One-byte character, simple and light,
-        # In UTF-8's simple flight.
-        return 1, UInt8[codepoint]
-    elseif codepoint <= 0x7FF
-        # Two bytes we need, to encode this part,
-        # With UTF-8's clever art.
-        return 2, UInt8[
-            0xC0 | (codepoint >> 6),
-            0x80 | (codepoint & 0x3F)
-        ]
-    elseif codepoint <= 0xFFFF
-        # Three bytes now, to carry the load,
-        # As in UTF-8's broader road.
-        return 3, UInt8[
-            0xE0 | (codepoint >> 12),
-            0x80 | ((codepoint >> 6) & 0x3F),
-            0x80 | (codepoint & 0x3F)
-        ]
-    else
-        # Four bytes, a wider span,
-        # As UTF-8's furthest plan.
-        return 4, UInt8[
-            0xF0 | (codepoint >> 18),
-            0x80 | ((codepoint >> 12) & 0x3F),
-            0x80 | ((codepoint >> 6) & 0x3F),
-            0x80 | (codepoint & 0x3F)
-        ]
-    end
+    vec = Vector{UInt8}(string(char))
+    return length(vec), vec
 end
 
 """
