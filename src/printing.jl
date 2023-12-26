@@ -156,28 +156,33 @@ function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
 end
 
 function short_vm(vm::VMState)::String
-    "State: [i:$(vm.i)] $(print_inst(vm.program[vm.i], vm.i)) ⟨$(length(vm.stack))⟩ s:$(in_red(vm.subject, vm.s))\n"
+    o = vm.t_on ? 1 : 0
+    b = vm.t_on ? "yes" : "no"
+    "State: [i:$(vm.i)] $(print_inst(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
 end 
 
-function vm_to_str(vm:: VMState)::String
-    lines = [short_vm(vm)]
-    sub = vm.subject
-    if isempty(vm.stack) 
-        push!(lines, "Frame: []\n")
+function frame_to_str(vm::VMState, i, s)::String 
+    inst = vm.program[i]
+    if s == 0 
+        "[i:$(i)] $(print_inst(inst,i))"
     else
-        push!(lines, "Frames:\n")
+        "[i:$(i)] $(print_inst(inst, i)) s:$(in_red(vm.subject, s))"
+    end    
+end
+
+function vm_to_str(vm::VMState)::String
+    lines = [short_vm(vm)[1:end-1]]
+    if !vm.t_on 
+        push!(lines, "Frame: []")
+    else
+        push!(lines, "Frames:")
+        push!(lines, frame_to_str(vm, vm.ti, vm.ts))
     end
-    for frame in vm.stack
-        inst = vm.program[frame.i]
-        if frame.s == 0 
-            push!(lines, "[i:$(frame.i)] $(print_inst(inst, frame.i))")
-        else
-            push!(lines, "[i:$(frame.i)] $(print_inst(inst, frame.i)) s:$(in_red(sub, frame.s))")
-        end
-        push!(lines, "\n")
+    for frame in Iterators.reverse(vm.stack)
+        push!(lines, frame_to_str(vm, frame.i, frame.s))
     end
     push!(lines, "---\n")
-    return join(lines)
+    return join(lines, "\n")
 end
 
 function in_red(str::String, i::UInt32)

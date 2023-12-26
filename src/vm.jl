@@ -82,7 +82,7 @@ end
 @inline
 function pushcall!(vm::VMState)
     if !vm.t_on 
-       vm.ti = vm.i
+       vm.ti = vm.i + 1
        vm.t_on = true 
     else 
         frame = StackFrame(vm.ti, vm.ts)
@@ -137,7 +137,7 @@ end
 
 Match `program` to `subject`, returning the farthest match index.
 """
-function Base.match(program::IVector, subject::AbstractString)
+function Base.match(program::IVector, subject::AbstractString)::Union{UInt32, Nothing}
     vm = VMState(subject, program)
     vm.running = true
     while vm.running
@@ -152,7 +152,7 @@ function Base.match(program::IVector, subject::AbstractString)
             failmatch(vm)
         end
     end
-    if vm.matched 
+    if vm.matched
         return vm.s 
     else
         return nothing
@@ -164,9 +164,9 @@ end
 
 Match `patt` to `subject`, returning the farthest match index
 """
-function Base.match(patt::Pattern, subject::AbstractString)
+function Base.match(patt::Pattern, subject::AbstractString)::Union{UInt32, Nothing}
     code = compile!(patt).code
-    return match(code, subject)
+    match(code, subject)
 end
 
 """
@@ -243,7 +243,7 @@ function onInst(inst::TestSetInst, vm::VMState)::Bool
     end
     code = UInt32(this)
     if code < 128 && inst.vec[code + 1]
-        vm.i +=1
+        vm.i += 1
         return true
     else
         vm.i += inst.l
@@ -297,7 +297,7 @@ end
 
 @inline
 function onEnd(vm::VMState)
-    @assert isempty(vm.stack) "hit end instruction with $(length(vm.stack)) on stack:\n$(vm_to_str(vm))"
+    @assert !vm.t_on "hit end instruction with $(length(vm.stack) + 1) on stack:\n$(vm_to_str(vm))"
     vm.running = false
     vm.matched = true
     return true
