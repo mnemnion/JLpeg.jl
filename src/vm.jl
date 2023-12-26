@@ -2,7 +2,7 @@
 
 include("compile.jl")
 
-struct StackFrame 
+struct StackFrame
     i::Int32   # Instruction pointer
     s::UInt32  # String index
 end
@@ -12,7 +12,7 @@ CallFrame(i::UInt32) = StackFrame(Int32(i), 0)
 
 # TODO What's a CapEntry?
 struct CapEntry
-    
+
 end
 
 """
@@ -20,29 +20,33 @@ end
 
 Contains the state of a match on `subject` by `program`.
 
-## Fields
+# Fields
 
     Other than the `subject` and `program`, we have:
+
 - top: the byte length of `subject`
-- i: Instruction counter 
-- i: Subject pointer 
-- stack: Contains stack frames for calls and backtracks 
+- i: Instruction counter
+- i: Subject pointer
+- ti, ts: Stack top registers
+- t_on: flag for nonempty stack
+- stack: Contains stack frames for calls and backtracks
 - cap: A stack for captures
 - running: a boolean which is true when the VM is executing
 - matched: true if we matched the program on the subject.
 
-## Implementation 
+# Implementation
 
-I'm currently using functions to manipulate the stack, because it 
-may be a good optimization to cache the top of the stack in registers,
-in which case I won't have manipulations scattered throughout the program.
+Classic dispatch-driven VM with a program counter, opcodes, stack
+frames.  I borrowed a page from Forth and made the top of the
+stack a register, allowing stack frames to be immutable while still
+permitting the PartialCommit optimization.
 """
 mutable struct VMState
    subject::AbstractString # The subject we're parsing
    program::IVector # Our program
    top::UInt32  # Byte length of subject string
    # Registers
-   i::Int32         # Instruction Counter 
+   i::Int32         # Instruction Counter
    s::UInt32        # Subject pointer
    ti::Int32        # Stack top instruction register
    ts::UInt32       # Stack top subject register
@@ -63,28 +67,28 @@ end
 function thischar(vm::VMState)
     if vm.s > vm.top
         return nothing
-    end 
+    end
     vm.subject[vm.s]
 end
 
 @inline
 function pushframe!(vm::VMState, i::Int32, s::UInt32)
-    if !vm.t_on 
+    if !vm.t_on
         vm.ti, vm.ts = i, s
         vm.t_on = true
     else
         frame = StackFrame(vm.ti, vm.ts)
-        vm.ti, vm.ts = i, s 
+        vm.ti, vm.ts = i, s
         push!(vm.stack, frame)
     end
 end
 
 @inline
 function pushcall!(vm::VMState)
-    if !vm.t_on 
+    if !vm.t_on
        vm.ti = vm.i + 1
-       vm.t_on = true 
-    else 
+       vm.t_on = true
+    else
         frame = StackFrame(vm.ti, vm.ts)
         vm.ti, vm.ts = vm.i + 1, 0
         push!(vm.stack, frame)
@@ -93,16 +97,16 @@ end
 
 @inline
 function popframe!(vm::VMState)
-    if !vm.t_on 
+    if !vm.t_on
         return (nothing, nothing)
     end
     if isempty(vm.stack)
         vm.t_on = false
-        return vm.ti, vm.ts 
+        return vm.ti, vm.ts
     end
     frame = pop!(vm.stack)
-    _ti, _ts = vm.ti, vm.ts 
-    vm.ti, vm.ts = frame.i, frame.s 
+    _ti, _ts = vm.ti, vm.ts
+    vm.ti, vm.ts = frame.i, frame.s
     return _ti, _ts
 end
 
@@ -123,10 +127,10 @@ function failmatch(vm::VMState)
         i, s = popframe!(vm)
         if i === nothing break end
     end # until we find a choice frame or exhaust the stack
-    if i === nothing 
+    if i === nothing
         vm.running = false
         vm.matched = false
-    else 
+    else
         vm.s = s
         vm.i = i
     end
@@ -153,7 +157,7 @@ function Base.match(program::IVector, subject::AbstractString)::Union{UInt32, No
         end
     end
     if vm.matched
-        return vm.s 
+        return vm.s
     else
         return nothing
     end
@@ -176,12 +180,15 @@ Dispatch an instruction by structure, with match statements by opcode for
 further dispatch. Returns `false` if the instruction fails, otherwise `true`,
 in which case the dispatch function is expected to have altered the VM state.
 """
-function onInst(inst::Instruction, vm::VMState)::Bool end
+function onInst(inst::Instruction, vm::VMState)::Bool
+    @error "unrecognized instruction $inst"
+    false
+end
 
 "onAny"
 function onInst(any::AnyInst, vm::VMState)::Bool
-    idx = vm.s 
-    for i in any.n:-1:1 
+    idx = vm.s
+    for i in any.n:-1:1
         idx = nextind(vm.subject, idx)
         if idx > vm.top && i > 1
             return false
@@ -198,7 +205,7 @@ function onInst(inst::CharInst, vm::VMState)::Bool
     if this === nothing
         return false
     end
-    if this == inst.c 
+    if this == inst.c
         vm.i += 1
         vm.s = nextind(vm.subject, vm.s)
         return true
@@ -218,9 +225,16 @@ function onInst(inst::SetInst, vm::VMState)::Bool
         vm.i +=1
         vm.s = nextind(vm.subject, vm.s)
         return true
-    else
-        return false
     end
+    while !inst.final
+        vm.i += 1
+        inst = vm.program[vm.i]
+        if onInst(inst, vm)
+            vm.i += 1
+            return true
+        end
+    end
+    return false
 end
 
 "onTestChar"
@@ -231,7 +245,7 @@ function onInst(inst::TestCharInst, vm::VMState)::Bool
         return true
     else
         vm.i += inst.l
-        return true  # Not an unwinding fail 
+        return true  # Not an unwinding fail
     end
 end
 
@@ -284,7 +298,7 @@ end
 
 @inline
 function onJump(inst::LabelInst, vm::VMState)
-    vm.i += inst.l 
+    vm.i += inst.l
     return true
 end
 
@@ -313,12 +327,12 @@ end
 
 @inline
 function onPartialCommit(inst::LabelInst, vm::VMState)
-    updatetop_s!(vm) 
+    updatetop_s!(vm)
     vm.i += inst.l
     return true
 end
 
-@inline 
+@inline
 function onBackCommit(inst::LabelInst, vm::VMState)
     if !vm.t_on
         return false
@@ -328,16 +342,16 @@ function onBackCommit(inst::LabelInst, vm::VMState)
         i, s = popframe!(vm)
         if i === nothing break end
     end # until we find a choice frame or exhaust the stack
-    if i === nothing 
-        return false 
-    else     
-        vm.i += inst.l 
-        vm.s = s 
+    if i === nothing
+        return false
+    else
+        vm.i += inst.l
+        vm.s = s
         return true
     end
 end
 
-@inline 
+@inline
 function onFailTwice(vm::VMState)
     popframe!(vm)
     return false

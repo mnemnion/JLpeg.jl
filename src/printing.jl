@@ -87,7 +87,7 @@ end
 "Show a vector of Bytecode instructions"
 function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     compact = get(io, :compact, false)
-    if compact 
+    if compact
         if isempty(code)
             print(io, "VM[]")
         else
@@ -124,7 +124,7 @@ end
 
 "Show a vector of patterns"
 function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
-    compact = get(io, :compact, false) 
+    compact = get(io, :compact, false)
     lines = ["["]
     for p in patts
         if compact
@@ -149,7 +149,7 @@ function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
     print(io, join(lines) * ")")
 end
 
-# Printing the VMState 
+# Printing the VMState
 "Show a VMState"
 function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
     print(io, vm_to_str(vm))
@@ -159,20 +159,20 @@ function short_vm(vm::VMState)::String
     o = vm.t_on ? 1 : 0
     b = vm.t_on ? "yes" : "no"
     "State: [i:$(vm.i)] $(print_inst(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
-end 
+end
 
-function frame_to_str(vm::VMState, i, s)::String 
+function frame_to_str(vm::VMState, i, s)::String
     inst = vm.program[i]
-    if s == 0 
+    if s == 0
         "[i:$(i)] $(print_inst(inst,i))"
     else
         "[i:$(i)] $(print_inst(inst, i)) s:$(in_red(vm.subject, s))"
-    end    
+    end
 end
 
 function vm_to_str(vm::VMState)::String
     lines = [short_vm(vm)[1:end-1]]
-    if !vm.t_on 
+    if !vm.t_on
         push!(lines, "Frame: []")
     else
         push!(lines, "Frames:")
@@ -190,9 +190,9 @@ function in_red(str::String, i::UInt32)
         return "\"\""
     end
     if i == 0
-        str1 = "\x1B[38;5;208m*\x1B[0m" 
+        str1 = "\x1B[38;5;208m*\x1B[0m"
         str2, _ = substr_at_i(str, UInt32(1))
-        return str1 * str2 
+        return str1 * str2
     elseif i > sizeof(str)
         str2 = "\x1B[38;5;208m*\x1B[0m"
         str1, _ = substr_at_i(str, UInt32(sizeof(str)))
@@ -202,13 +202,13 @@ function in_red(str::String, i::UInt32)
 end
 
 function red_i(str::String, i::UInt32)
-    red_start = "\x1B[31m" 
-    red_end = "\x1B[0m" 
-    sstr = sizeof(str)   
+    red_start = "\x1B[31m"
+    red_end = "\x1B[0m"
+    sstr = sizeof(str)
     i1 = clamp(i, 1, sstr)
     i2 = clamp(i+1, 1, sstr)
-    highlighted_str = str[1:i1-1] * red_start * str[i1:i1] * red_end 
-    if i2 ≠ i1 
+    highlighted_str = str[1:i1-1] * red_start * str[i1:i1] * red_end
+    if i2 ≠ i1
         highlighted_str *= str[i2:end]
     end
 

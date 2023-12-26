@@ -46,7 +46,7 @@ struct PRange <: Pattern
             if idx == 1
                 a = char
             elseif idx == 2
-                b = char 
+                b = char
             else
                 @error lazy"Range must be two characters: $char"
             end
@@ -64,19 +64,19 @@ struct PAny <: Pattern
     PAny(val::UInt) = new(val, Inst())
 end
 
-struct PAnd <: Pattern 
+struct PAnd <: Pattern
     val::Vector{Pattern}
-    code::IVector 
+    code::IVector
     PAnd(val::Pattern) = new([val], Inst())
 end
 
-struct PNot <: Pattern 
+struct PNot <: Pattern
     val::Vector{Pattern}
-    code::IVector 
+    code::IVector
     PNot(val::Pattern) = new([val], Inst())
 end
 
-struct PDiff <: Pattern 
+struct PDiff <: Pattern
     val::Vector{Pattern}
     code::IVector
     PDiff(a::Pattern, b::Pattern) = new([a, b], Inst())
@@ -90,7 +90,7 @@ struct PStar <: Pattern
     PStar(patt::Pattern, n::Int) = new([patt], Inst(), n)
 end
 
-struct PSeq <: Pattern 
+struct PSeq <: Pattern
     val::Vector{Pattern}
     code::IVector
 end
@@ -100,19 +100,19 @@ struct PChoice <: Pattern
     code::IVector
 end
 
-struct PTrue <: Pattern 
+struct PTrue <: Pattern
    val::Nothing
    code::IVector
    PTrue() = new(nothing, Inst())
 end
 
-struct PFalse <: Pattern 
+struct PFalse <: Pattern
     val::Nothing
     code::IVector
     PFalse() = new(nothing, Inst())
- end 
+ end
 
-struct POpenCall <: Pattern 
+struct POpenCall <: Pattern
     val::Symbol
     code::IVector
     meta::Dict{AbstractString, Any}
@@ -122,7 +122,7 @@ end
 POpenCall(s::AbstractString) = POpenCall(Symbol(s))
 
 # TODO I'm not in fact using this and should do so or get rid of it.
-struct PCall <: Pattern 
+struct PCall <: Pattern
     val::Symbol
     code::IVector
     meta::Dict{AbstractString, Any}
@@ -137,11 +137,11 @@ struct PCall <: Pattern
     end
 end
 
-struct PRule <: Pattern 
+struct PRule <: Pattern
     val::Vector{Pattern}
     code::IVector
     name::Symbol
-    meta::Dict{AbstractString, Any}
+    meta::Dict{Symbol, Any}
     PRule(name::Symbol, val::Pattern) = new([val], Inst(), name, Dict())
 end
 
@@ -149,9 +149,9 @@ struct PGrammar <: Pattern
     val::Vector{PRule}
     code::IVector
     start::Symbol
-    meta::Dict{AbstractString, Any}
+    meta::Dict{Symbol, Any}
     function PGrammar(start::PRule, rest::Vararg{PRule})
-        start_sym = start.name 
+        start_sym = start.name
         val = [start]
         append!(val, rest)
         new(val, Inst(), start_sym, Dict())
@@ -166,7 +166,7 @@ abstract type PCapture <:Pattern end
 abstract type PTXInfo <:Pattern end
 abstract type PThrow <:Pattern end
 
-# TODO this lets me smuggle them into tests and (with caution!) optimizations 
+# TODO add PCompiled for string-dumped rules and grammars
 
 function PSeq(str::AbstractString)
     val = Vector{Pattern}(undef, 0)
@@ -211,19 +211,19 @@ optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 """
     P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern
 
-Create a Pattern. 
+Create a Pattern.
 
 If `p` is a String, this matches that string.
 If `p` is a positive Int, it matches that many characters.
 If `p` is `true`, the rules succeeds, if `false`, the rule fails.
-If `p` is a Symbol, this represents a call to the rule with that name. 
+If `p` is a Symbol, this represents a call to the rule with that name.
 """
 function P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern end
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::Int) = n ≥ 0 ? PAny(n) : PAnd(PAny(UInt(-n)))
 P(b::Bool) = b ? PTrue() : PFalse()
-P(sym::Symbol) = POpenCall(sym) 
+P(sym::Symbol) = POpenCall(sym)
 const Grammar = PGrammar
 const Rule = PRule
 
@@ -238,14 +238,14 @@ S(s::AbstractString) = PSet(s)
 """
     R(s::AbstractString)
 
-Create a pattern ranging from the first to the second character. 
-`s` must be two codepoints long, and the first must be lower-valued 
-than the second. 
+Create a pattern ranging from the first to the second character.
+`s` must be two codepoints long, and the first must be lower-valued
+than the second.
 """
 R(s::AbstractString) = PRange(s)
 
 
-# Operators 
+# Operators
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
@@ -263,7 +263,7 @@ Base.:~(a::Symbol) = PAnd(POpenCall(a))
 Base.:!(a::Pattern) = PNot(a)
 Base.:!(a::Symbol) = PNot(POpenCall(a))
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
-←(a::Symbol, b::Pattern) = PRule(a,b)   
+←(a::Symbol, b::Pattern) = PRule(a,b)
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:
 Base.:^(a::Tuple{Pattern, Nothing}, b::Int) = PStar(a[1], -b)
@@ -273,14 +273,14 @@ Base.inv(a::Pattern) = (a, nothing)
 function compile_raw_string(str::String)::String
     # Mapping of C escape sequences to their Julia equivalents
     c_escapes = Dict(
-        "\\a" => "\a", "\\b" => "\b", "\\f" => "\f", 
-        "\\n" => "\n", "\\r" => "\r", "\\t" => "\t", 
-        "\\v" => "\v", "\\\\" => "\\", "\\'" => "'", 
+        "\\a" => "\a", "\\b" => "\b", "\\f" => "\f",
+        "\\n" => "\n", "\\r" => "\r", "\\t" => "\t",
+        "\\v" => "\v", "\\\\" => "\\", "\\'" => "'",
         "\\\"" => "\"", "\\?" => "?", "\\0" => "\0"
     )
 
     # Replace each C escape sequence with its Julia equivalent
-    
+
     str = replace(str, c_escapes...)
 
     str = replace(str, r"\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\u[0-9a-fA-F]{1:6}" =>
@@ -293,7 +293,7 @@ function compile_raw_string(str::String)::String
     return str
 end
 
-"""  
+"""
     P"str"
 
 Calls P(str) on the string, in close imitation of Lua's calling convention.
@@ -302,7 +302,7 @@ macro P_str(str)
     P(compile_raw_string(str))
 end
 
-"""  
+"""
     R"str"
 
 Calls R(str) on the string, in close imitation of Lua's calling convention.
@@ -311,7 +311,7 @@ macro R_str(str)
     R(compile_raw_string(str))
 end
 
-"""  
+"""
     S"str"
 
 Calls S(str) on the string, in close imitation of Lua's calling convention.

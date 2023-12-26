@@ -71,7 +71,7 @@ end
 struct SetInst <: Instruction
     op::Opcode
     vec::BitVector
-    final::Bool 
+    final::Bool
     SetInst(vec::BitVector) = new(ISet, vec, true)
     SetInst(vec::BitVector, final::Bool) = new(ISet, vec, final)
 end
@@ -151,11 +151,11 @@ Compile a Pattern.
 
 Translate the Pattern to Instruction codes, appending them to
 the `code` field and returning same.  Performs various optimizations
-in the process. 
+in the process.
 
 In most cases, the return value of `compile!` is the same Pattern passed in.
-The exceptions are special cases of primitive types, but be sure to reassign 
-the return value to the variable bound to the original for the general case.  
+The exceptions are special cases of primitive types, but be sure to reassign
+the return value to the variable bound to the original for the general case.
 """
 function compile!(patt::Pattern)::Pattern
     if isempty(patt.code)
@@ -167,12 +167,12 @@ function compile!(patt::Pattern)::Pattern
         end
         _compile!(patt)
     else
-        patt 
+        patt
     end
 end
 
 
-function _compile!(patt::Pattern)::Pattern 
+function _compile!(patt::Pattern)::Pattern
     error("Not Yet Implemented for $(typeof(patt))")
 end
 
@@ -181,9 +181,9 @@ function _compile!(patt::PAny)::Pattern
     return patt
 end
 
-function _compile!(patt::PChar)::Pattern 
+function _compile!(patt::PChar)::Pattern
     push!(patt.code, CharInst(patt.val), OpEnd)
-    return patt 
+    return patt
 end
 
 function _compile!(patt::PTrue)::Pattern
@@ -191,25 +191,25 @@ function _compile!(patt::PTrue)::Pattern
     return patt
 end
 
-function _compile!(patt::PFalse)::Pattern 
+function _compile!(patt::PFalse)::Pattern
     push!(patt.code, OpFail)
     return patt
 end
 
-function _compile!(patt::POpenCall)::Pattern 
+function _compile!(patt::POpenCall)::Pattern
     push!(patt.code, OpenCallInst(patt.val))
     return patt
 end
 
 function _compile!(patt::PSet)::Pattern
-    # Special-case the empty set 
+    # Special-case the empty set
     # We'll turn into a Jump when we have the requisite info
     if patt.val == ""  # A valid way of saying "fail"
         return PFalse()
     end
     bvec, prefix_map = vecsforstring(patt.val)
 
-    is_final = prefix_map === nothing ? false : true
+    is_final = prefix_map === nothing ? true : false
     if bvec !== nothing
         push!(patt.code, SetInst(bvec, is_final))
     end
@@ -217,7 +217,7 @@ function _compile!(patt::PSet)::Pattern
     # Others are a bit more complex! heh. bit.
     if prefix_map !== nothing
         encode_multibyte_set!(patt.code, prefix_map)
-    end 
+    end
     pushEnd!(patt.code)
     return patt
 end
@@ -231,15 +231,15 @@ function _compile!(patt::PRange)::Pattern
         i += 1
     end
     bvec, prefix_map = vecsforstring(Vector{AbstractChar}(vec))
-    is_final = prefix_map === nothing ? false : true
+    is_final = prefix_map === nothing ? true : false
     if bvec !== nothing
        push!(patt.code, SetInst(bvec, is_final))
     end
     if prefix_map !== nothing
         encode_multibyte_set!(patt.code, prefix_map)
-    end 
+    end
     pushEnd!(patt.code)
-    return patt  
+    return patt
 end
 
 function _compile!(patt::PAnd)::Pattern
@@ -256,21 +256,21 @@ function _compile!(patt::PAnd)::Pattern
     return patt
 end
 
-function _compile!(patt::PNot)::Pattern 
+function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
-    c = patt.code 
+    c = patt.code
     code = copy(patt.val[1].code)
     trimEnd!(code)
-    l = length(code) + 2  # 3 -> FailTwice, next 
+    l = length(code) + 2  # 3 -> FailTwice, next
     push!(c, ChoiceInst(l))
     append!(c, code)
     push!(c, OpFailTwice)
     pushEnd!(c)  # Choice target
-    return patt 
+    return patt
 end
 
 function _compile!(patt::PDiff)::Pattern
-    v = patt.val 
+    v = patt.val
     # Optimization: difference of sets can be done with Boolean logic
     headset = isa(v[1], PSet) || isa(v[1], PRange)
     if headset && isa(v[2], PSet) || isa(v[2], PRange)
@@ -280,19 +280,19 @@ function _compile!(patt::PDiff)::Pattern
     elseif headset && isa(v[2], PChar)
         print("optimizing PDiff Set - Char")
         bvec = copy(v[1].code[1].vec)
-        bvec[Int(v[2].val) + 1] = false 
+        bvec[Int(v[2].val) + 1] = false
         return PSet([SetInst(bvec), OpEnd])
     end
     compile!(PSeq(PNot(patt.val[2]), patt.val[1]))
 end
 
-function _compile!(patt::PSeq)::Pattern 
+function _compile!(patt::PSeq)::Pattern
     # As an optimization, a Seq of one member can just be that member
     if length(patt.val) == 1
         return patt.val[1]
     end
     for p in patt.val
-        code = copy(p.code) 
+        code = copy(p.code)
         trimEnd!(code)
         append!(patt.code, code)
         # optimizations?
@@ -306,10 +306,10 @@ function _compile!(patt::PStar)::Pattern
     # [X] n == 0, aka *
     # [X] n == 1, aka +
     # [X] n == -1 aka ?
-    # [ ] n > 1, which is + with repetitions 
+    # [ ] n > 1, which is + with repetitions
     # [ ] n < -1, which is the weird one I'll do last
     #
-    # TODO figure out when TestChar etc come into play 
+    # TODO figure out when TestChar etc come into play
     #
     # bad things happen when val is  a PStar, specifically
     # when the inner is optional, e.g. ("ab"?)*, so we check for this
@@ -323,15 +323,15 @@ function _compile!(patt::PStar)::Pattern
         elseif p.n == 0 && (patt.n == 0 || patt.n == 1)
             # Both of these mean "match as few as zero or as many as you can",
             # Which is what p means already.
-            return p 
-        elseif p.n == 0 && patt.n == -1 
+            return p
+        elseif p.n == 0 && patt.n == -1
             # Same outcome as the above, but this time it's an optimization,
-            # the code actually works fine, but the -1 isn't doing anything here 
-            return p 
+            # the code actually works fine, but the -1 isn't doing anything here
+            return p
         end
     end
     c = patt.code
-    code = copy(p.code) 
+    code = copy(p.code)
     trimEnd!(code)
     if patt.n == 0
         addstar!(c, code)
@@ -353,7 +353,7 @@ function addstar!(c::IVector, code::Vector{})
     push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
     append!(c, code)
     push!(c, PartialCommitInst(-l))
-    # Choice Target 
+    # Choice Target
 end
 
 
@@ -361,33 +361,33 @@ function _compile!(patt::PChoice)::Pattern
     c = patt.code
     choices = []
     # Optimizations:
-    # Merge Set and Char choices 
-    # TODO this will need more work once sets include higher characters 
+    # Merge Set and Char choices
+    # TODO this will need more work once sets include higher characters
     allchars = all(p -> begin t = typeof(p); t == PSet || t == PChar || t == PRange end, patt.val)
     if allchars
         bvec = falses(128)
         correct = true
-        for p in patt.val 
-            if typeof(p) == PSet || typeof(p) == PRange 
+        for p in patt.val
+            if typeof(p) == PSet || typeof(p) == PRange
                 bvec = bvec .| p.code[1].vec
-            elseif typeof(p) == PChar 
+            elseif typeof(p) == PChar
                 if isascii(p.val)
                     bvec[UInt(p.val)+1] = true
                 else
-                    # Bail until we handle multibyte chars 
+                    # Bail until we handle multibyte chars
                     @warn "multibyte chars not yet optimized"
-                    correct = false 
+                    correct = false
                     break
                 end
             end
         end
         if correct
             push!(c, SetInst(bvec), OpEnd)
-            return patt 
+            return patt
         end
     end
     # headfail
-    # disjoint 
+    # disjoint
     for (idx, p) in enumerate(patt.val)
         pcode = copy(p.code)
         trimEnd!(pcode)
@@ -395,11 +395,11 @@ function _compile!(patt::PChoice)::Pattern
             append!(c, pcode)
             break
         end
-        len = length(pcode) 
+        len = length(pcode)
         push!(c, ChoiceInst(len + 2)) # +2 == Choice and Commit
         push!(choices, length(c))
         append!(c, pcode)
-        push!(c, HoldInst(ICommit)) 
+        push!(c, HoldInst(ICommit))
     end
     pushEnd!(c)
     for (idx, inst) in enumerate(c)
@@ -411,35 +411,46 @@ function _compile!(patt::PChoice)::Pattern
 end
 
 function _compile!(patt::PRule)::Pattern
-    c = patt.code 
-    append!(c, patt.val[1].code)
-    trimEnd!(c)
-    push!(c, OpReturn)
+    c = patt.code
+    meta = patt.meta
+    calls = meta[:call] = Dict{Int, Symbol}()
+    for (idx, op) in enumerate(patt.val[1].code)
+        if op.op == IOpenCall
+            calls[idx] = op.rule
+        end
+        if op == OpEnd
+            push!(c, OpReturn)
+        else
+            push!(c, op)
+        end
+    end  # TODO inline rules sometimes
+    meta[:terminal] = isempty(calls) ? true : false
+    # TODO probably want to inline 'short' terminals for some value of short. what value?
     return patt
 end
 
-function _compile!(patt::PGrammar)::Pattern 
+function _compile!(patt::PGrammar)::Pattern
     rules = Dict{Symbol, PRule}()
     for rule in patt.val
-        rules[rule.name] = rule 
+        rules[rule.name] = rule
     end
     c = patt.code
     start = rules[patt.start]
     fixup = []
     callMap = Dict{Symbol, Int}()
-    # TODO we could be fancy and jump to the actual end 
+    # TODO we could be fancy and jump to the actual end
     push!(c, CallInst(2))
     push!(c, OpEnd)
     next = coderule!(c, start, rules, fixup, callMap)
     while !isempty(next)
         after = []
-        for rule in next 
+        for rule in next
             append!(after, coderule!(c, rule, rules, fixup, callMap))
         end
         next = after
     end
-    # fix up missed calls 
-    for (rulename, i) in fixup 
+    # fix up missed calls
+    for (rulename, i) in fixup
         inst = c[i]
         @assert (inst.op == IOpenCall && inst.rule == rulename) "bad fixup"
         if haskey(callMap, rulename)
@@ -453,12 +464,12 @@ function _compile!(patt::PGrammar)::Pattern
     return patt
 end
 
-function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap::Dict)::Vector{PRule} 
+function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap::Dict)::Vector{PRule}
     next = []
     # Add the instruction pointer to the callMap
     callMap[rule.name] = length(c) + 1
     for inst in rule.code
-        if inst.op == IOpenCall 
+        if inst.op == IOpenCall
             if haskey(callMap, inst.rule)
                 # We need this to be a relative jump
                 l = callMap[inst.rule] - length(c) - 1
@@ -475,7 +486,7 @@ function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap:
             push!(c, inst)
         end
     end
-    return next 
+    return next
 end
 
 """
@@ -502,11 +513,11 @@ end
 Answer if the pattern cannot fail.
 """
 function nofail(patt::Pattern)::Bool
-    if patt isa PTrue return true 
-    elseif patt isa PStar && patt.n ≤ 0 return true 
+    if patt isa PTrue return true
+    elseif patt isa PStar && patt.n ≤ 0 return true
     elseif isof(patt, PChar, PAny, PSet, PFalse, PThrow) return false
-    # POpenCall needs checked later 
-    elseif patt isa POpenCall return false 
+    # POpenCall needs checked later
+    elseif patt isa POpenCall return false
     # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
     elseif isof(patt, PNot, PBehind, PRunTime) return false
     # PSeq nofail if entire sequence is nofail
@@ -515,8 +526,8 @@ function nofail(patt::Pattern)::Bool
     elseif patt isa PChoice return any(p -> nofail(p), patt.val)
     # Wrapped patterns nofail based on the pattern they enclose
     elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return nofail(patt.val[1])
-    # Why is this true of PCall? 
-    # TODO Check this assumption when we implement it 
+    # Why is this true of PCall?
+    # TODO Check this assumption when we implement it
     elseif patt isa PCall return nofail(patt.val[2])
     else @error "nofail not defined for $(typeof(patt))"
     end
@@ -528,30 +539,30 @@ end
 Answer if the pattern can consume no input.
 """
 function nullable(patt::Pattern)::Bool
-    if isof(patt, PNot, PBehind, PAnd) return true 
+    if isof(patt, PNot, PBehind, PAnd) return true
     elseif isof(patt, PRunTime) return nullable(patt.val[1])
-    elseif nofail(patt) return true 
+    elseif nofail(patt) return true
     else return false
     end
 end
 
 function isof(patt::Pattern, types::DataType...)
-    for t in types 
-        if patt isa t 
+    for t in types
+        if patt isa t
             return true
-        end 
+        end
     end
-    return false 
+    return false
 end
 
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
 
 Take a string, or a vector of characters, and break it down into bitvectors which
-compactly and quickly test for those characters. 
+compactly and quickly test for those characters.
 
 Return `(ascii, higher)` where `ascii` is all one-byte utf8 characters and higher is a somewhat
-complex dict of bitvectors useful for detecting practical multibyte ranges and sets. 
+complex dict of bitvectors useful for detecting practical multibyte ranges and sets.
 """
 function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
     bvec = nothing
@@ -580,7 +591,7 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
     if !isnothing(prefix_map)
         compact_bytevec!(prefix_map)
     end
-    return bvec, prefix_map        
+    return bvec, prefix_map
 end
 
 function prefix!(map::Dict, key, val)
@@ -594,7 +605,7 @@ function prefix!(map::Dict, key, val)
     end
 end
 
-# later being here 
+# later being here
 function compact_bytevec!(prefixes)
     for (pre, vec) in prefixes
         bvec = falses(64)
@@ -612,7 +623,7 @@ function encode_multibyte_set!(c::IVector, pre::Dict)
     for pair in coll
         count += 1
         bytes, vec = pair
-        if count < len 
+        if count < len
             push!(c, MultiSetInst(bytes, vec, false))
         else
             push!(c, MultiSetInst(bytes, vec, true))
