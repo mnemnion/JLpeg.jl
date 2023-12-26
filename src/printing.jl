@@ -2,11 +2,99 @@
 
 "Show an Instruction"
 function Base.show(io::IO, inst::Instruction)
-    print(io, print_inst(inst, Int32(0)))
+    print(io, inst_str(inst, Int32(0)))
 end
 
-function print_inst(inst::Instruction, off::Int32)
-    line = ["⟪$(inst.op)"]
+"Show a vector of Bytecode instructions"
+function Base.show(io::IO, ::MIME"text/plain", code::IVector)
+    compact = get(io, :compact, false)
+    if compact
+        if isempty(code)
+            print(io, "VM[]")
+        else
+            print(io,"VM[1:$(length(code))]")
+        end
+        return
+    end
+    lines = []
+    pad = length(code) > 99 ? 3 : 2
+    for (idx, inst) in enumerate(code)
+        ipad = lpad(idx, pad, "0")
+        line = ["$ipad: "]
+        frags = inst_pieces(inst, idx)
+        push!(line, join(frags))
+        push!(lines, join(line))
+    end
+    print(io, join(lines, "\n"))
+end
+
+"Show a vector of patterns"
+function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
+    compact = get(io, :compact, false)
+    lines = ["["]
+    for p in patts
+        if compact
+            push!(lines, string(typeof(p)), ",")
+        else
+            push!(lines, repr("text/plain", p, context=:compact=>true), ",")
+        end
+    end
+    pop!(lines)
+    print(io, join(lines) * "]")
+end
+
+
+"Show a Pattern"
+function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
+    compact = get(io, :compact, false)
+    if compact
+        print(io, typeof(patt))
+        return
+    end
+    print(io, patt_str(patt))
+end
+
+"Show a Grammar"
+function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
+    if !haskey(patt.meta, :start) # Not yet compiled
+        return print(io, patt_str(patt))
+    end
+    meta = patt.meta
+    lines = [":$(meta[:start])", '-'^(length(string(meta[:start]))+1)]
+    for (idx, inst) in enumerate(patt.code)
+        push!(lines, inst_str(inst, idx))
+    end
+    print(io, join(lines, "\n"))
+end
+
+
+
+"Show a VMState"
+function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
+    print(io, vm_to_str(vm))
+end
+
+# Pattern Printer
+
+function patt_str(patt::Pattern)::String
+    lines=[typeof(patt), "("]
+    push!(lines, "val→", repr("text/plain", patt.val, context=:compact=>true), ", ")
+    if hasfield(typeof(patt), :n)
+        push!(lines, "n=", string(patt.n), ", ")
+    end
+    push!(lines, repr("text/plain", patt.code, context=:compact=>true), ")")
+    join(lines) * ")"
+end
+
+# Instruction printing helpers
+
+function inst_str(inst::Instruction, off::Integer)::String
+    "⟪$(join(inst_pieces(inst, off)))⟫"
+end
+
+"Vector of instruction string fragments"
+function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
+    line = ["$(inst.op)"]
     t = typeof(inst)
     if hasfield(t, :c)
         push!(line, " '$(inst.c)'" )
@@ -20,11 +108,65 @@ function print_inst(inst::Instruction, off::Int32)
     if hasfield(t, :rule)
         push!(line, " :$(inst.rule)")
     end
-    if hasfield(t, :vec)
-        push!(line, " $(printset(inst.vec))")
+    if hasfield(t, :final)
+        push!(line, inst.final ? " t" : " f")
     end
-    push!(line, "⟫")
-    return join(line)
+    if hasfield(t, :vec) && !hasfield(t, :lead)
+        push!(line, " $(printset(inst.vec))")
+    elseif hasfield(t, :vec) && hasfield(t, :lead)
+        push!(line, " {$(compact_bytevec(inst))}")
+    end
+    line
+end
+
+
+"String for Multivector"
+function multivec_string(set::Instruction)::String
+    frag = []
+    lead = set.lead
+    vec = set.vec
+    si = 0
+    ei = 0
+    tochar(i) = string(push!(copy(lead), UInt8(i-1) | 0b010000000))
+    for i in eachindex(vec)
+        if vec[i]
+            if si == 0
+                si = i
+            end
+            ei = i
+        elseif si > 0
+            # Sequence
+            if ei - 2 > si
+                push!(frag, "$(tochar(si))-$(tochar(ei))")
+            else
+                for j in si:ei
+                    push!(frag, tochar(j))
+                end
+            end
+        end
+        si, ei = 0, 0
+    end
+    if si > 0
+        if ei - 2 > si
+            push!(frag, "$(tochar(si))-$(tochar(ei))")
+        else
+            for j in si:ei
+                push!(frag, tochar(j))
+            end
+        end
+    end
+    return join(frag, ",")
+end
+
+
+"String for Set Vector"
+function printset(vec::BitVector)::String
+    chars = bitvector_to_compact_repr(vec)
+    str = "{"
+
+    str *= join(chars, ",")
+    str *= "}"
+    return str
 end
 
 """
@@ -83,10 +225,10 @@ function bitvector_to_compact_repr(bitvec::BitVector)
     # Handle the case where the sequence reaches the end of the BitVector
     if start_idx != 0
         if end_idx - start_idx >= 2
-            push!(fragments, "$(Char(start_idx))-$(Char(end_idx))")
+            push!(fragments, "$(_encode(start_idx))-$(_encode(end_idx))")
         else
             for j in start_idx:end_idx
-                push!(fragments, string(Char(j)))
+                push!(fragments, string(_encode(j)))
             end
         end
     end
@@ -95,99 +237,20 @@ function bitvector_to_compact_repr(bitvec::BitVector)
 end
 
 
-"String for Set Vector"
-function printset(vec::BitVector)::String
-    chars = bitvector_to_compact_repr(vec)
-    str = "{"
-
-    str *= join(chars, ",")
-    str *= "}"
-    return str
-end
-
-"Show a vector of Bytecode instructions"
-function Base.show(io::IO, ::MIME"text/plain", code::IVector)
-    compact = get(io, :compact, false)
-    if compact
-        if isempty(code)
-            print(io, "VM[]")
-        else
-            print(io,"VM[1:$(length(code))]")
-        end
-        return
-    end
-    lines = []
-    pad = length(code) > 99 ? 3 : 2
-    for (idx, inst) in enumerate(code)
-        ipad = lpad(idx, pad, "0")
-        line = ["$ipad: $(inst.op)"]
-        t = typeof(inst)
-        if hasfield(t, :c)
-            push!(line, " '$(inst.c)'" )
-        end
-        if hasfield(t, :n)
-            push!(line, " $(inst.n)")
-        end
-        if hasfield(t, :l)
-            off = idx + inst.l
-            push!(line, " ($off)")
-        end
-        if hasfield(t, :rule)
-            push!(line, " :$(inst.rule)")
-        end
-        if hasfield(t, :vec)
-            push!(line, " $(printset(inst.vec))")
-        end
-        push!(lines, join(line))
-    end
-    print(io, join(lines, "\n"))
-end
-
-"Show a vector of patterns"
-function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
-    compact = get(io, :compact, false)
-    lines = ["["]
-    for p in patts
-        if compact
-            push!(lines, string(typeof(p)), ",")
-        else
-            push!(lines, repr("text/plain", p, context=:compact=>true), ",")
-        end
-    end
-    pop!(lines)
-    print(io, join(lines) * "]")
-end
-
-
-"Show a Pattern"
-function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
-    lines=[typeof(patt), "("]
-    push!(lines, "val→", repr("text/plain", patt.val, context=:compact=>true), ", ")
-    if hasfield(typeof(patt), :n)
-        push!(lines, "n=", string(patt.n), ", ")
-    end
-    push!(lines, repr("text/plain", patt.code, context=:compact=>true), ")")
-    print(io, join(lines) * ")")
-end
-
-# Printing the VMState
-"Show a VMState"
-function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
-    print(io, vm_to_str(vm))
-end
+# VMState printing helpers
 
 function short_vm(vm::VMState)::String
     o = vm.t_on ? 1 : 0
     b = vm.t_on ? "yes" : "no"
-    "State: [i:$(vm.i)] $(print_inst(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
+    "State: [i:$(vm.i)] $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
 end
 
 function frame_to_str(vm::VMState, i, s)::String
     inst = vm.program[i]
     if s == 0
-        "[i:$(i)] $(print_inst(inst,i))"
+        "[i:$(i)] $(inst_str(inst,i))"
     else
-        "[i:$(i)] $(print_inst(inst, i)) s:$(in_red(vm.subject, s))"
+        "[i:$(i)] $(inst_str(inst, i)) s:$(in_red(vm.subject, s))"
     end
 end
 

@@ -437,6 +437,7 @@ function _compile!(patt::PGrammar)::Pattern
     meta[:rules] = copy(rules)
     c = patt.code
     start = rules[patt.start]
+    meta[:start] = start.name
     fixup = []
     meta[:callsite] = callMap = Dict{Symbol, Int}()
     # TODO we could be fancy and jump to the actual end
