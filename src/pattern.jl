@@ -221,8 +221,8 @@ If `p` is a Symbol, this represents a call to the rule with that name.
 function P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern end
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
-P(n::Int) = n ≥ 0 ? PAny(n) : @error "P(-n) NYI"
-P(b::Bool) = if b PTrue() else PFalse() end
+P(n::Int) = n ≥ 0 ? PAny(n) : PAnd(PAny(UInt(-n)))
+P(b::Bool) = b ? PTrue() : PFalse()
 P(sym::Symbol) = POpenCall(sym) 
 
 """

@@ -4,7 +4,7 @@ include("compile.jl")
 
 struct StackFrame 
     i::Int32   # Instruction pointer
-    s:: UInt32  # String index
+    s::UInt32  # String index
 end
 
 CallFrame(i::Int32) = StackFrame(i, 0)
@@ -214,7 +214,7 @@ function onInst(inst::SetInst, vm::VMState)::Bool
         return false
     end
     code = UInt32(this)
-    if code < 128 && inst.vec[code + 1] # TODO code - 1 to allow for zero bytes
+    if code < 128 && inst.vec[code + 1]
         vm.i +=1
         vm.s = nextind(vm.subject, vm.s)
         return true
@@ -225,7 +225,7 @@ end
 
 "onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
-    this = thischar(vm)  # TODO `this` can be `nothing` but I think what follows is still correct
+    this = thischar(vm)
     if this == inst.c
         vm.i += 1
         return true

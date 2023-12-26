@@ -122,4 +122,6 @@ using Test
     pno_l = (R"az" - P"l")^1
     @test match(pno_l, "abcdefghijkmnopqrstuvwxyz") == 0x1a
     @test match(pno_l, "abcdefghijklmnopqrstuvwxyz") == 0x0c
+    @test match(P(-3), "a") === nothing
+    @test match(P(-3), "aaaa") == 1
 end
