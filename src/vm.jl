@@ -2,7 +2,7 @@
 
 include("compile.jl")
 
-mutable struct StackFrame 
+struct StackFrame 
     i::Int32   # Instruction pointer
     s:: UInt32  # String index
 end
@@ -44,6 +44,9 @@ mutable struct VMState
    # Registers
    i::Int32         # Instruction Counter 
    s::UInt32        # Subject pointer
+   ti::Int32        # Stack top instruction register
+   ts::UInt32       # Stack top subject register
+   t_on::Bool       # Is there a frame on the stack?
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapEntry}
    running::Bool
@@ -52,13 +55,12 @@ mutable struct VMState
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(s)
-      return new(s, p, top, 1, 1, stack, cap, false, false)
+      return new(s, p, top, 1, 1, 0, 0, false, stack, cap, false, false)
    end
 end
 
 @inline
 function thischar(vm::VMState)
-    # TODO I'm not 100% convinced this is the best way to handle this.
     if vm.s > vm.top
         return nothing
     end 
@@ -66,46 +68,67 @@ function thischar(vm::VMState)
 end
 
 @inline
-function pushframe!(vm::VMState, frame::StackFrame)
-    push!(vm.stack,frame)
+function pushframe!(vm::VMState, i::Int32, s::UInt32)
+    if !vm.t_on 
+        vm.ti, vm.ts = i, s
+        vm.t_on = true
+    else
+        frame = StackFrame(vm.ti, vm.ts)
+        vm.ti, vm.ts = i, s 
+        push!(vm.stack, frame)
+    end
 end
 
 @inline
 function pushcall!(vm::VMState)
-    push!(vm.stack, CallFrame(vm.i + UInt32(1)))
+    if !vm.t_on 
+       vm.ti = vm.i
+       vm.t_on = true 
+    else 
+        frame = StackFrame(vm.ti, vm.ts)
+        vm.ti, vm.ts = vm.i + 1, 0
+        push!(vm.stack, frame)
+    end
 end
 
 @inline
 function popframe!(vm::VMState)
-    if isempty(vm.stack)
-        return nothing
+    if !vm.t_on 
+        return (nothing, nothing)
     end
-    pop!(vm.stack)
+    if isempty(vm.stack)
+        vm.t_on = false
+        return vm.ti, vm.ts 
+    end
+    frame = pop!(vm.stack)
+    _ti, _ts = vm.ti, vm.ts 
+    vm.ti, vm.ts = frame.i, frame.s 
+    return _ti, _ts
 end
 
 @inline
 function updatetop_s!(vm::VMState)
-    vm.stack[end].s = vm.s
+    vm.ts = vm.s
 end
 
 @inline
 function failmatch(vm::VMState)
-    if isempty(vm.stack)
+    if !vm.t_on
         vm.running = false
         vm.matched = false
         return
     end
-    frame = popframe!(vm)
-    while frame.s == 0 # return from calls
-        frame = popframe!(vm)
-        if frame === nothing break end
+    i, s = popframe!(vm)
+    while s == 0 # return from calls
+        i, s = popframe!(vm)
+        if i === nothing break end
     end # until we find a choice frame or exhaust the stack
-    if frame === nothing 
+    if i === nothing 
         vm.running = false
         vm.matched = false
     else 
-        vm.s = frame.s
-        vm.i = frame.i
+        vm.s = s
+        vm.i = i
     end
 end
 
@@ -230,7 +253,7 @@ end
 
 "onChoice"
 function onInst(inst::ChoiceInst, vm::VMState)
-    pushframe!(vm, StackFrame(vm.i + inst.l, vm.s + inst.n))
+    pushframe!(vm, vm.i + inst.l, vm.s + inst.n)
     vm.i += 1
     return true
 end
@@ -240,16 +263,13 @@ function onInst(inst::LabelInst, vm::VMState)
     elseif inst.op == IJump          return onJump(inst, vm)
     elseif inst.op == ICall          return onCall(inst, vm)
     elseif inst.op == IPartialCommit return onPartialCommit(inst, vm)
-        # TODO NYI
-    elseif inst.op == IBackCommit     return onBackCommit(inst, vm)
+    elseif inst.op == IBackCommit    return onBackCommit(inst, vm)
     end
 end
 
 function onInst(inst::MereInst, vm::VMState)
-
      if inst.op == IEnd           return onEnd(vm)
      elseif inst.op == IReturn    return onReturn(vm)
-     # TODO NYI
      elseif inst.op == IFail      return false
      elseif inst.op == IFailTwice return onFailTwice(vm)
     end
@@ -285,10 +305,9 @@ end
 
 @inline
 function onReturn(vm::VMState)
-    # TODO if I cache the call stack this will start returning a Tuple, needs fix
-    frame = popframe!(vm)
-    @assert frame.s == 0 "rule left a choice frame on the stack:\n$(repr(vm))"
-    vm.i = frame.i
+    i, s = popframe!(vm)
+    @assert s == 0 "rule left a choice frame on the stack:\n$(repr(vm))"
+    vm.i = i
     return true
 end
 
@@ -301,19 +320,19 @@ end
 
 @inline 
 function onBackCommit(inst::LabelInst, vm::VMState)
-    if isempty(vm.stack)
-        return
+    if !vm.t_on
+        return false
     end
-    frame = popframe!(vm)
-    while frame.s == 0 # return from calls
-        frame = popframe!(vm)
-        if frame === nothing break end
+    i, s = popframe!(vm)
+    while s == 0 # return from calls
+        i, s = popframe!(vm)
+        if i === nothing break end
     end # until we find a choice frame or exhaust the stack
-    if frame === nothing 
+    if i === nothing 
         return false 
     else     
         vm.i += inst.l 
-        vm.s = frame.s 
+        vm.s = s 
         return true
     end
 end
