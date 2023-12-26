@@ -106,4 +106,9 @@ using Test
     @test match(pand, "abcd") == 5
     @test match(pand, "abcdddd") == 8
     @test match(pand, "abdcc") === nothing
+    pnot = (!P"a" * R"az")^0 * P"after"
+    @test match(pnot, "after") == 6 
+    @test match(pnot, "bcxdafter") == 10
+    @test match(pnot, "aafter") === nothing 
+    @test match(pnot, "bcadxafter") === nothing
 end

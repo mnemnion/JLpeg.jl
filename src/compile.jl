@@ -229,9 +229,22 @@ function _compile!(patt::PAnd)::Pattern
     push!(c, ChoiceInst(l))
     append!(c, code)
     push!(c, BackCommitInst(2))
-    push!(c, OpFail)
+    push!(c, OpFail)  # Choice target
     pushEnd!(c)
     return patt
+end
+
+function _compile!(patt::PNot)::Pattern 
+    @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
+    c = patt.code 
+    code = copy(patt.val[1].code)
+    trimEnd!(code)
+    l = length(code) + 2  # 3 -> FailTwice, next 
+    push!(c, ChoiceInst(l))
+    append!(c, code)
+    push!(c, OpFailTwice)
+    pushEnd!(c)  # Choice target
+    return patt 
 end
 
 function _compile!(patt::PSeq)::Pattern 
@@ -288,20 +301,20 @@ function _compile!(patt::PStar)::Pattern
         addstar!(c, code)
     elseif patt.n == -1
         addstar!(c, code)
-        pop!(c)
-        push!(c, CommitInst(1))
+        c[end] = CommitInst(1)
     else
-        @warn lazy"not yet handling PStar.n == $(patt.n)"
+        @warn "not yet handling PStar.n == $(patt.n)"
     end
     pushEnd!(c)
     return patt
 end
 
 function addstar!(c::IVector, code::Vector{})
-    l = length(code) + 1
-    push!(c, ChoiceInst(l + 1))
+    l = length(code)
+    push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
     append!(c, code)
-    push!(c, PartialCommitInst(-l + 1))
+    push!(c, PartialCommitInst(-l))
+    # Choice Target 
 end
 
 

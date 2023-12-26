@@ -66,6 +66,12 @@ struct PAnd <: Pattern
     PAnd(val::Pattern) = new([val], Inst())
 end
 
+struct PNot <: Pattern 
+    val::Vector{Pattern}
+    code::IVector 
+    PNot(val::Pattern) = new([val], Inst())
+end
+
 "Includes n, dictating the sort of repetition"
 struct PStar <: Pattern
     val::Vector{Pattern}
@@ -105,6 +111,7 @@ end
 
 POpenCall(s::AbstractString) = POpenCall(Symbol(s))
 
+# TODO I'm not in fact using this and should do so or get rid of it.
 struct PCall <: Pattern 
     val::Symbol
     code::IVector
@@ -144,7 +151,6 @@ end
 # TODO the rest of these need to be concrete:
 
 abstract type PRunTime <:Pattern end
-abstract type PNot <:Pattern end
 abstract type PBehind <:Pattern end
 abstract type PCapture <:Pattern end
 abstract type PTXInfo <:Pattern end
@@ -238,6 +244,7 @@ Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
 Base.:^(a::Pattern, b::Int)  = PStar(a, b)
 Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
 Base.:~(a::Pattern) = PAnd(a)
+Base.:!(a::Pattern) = PNot(a)
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
 ←(a::Symbol, b::Pattern) = PRule(a,b)   
 # This little dance gets around a quirk of how negative powers

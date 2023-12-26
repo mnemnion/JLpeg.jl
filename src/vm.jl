@@ -319,6 +319,10 @@ function onBackCommit(inst::LabelInst, vm::VMState)
     end
 end
 
-onFailTwice(vm) = error("NYI")
+@inline 
+function onFailTwice(vm::VMState)
+    popframe!(vm)
+    return false
+end
 
 include("printing.jl")
