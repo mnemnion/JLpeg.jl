@@ -166,12 +166,12 @@ function _compile!(patt::Pattern)::Pattern
 end
 
 function _compile!(patt::PAny)::Pattern
-    push!(patt.code, AnyInst(patt.val))
+    push!(patt.code, AnyInst(patt.val), OpEnd)
     return patt
 end
 
 function _compile!(patt::PChar)::Pattern 
-    push!(patt.code, CharInst(patt.val))
+    push!(patt.code, CharInst(patt.val), OpEnd)
     return patt 
 end
 
@@ -193,9 +193,8 @@ end
 function _compile!(patt::PSet)::Pattern
     # Special-case the empty set 
     # We'll turn into a Jump when we have the requisite info
-    if patt.val == ""  # TODO I think this can return PFalse?
-        push!(patt.code, SetInst(falses(127)), OpEnd)
-        return patt
+    if patt.val == ""  # A valid way of saying "fail"
+        return PFalse()
     end
     bvec, prefix_map = vecsforstring(patt.val)
     if bvec !== nothing
@@ -227,14 +226,12 @@ function _compile!(patt::PSeq)::Pattern
         return patt.val[1]
     end
     for p in patt.val
-        code = p.code 
-        if code[end] == OpEnd
-            code = code[1:end-1]
-        end
+        code = copy(p.code) 
+        trimEnd!(code)
         append!(patt.code, code)
         # optimizations?
     end
-    push!(patt.code, OpEnd)
+    pushEnd!(patt.code)
     return patt
 end
 
@@ -267,7 +264,6 @@ function _compile!(patt::PStar)::Pattern
             return p 
         end
     end
-
     c = patt.code
     code = copy(p.code) 
     trimEnd!(code)
@@ -283,7 +279,7 @@ function _compile!(patt::PStar)::Pattern
     else
         @warn lazy"not yet handling PStar.n == $(patt.n)"
     end
-    push!(c, OpEnd)
+    pushEnd!(c)
     return patt
 end
 
@@ -327,20 +323,19 @@ function _compile!(patt::PChoice)::Pattern
     # headfail
     # disjoint 
     for (idx, p) in enumerate(patt.val)
-        pcode = p.code
+        pcode = copy(p.code)
+        trimEnd!(pcode)
         if idx == length(patt.val)
             append!(c, pcode)
             break
         end
-        trimEnd!(pcode)
         len = length(pcode) 
         push!(c, ChoiceInst(len + 2)) # +2 == Choice and Commit
         push!(choices, length(c))
         append!(c, pcode)
- # drop the IEnd
         push!(c, HoldInst(ICommit)) 
     end
-    push!(c, OpEnd)
+    pushEnd!(c)
     for (idx, inst) in enumerate(c)
         if isa(inst, HoldInst) && inst.op == ICommit
             c[idx] = CommitInst(length(c) - idx)
@@ -388,7 +383,7 @@ function _compile!(patt::PGrammar)::Pattern
             @warn lazy"missing rule $rulename in grammar"
         end
     end
-    push!(c, OpEnd)
+    pushEnd!(c)
     return patt
 end
 
@@ -532,5 +527,16 @@ Remove an OpEnd, if present.
 function trimEnd!(code::IVector)
     if code[end] == OpEnd
         pop!(code)
+    end
+end
+
+"""
+    pushEnd!(code::IVector)
+
+Put an OpEnd, if needed.
+"""
+function pushEnd!(code::IVector)
+    if code[end] != OpEnd
+        push!(code, OpEnd)
     end
 end

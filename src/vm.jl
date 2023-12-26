@@ -186,8 +186,12 @@ end
 
 "onSet"
 function onInst(inst::SetInst, vm::VMState)::Bool
-    code = UInt(vm.subject[vm.s])
-    if inst.vec[code + 1] # TODO code - 1 to allow for zero bytes
+    this = thischar(vm)
+    if this === nothing
+        return false
+    end
+    code = UInt32(this)
+    if code < 128 && inst.vec[code + 1] # TODO code - 1 to allow for zero bytes
         vm.i +=1
         vm.s = nextind(vm.subject, vm.s)
         return true
@@ -210,8 +214,12 @@ end
 
 "onTestSet"
 function onInst(inst::TestSetInst, vm::VMState)::Bool
-    code = UInt(thichar(vm))
-    if code < 128 && inst.vec[code+1]
+    this = thischar(vm)
+    if this === nothing
+        return false
+    end
+    code = UInt32(this)
+    if code < 128 && inst.vec[code + 1]
         vm.i +=1
         return true
     else

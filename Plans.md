@@ -23,6 +23,31 @@ In addition to LPEG itself (linked above) we have:
 - [Match.jl](https://juliaservices.github.io/Match.jl/stable/): a macro for match/case style statements, which is an approach to the VM proper.
 
 
+## Implementation
+
+Wherein I note how I'm building the thing.
+
+### Remaining 
+
+- [ ] Handle the other PStar cases 
+
+- [ ] P(-n) for n bytes remaining 
+
+- [ ] And and Not predicates 
+
+- [ ] Multibyte sets and chars 
+
+- [ ] BackCommits and B(patt)
+
+- [ ] Captures 
+
+- [ ] TestPatt optimizations 
+
+- [ ] Tail call elimination 
+
+- [ ] Set span optimization 
+
+
 ## Notes on OG Lpeg
 
 The OG code contains the basic algorithms we need, but they're expressed in a way which makes a close translation useless. For one thing they heavily manipulate the Lua VM, and for another, it's written in C, with all that implies. 

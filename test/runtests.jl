@@ -18,6 +18,7 @@ using Test
     @test match(abc, "defg") == 4
     @test match(abc, "ghi") == 4
     @test match(abc, "bcd") === nothing
+    # Sets and Ranges (same thing different cloth)
     bcf = S("bcf")
     @test match(bcf, "b") == 2
     @test match(bcf, "ba") == 2
@@ -34,6 +35,11 @@ using Test
     numeven = R("09") * S("02468")
     @test match(numeven, "12") == 3
     @test match(numeven, "13") === nothing
+    # Empty Set
+    eset = S""
+    @test match(eset, "something") === nothing 
+    @test match(eset, "") === nothing 
+    #Choice
     afew = S("123") | P("abc") | S("xyz")
     @test match(afew, "1") == 2
     @test match(afew, "abc") == 4
