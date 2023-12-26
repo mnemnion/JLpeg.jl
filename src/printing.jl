@@ -59,10 +59,37 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
     if !haskey(patt.meta, :start) # Not yet compiled
         return print(io, patt_str(patt))
     end
+    green(s::Union{String,Symbol}) = "\x1b[32m$s\x1b[0m"
+    bold(s::Union{String,Symbol}) = "\x1b[1m$s\x1b[0m"
     meta = patt.meta
+    pad = length(patt.code) > 99 ? 3 : 2
     lines = [":$(meta[:start])", '-'^(length(string(meta[:start]))+1)]
+    mapsite = Dict()
+    for (sym, location) in meta[:callsite]
+        mapsite[location] = sym
+    end
     for (idx, inst) in enumerate(patt.code)
-        push!(lines, inst_str(inst, idx))
+        ipad = lpad(idx, pad, "0")
+        label = ""
+        isrule = haskey(mapsite, idx)
+        if isrule
+            ipad = green(ipad)
+            label = " :$(green(mapsite[idx]))"
+        end
+        line = ["  $ipad: "]
+        frags = inst_pieces(inst, idx)
+        append!(line, frags)
+        push!(line, label)
+        if inst.op == ICall
+            loc = idx + inst.l
+            if haskey(mapsite, loc)
+                push!(line, " →")
+                push!(line,  bold(" :$(mapsite[loc])"))
+            else
+                @warn "address $loc doesn't match a rule location"
+            end
+        end
+        push!(lines, join(line))
     end
     print(io, join(lines, "\n"))
 end
