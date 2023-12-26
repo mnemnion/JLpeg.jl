@@ -31,7 +31,7 @@ Wherein I note how I'm building the thing.
 
 - [ ] Handle the other PStar cases 
 
-- [ ] P(-n) for n bytes remaining 
+- [X] P(-n) for n bytes remaining 
 
 - [X] And and Not predicates 
 

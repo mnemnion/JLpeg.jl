@@ -224,6 +224,8 @@ P(c::AbstractChar) = PChar(c)
 P(n::Int) = n ≥ 0 ? PAny(n) : PAnd(PAny(UInt(-n)))
 P(b::Bool) = b ? PTrue() : PFalse()
 P(sym::Symbol) = POpenCall(sym) 
+const Grammar = PGrammar
+const Rule = PRule
 
 """
     S(s::AbstractString)

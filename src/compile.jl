@@ -7,6 +7,7 @@ include("pattern.jl")
     IAny        # if no char, fail
     IChar       # if char != aux, fail
     ISet        # if char not in buff, fail
+    IMultiSet       # Multibyte vectored sets
     ITestAny    # in no char, jump to 'offset'
     ITestChar   # if char != aux, jump to 'offset'
     ITestSet    # if char not in buff, jump to 'offset'
@@ -70,7 +71,17 @@ end
 struct SetInst <: Instruction
     op::Opcode
     vec::BitVector
-    SetInst(vec::BitVector) = new(ISet, vec)
+    final::Bool 
+    SetInst(vec::BitVector) = new(ISet, vec, true)
+    SetInst(vec::BitVector, final::Bool) = new(ISet, vec, final)
+end
+
+struct MultiSetInst <: Instruction
+    op::Opcode
+    lead::Vector{UInt8}
+    vec::BitVector
+    final::Bool
+    MultiSetInst(lead, vec, final) = new(IMultiSet, lead, vec, final)
 end
 
 struct BehindInst <: Instruction
@@ -197,11 +208,17 @@ function _compile!(patt::PSet)::Pattern
         return PFalse()
     end
     bvec, prefix_map = vecsforstring(patt.val)
+
+    is_final = prefix_map === nothing ? false : true
     if bvec !== nothing
-        push!(patt.code, SetInst(bvec), OpEnd)
+        push!(patt.code, SetInst(bvec, is_final))
     end
     # We'll deal with the prefix map some other time!
     # Others are a bit more complex! heh. bit.
+    if prefix_map !== nothing
+        encode_multibyte_set!(patt.code, prefix_map)
+    end 
+    pushEnd!(patt.code)
     return patt
 end
 
@@ -214,9 +231,14 @@ function _compile!(patt::PRange)::Pattern
         i += 1
     end
     bvec, prefix_map = vecsforstring(Vector{AbstractChar}(vec))
+    is_final = prefix_map === nothing ? false : true
     if bvec !== nothing
-       push!(patt.code, SetInst(bvec), OpEnd)
+       push!(patt.code, SetInst(bvec, is_final))
     end
+    if prefix_map !== nothing
+        encode_multibyte_set!(patt.code, prefix_map)
+    end 
+    pushEnd!(patt.code)
     return patt  
 end
 
@@ -249,6 +271,7 @@ end
 
 function _compile!(patt::PDiff)::Pattern
     v = patt.val 
+    # Optimization: difference of sets can be done with Boolean logic
     headset = isa(v[1], PSet) || isa(v[1], PRange)
     if headset && isa(v[2], PSet) || isa(v[2], PRange)
         ba, bb = v[1].code[1].vec, v[2].code[1].vec
@@ -458,7 +481,7 @@ end
 """
     headfail(patt::Pattern)::Bool
 
-Answer if the pattern fails (should it fail) on the first character.
+Answer if the pattern fails (should it fail) on the first test.
 """
 function headfail(patt::Pattern)::Bool
     if isof(patt, PChar, PAny, PSet, PFalse) return true
@@ -520,6 +543,7 @@ function isof(patt::Pattern, types::DataType...)
     end
     return false 
 end
+
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
 
@@ -543,15 +567,18 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
             if prefix_map === nothing
                 prefix_map = Dict()
             end
-            bytes = collect(codeunits(string(char)))
-            if length(bytes) == 2
-                prefix!(prefix_map, bytes[1], bytes[2])
-            elseif length(bytes) == 3
-                prefix!(prefix_map, (bytes[1], bytes[2]), bytes[3])
-            elseif length(bytes) == 4
-                prefix!(prefix_map, (bytes[1], bytes[2], bytes[3]), bytes[4])
+            len, bytes = encode_utf8(UInt32(char))
+            if len == 2
+                prefix!(prefix_map, [bytes[1]], bytes[2])
+            elseif len == 3
+                prefix!(prefix_map, [bytes[1], bytes[2]], bytes[3])
+            elseif len == 4
+                prefix!(prefix_map, [bytes[1], bytes[2], bytes[3]], bytes[4])
             end
         end
+    end
+    if !isnothing(prefix_map)
+        compact_bytevec!(prefix_map)
     end
     return bvec, prefix_map        
 end
@@ -563,7 +590,67 @@ function prefix!(map::Dict, key, val)
         push!(map[key], val)
     else
         map[key] = []
-        push(map[key], val)
+        push!(map[key], val)
+    end
+end
+
+# later being here 
+function compact_bytevec!(prefixes)
+    for (pre, vec) in prefixes
+        bvec = falses(64)
+        for byte in vec
+            bvec[byte+1] = true
+        end
+        prefixes[pre] = bvec
+    end
+end
+
+function encode_multibyte_set!(c::IVector, pre::Dict)
+    coll = collect(pre)
+    len = length(coll)
+    count = 0
+    for pair in coll
+        count += 1
+        bytes, vec = pair
+        if count < len 
+            push!(c, MultiSetInst(bytes, vec, false))
+        else
+            push!(c, MultiSetInst(bytes, vec, true))
+        end
+    end
+end
+
+function encode_utf8(codepoint::UInt32)::Tuple{Int, Vector{UInt8}}
+    # Check the range of the codepoint,
+    # To determine the bytes we anoint.
+    if codepoint <= 0x7F
+        # One-byte character, simple and light,
+        # In UTF-8's simple flight.
+        return 1, UInt8[codepoint]
+    elseif codepoint <= 0x7FF
+        # Two bytes we need, to encode this part,
+        # With UTF-8's clever art.
+        return 2, UInt8[
+            0xC0 | (codepoint >> 6),
+            0x80 | (codepoint & 0x3F)
+        ]
+    elseif codepoint <= 0xFFFF
+        # Three bytes now, to carry the load,
+        # As in UTF-8's broader road.
+        return 3, UInt8[
+            0xE0 | (codepoint >> 12),
+            0x80 | ((codepoint >> 6) & 0x3F),
+            0x80 | (codepoint & 0x3F)
+        ]
+    else
+        # Four bytes, a wider span,
+        # As UTF-8's furthest plan.
+        return 4, UInt8[
+            0xF0 | (codepoint >> 18),
+            0x80 | ((codepoint >> 12) & 0x3F),
+            0x80 | ((codepoint >> 6) & 0x3F),
+            0x80 | (codepoint & 0x3F)
+        ]
     end
 end
 
