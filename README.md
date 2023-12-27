@@ -32,12 +32,54 @@ The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and this is true for `S` and `R` as well.
 
-`match(pattern::Pattern, string::String)` will attempt to match the pattern against the string, returning the index of the farthest match on success, and `nothing` on failure.  Note that unlike regular expressions, JLpeg will not skip ahead to find a pattern in a string, unless the pattern is so constructed.  We offer the easy shorthand `"" >> patt` to convert a pattern into its searching equivalent; `P""` matches the empty string, and JLPeg will convert strings and numbers (but not booleans) into patterns when able.
+## Patterns, Rules, and Grammars
+
+The simplest use of JLPeg is as a drop-in replacement for regular expressions:
+
+```jldoctest
+julia> match(P"123", "123456")
+PegMatch("123")
+```
+
+With the immediate advantage that patterns combine.
+
+Patterns are immutable once defined, and may be built up incrementally into more complex patterns.  Although this may be done with the constructors in `pattern.jl`, it's far more pleasant and readable to use operators, like so:
+
+```jldoctest
+julia> match(P"abc" * "123", "abc123")
+PegMatch("abc123")
+
+julia> match(P"abc" | "123", "123")
+PegMatch("123")
+
+julia> match(P"abc"^1, "abcabcabc")
+PegMatch("abcabcabc")
+
+julia> match((!S"123" * R"09")^1, "0987654321")
+PegMatch("0987654")
+
+julia> match("" >> P"5", "0987654321")
+PegMatch("098765")
+
+julia> match(~P"abc", "abc123")
+PegMatch("")
+
+julia> match(~P"abc", "123abc") # fails
+
+```
+
+Note that unlike regular expressions, PEG always starts with the first character, any match (other than `nothing`) returned by a call to `match(patt, string)` will therefore be a prefix of the string, up to and including the entire string.  To get something usefully similar to a regex, you can start with a capture pattern like this:
+
+```jlexample
+
+```
+
+As this shows, there's a pattern 'context', where any `a <op> b` combination where `a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  We provide two convenience functions, `modulesugar()` and `extrasugar()`, which will cast binary operations of `a::Symbol <op> a::String` (in either order) and both binary and unary operations of `Symbol` to `Pattern`, as used in rules and grammars (see below); the difference is that `modulesugar` defines these methods in the enclosing module, and `extrasugar` defines them on `Base`.  Please use `modulesugar` in any shared packages, as type piracy is impolite.
 
 
-## Rules
+### Rules
 
-Patterns are immutable once defined, and may be built up incrementally into more complex patterns.  To match recursive structures, patterns must be able to call themselves, which is a `Rule`.  A collection of Rules is a Grammar.
+To match recursive structures, patterns must be able to call themselves, which is a `Rule`.  A collection of Rules is a Grammar.
 
 As is the PEG convention, a rule is defined with `<=` or `←`.  A simple Grammar can look like this:
 
@@ -54,13 +96,9 @@ The variable names aren't a part of the rule, which is named by the left-hand sy
 
 ## Captures and Actions
 
-  As fun as it may be to find a single index into a string, practical parsing is more involved than this.
-
-I haven't implemented any of this yet, so, here's a #TODO list:
-
 | [ ] | Operation          | What it produces                                        |
 | --- | ------------------ | ------------------------------------------------------- |
-| [ ] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
+| [X] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
 | [ ] | `Carg(n)`          | value of the `n`th extra argument                       |
 | [ ] | `Cb(key)`          | values of the the previous group capture named `key`    |
 | [ ] | `Cc(values)`       | given `values` (matches the empty string)               |

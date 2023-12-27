@@ -2,7 +2,8 @@
 """
     PegMatch <: AbstractMatch
 
-A type representing a single match to a `Pattern`.  Typically created from the `match` function.
+A type representing a single match to a `Pattern`.  Typically created from the `match`
+function.
 
 The `match` field stores the substring of the entire matched string.
 The `captures` field stores the substrings for each capture group, indexed by number.
@@ -12,22 +13,27 @@ with 0 denoting a group that was not captured.
 
 This type implements the expected interface of AbstractMatch, namely `keys`, `getindex`,
 `haskey`, `iterate`, and `eltype`, has the same struct layout as a RegexMatch, and follows
-the same conventions, such as `nothing` for missed captures, and denoting the offset of missed
-captures with `0`.  It should therefore serve as a drop-in replacement for a `RegexMatch`
-in existing code.  Note that `match` on a PEG Pattern has a much more sophisticated vocabulary of
-captures, but if you stick to anonymous and String-named captures, behavior should be identical.
+the same conventions, such as `nothing` for missed captures, and denoting the offset of
+missed captures with `0`.  It should therefore serve as a drop-in replacement for a
+`RegexMatch` in existing code, the most obvious exception being the `pattern` field
+instead of `regex`.
+
+Note that `match` on a PEG Pattern has a much more sophisticated vocabulary of captures,
+and the convention is to use Symbols (not Strings) for named captures, but if you stick
+to anonymous and String-named captures, behavior should be identical between RegexMatch
+and PegMatch.
 """
 struct PegMatch{S<:AbstractString} <: AbstractMatch
     match::SubString{S}
     captures::Vector{Union{Nothing,SubString{S}}}  # TODO probably add a PegCapture type to this union
     offset::Int
     offsets::Vector{Int}
-    patt::Pattern
+    pattern::Pattern
 end
 
 PegMatch(match::SubString{S}, captures::Vector{Union{Nothing,SubString{S}}},
-           offset::Union{Int, UInt}, offsets::Vector{Int}, patt::Pattern) where {S<:AbstractString} =
-    PegMatch{S}(match, captures, offset, offsets, patt)
+           offset::Union{Int, UInt}, offsets::Vector{Int}, pattern::Pattern) where {S<:AbstractString} =
+    PegMatch{S}(match, captures, offset, offsets, pattern)
 
 
 """

@@ -284,7 +284,7 @@ C(patt::Pattern) = PCapture(patt, Csimple)
 C(s::String) = PCapture(P(s), Csimple)
 C(n::Integer) = PCapture(P(n), Csimple)
 
-
+const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
 
 # Operators
 
@@ -293,12 +293,22 @@ Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
 Base.:*(a::Symbol, b::Pattern)  = PSeq(POpenCall(a), b)
 Base.:*(a::Pattern, b::Union{Integer,String}) = PSeq(a, P(b))
 Base.:*(a::Union{Integer,String}, b::Pattern) = PSeq(P(a), b)
+Base.:*(a::CaptureTuple, b::Pattern) = C(a...) * b
+Base.:*(a::Pattern, b::CaptureTuple) = a * C(b...)
+Base.:*(a::Union{Integer,String}, b::CaptureTuple) = P(a) * C(b...)
+Base.:*(a::CaptureTuple, b::Union{Integer,String}) = C(a...) * P(b)
+Base.:*(a::CaptureTuple, b::CaptureTuple) = C(a...) * C(b...)
 
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
 Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
 Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
 Base.:|(a::Pattern, b::Union{Integer,String}) = PChoice(a, P(b))
 Base.:|(a::Union{Integer,String}, b::Pattern) = PChoice(P(a), b)
+Base.:|(a::CaptureTuple, b::Pattern) = C(a...) | b
+Base.:|(a::Pattern, b::CaptureTuple) = a | C(b...)
+Base.:|(a::Union{Integer,String}, b::CaptureTuple) = P(a) | C(b...)
+Base.:|(a::CaptureTuple, b::Union{Integer,String}) = C(a...) | P(b)
+Base.:|(a::CaptureTuple, b::CaptureTuple) = C(a...) | C(b...)
 
 Base.:-(a::Pattern, b::Pattern) = PDiff(a, b)
 Base.:-(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))
@@ -324,6 +334,8 @@ function Base.:>>(a::Pattern, b::Pattern)
     a * (!b * P(1))^0 * b
 end
 Base.:>>(a::String, b::Pattern) = P(a) >> b
+Base.:>>(a::Pattern, b::CaptureTuple) = a >> C(b...)
+Base.:>>(a::String, b::CaptureTuple) = P(a) >> C(b...)
 
 """
     extrasugar()
@@ -335,7 +347,11 @@ modifying forms.
 function extrasugar()
     @eval Base.:!(a::Symbol) = PNot(POpenCall(a))
     @eval Base.:|(a::Symbol, b::Symbol) = PChoice(POpenCall(a), POpenCall(b))
+    @eval Base.:|(a::String, b::Symbol) = PChoice(P(a), POpenCall(b))
+    @eval Base.:|(a::Symbol, b::String) = PChoice(POpenCall(a), P(b))
     @eval Base.:*(a::Symbol, b::Symbol) = PSeq(POpenCall(a), POpenCall(b))
+    @eval Base.:*(a::String, b::Symbol) = PSeq(P(a), POpenCall(b))
+    @eval Base.:*(a::Symbol, b::String) = PSeq(POpenCall(a), P(b))
     @eval Base.:~(a::Symbol) = PAnd(POpenCall(a))
     @eval Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
 end
@@ -349,7 +365,11 @@ Introduces operator overloads to `:symbol`s limited to the enclosing module scop
 function modulesugar()
     @eval $(@__MODULE__).:!(a::Symbol) = PNot(POpenCall(a))
     @eval $(@__MODULE__).:|(a::Symbol, b::Symbol) = PChoice(POpenCall(a), POpenCall(b))
+    @eval $(@__MODULE__).:|(a::String, b::Symbol) = PChoice(P(a), POpenCall(b))
+    @eval $(@__MODULE__).:|(a::Symbol, b::String) = PChoice(POpenCall(a), P(b))
     @eval $(@__MODULE__).:*(a::Symbol, b::Symbol) = PSeq(POpenCall(a), POpenCall(b))
+    @eval $(@__MODULE__).:*(a::String, b::Symbol) = PSeq(P(a), POpenCall(b))
+    @eval $(@__MODULE__).:*(a::Symbol, b::String) = PSeq(POpenCall(a), P(b))
     @eval $(@__MODULE__).:~(a::Symbol) = PAnd(POpenCall(a))
     @eval $(@__MODULE__).:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
 end
