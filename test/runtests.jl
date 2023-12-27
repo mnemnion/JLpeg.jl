@@ -8,128 +8,128 @@ using Test
     c = P("ghi")
     ad = a * P("d")
     abc = a | b | c
-    @test match(a, "abc") == 4
-    @test match(a, "abd") === nothing
-    @test match(a, "abcd") == 4
-    @test match(ad, "abcd") == 5
-    @test match(ad, "abcdef") == 5
-    @test match(abc, "abc") == 4
-    @test match(abc, "def") == 4
-    @test match(abc, "defg") == 4
-    @test match(abc, "ghi") == 4
-    @test match(abc, "bcd") === nothing
+    @test findfirst(a, "abc") == 3
+    @test findfirst(a, "abd") === nothing
+    @test findfirst(a, "abcd") == 3
+    @test findfirst(ad, "abcd") == 4
+    @test findfirst(ad, "abcdef") == 4
+    @test findfirst(abc, "abc") == 3
+    @test findfirst(abc, "def") == 3
+    @test findfirst(abc, "defg") == 3
+    @test findfirst(abc, "ghi") == 3
+    @test findfirst(abc, "bcd") === nothing
     # Sets and Ranges (same thing different cloth)
     bcf = S("bcf")
-    @test match(bcf, "b") == 2
-    @test match(bcf, "ba") == 2
-    @test match(bcf, "q") === nothing
+    @test findfirst(bcf, "b") == 1
+    @test findfirst(bcf, "ba") == 1
+    @test findfirst(bcf, "q") === nothing
     atwords = bcf * P("at")
-    @test match(atwords, "bat") == 4
-    @test match(atwords, "cat") == 4
-    @test match(atwords, "mat") === nothing
+    @test findfirst(atwords, "bat") == 3
+    @test findfirst(atwords, "cat") == 3
+    @test findfirst(atwords, "mat") === nothing
     threeL = R("az") * R("az") * R("az")
-    @test match(threeL, "foo") == 4
-    @test match(threeL, "BAR") === nothing
-    @test match(threeL, "quux") == 4
-    @test match(threeL, "123") === nothing
+    @test findfirst(threeL, "foo") == 3
+    @test findfirst(threeL, "BAR") === nothing
+    @test findfirst(threeL, "quux") == 3
+    @test findfirst(threeL, "123") === nothing
     numeven = R("09") * S("02468")
-    @test match(numeven, "12") == 3
-    @test match(numeven, "13") === nothing
+    @test findfirst(numeven, "12") == 2
+    @test findfirst(numeven, "13") === nothing
     # Empty Set
     eset = S""
-    @test match(eset, "something") === nothing
-    @test match(eset, "") === nothing
+    @test findfirst(eset, "something") === nothing
+    @test findfirst(eset, "") === nothing
     #Choice
     afew = S("123") | P("abc") | S("xyz")
-    @test match(afew, "1") == 2
-    @test match(afew, "abc") == 4
-    @test match(afew, "z") == 2
+    @test findfirst(afew, "1") == 1
+    @test findfirst(afew, "abc") == 3
+    @test findfirst(afew, "z") == 1
     aacd = P("aabc") | P("aacd")
-    @test match(aacd, "aacd") == 5
+    @test findfirst(aacd, "aacd") == 4
     nofail = P("")
-    @test match(nofail, "abc") == 1
-    @test match(nofail, "") == 1
+    @test findfirst(nofail, "abc") == 0
+    @test findfirst(nofail, "") == 0
     nope = P(false)
-    @test match(nope, "") === nothing
-    @test match(nope, "something") === nothing
+    @test findfirst(nope, "") === nothing
+    @test findfirst(nope, "something") === nothing
     yep = P(true)
-    @test match(yep, "") == 1
-    @test match(yep, "abc") == 1
+    @test findfirst(yep, "") == 0
+    @test findfirst(yep, "abc") == 0
     # TODO start grouping these
     # Tests charset amalgamation
     glom = S("146") | R("AZ") | P("q") | P("*")
-    @test match(glom, "1") == 2
-    @test match(glom, "B") == 2
-    @test match(glom, "q") == 2
-    @test match(glom, "*") == 2
-    @test match(glom, "!") === nothing
+    @test findfirst(glom, "1") == 1
+    @test findfirst(glom, "B") == 1
+    @test findfirst(glom, "q") == 1
+    @test findfirst(glom, "*") == 1
+    @test findfirst(glom, "!") === nothing
     # Multibyte sets
     greeks = (R"ΑΩ" | R"αω"| P"Ά" | P"ύ" | P" ")^1
-    @test match(greeks, "Το Πνεύμα Άγιοπ") == 29
+    @test findfirst(greeks, "Το Πνεύμα Άγιοπ") == 28
     # Tests Kleene *
     abstar = P("ab")^0
-    @test match(abstar, "") == 1
-    @test match(abstar, "ab") == 3
-    @test match(abstar, "abababab") == 9
-    @test match(abstar, "abc") == 3
-    @test match(abstar, "bc") == 1
+    @test findfirst(abstar, "") == 0
+    @test findfirst(abstar, "ab") == 2
+    @test findfirst(abstar, "abababab") == 8
+    @test findfirst(abstar, "abc") == 2
+    @test findfirst(abstar, "bc") == 0
     # Tests Kleene +
     abplus = P("ab")^1
-    @test match(abplus, "") === nothing
-    @test match(abplus, "ab") == 3
-    @test match(abplus, "abababab") == 9
-    @test match(abplus, "abc") == 3
-    @test match(abplus, "bc") === nothing
+    @test findfirst(abplus, "") === nothing
+    @test findfirst(abplus, "ab") == 2
+    @test findfirst(abplus, "abababab") == 8
+    @test findfirst(abplus, "abc") == 2
+    @test findfirst(abplus, "bc") === nothing
     # Tests ?
     opt = P("ab")^-1
-    @test match(opt, "") == 1
-    @test match(opt, "ab") == 3
-    @test match(opt, "abababab") == 3
-    @test match(opt, "abc") == 3
-    @test match(opt, "bc") == 1
+    @test findfirst(opt, "") == 0
+    @test findfirst(opt, "ab") == 2
+    @test findfirst(opt, "abababab") == 2
+    @test findfirst(opt, "abc") == 2
+    @test findfirst(opt, "bc") == 0
     # Makes sure recursive reps don't hang
     inside = ((P("ab")^0))^0
-    @test match(inside, "abab") == 5
-    @test match(inside, "") == 1
+    @test findfirst(inside, "abab") == 4
+    @test findfirst(inside, "") == 0
     inside = ((P("ab")^-1))^0
-    @test match(inside, "abab") == 5
-    @test match(inside, "") == 1
+    @test findfirst(inside, "abab") == 4
+    @test findfirst(inside, "") == 0
     inside = ((P("ab")^-1))^1
-    @test match(inside, "abab") == 5
-    @test match(inside, "") == 1
+    @test findfirst(inside, "abab") == 4
+    @test findfirst(inside, "") == 0
     inside = ((P("ab")^0))^1
-    @test match(inside, "abab") == 5
-    @test match(inside, "") == 1
+    @test findfirst(inside, "abab") == 4
+    @test findfirst(inside, "") == 0
     # Grammars!
     g1 = Grammar(:a <= P"123" * :b, :b <= S"abd" * (:a | P"q"))
-    @test match(g1, "123a123b123dq") == 14
+    @test findfirst(g1, "123a123b123dq") == 13
     # more of that to come..
     # Predicates
     pand = ~P"abc" * S"abcd"^1
-    @test match(pand, "abcd") == 5
-    @test match(pand, "abcdddd") == 8
-    @test match(pand, "abdcc") === nothing
+    @test findfirst(pand, "abcd") == 4
+    @test findfirst(pand, "abcdddd") == 7
+    @test findfirst(pand, "abdcc") === nothing
     pnot = (!P"a" * R"az")^0 * P"after"
-    @test match(pnot, "after") == 6
-    @test match(pnot, "bcxdafter") == 10
-    @test match(pnot, "aafter") === nothing
-    @test match(pnot, "bcadxafter") === nothing
+    @test findfirst(pnot, "after") == 5
+    @test findfirst(pnot, "bcxdafter") == 9
+    @test findfirst(pnot, "aafter") === nothing
+    @test findfirst(pnot, "bcadxafter") === nothing
     pdiff = (S"abc" - P"a")^1
-    @test match(pdiff, "bcbc") == 5
-    @test match(pdiff, "bcbca") == 5
-    @test match(pdiff, "abcbca") === nothing
+    @test findfirst(pdiff, "bcbc") == 4
+    @test findfirst(pdiff, "bcbca") == 4
+    @test findfirst(pdiff, "abcbca") === nothing
     pset = R"az" - S"bcd"
-    @test match(pset, "a") == 2
-    @test match(pset, "c") === nothing
+    @test findfirst(pset, "a") == 1
+    @test findfirst(pset, "c") === nothing
     # 🎄 🎄 Merry Christmas! 🎄 🎄
     pno_l = (R"az" - P"l")^1
-    @test match(pno_l, "abcdefghijkmnopqrstuvwxyz") == 0x1a
-    @test match(pno_l, "abcdefghijklmnopqrstuvwxyz") == 0x0c
-    @test match(P(-3), "a") === nothing
-    @test match(P(-3), "aaaa") == 1
+    @test findfirst(pno_l, "abcdefghijkmnopqrstuvwxyz") == 25
+    @test findfirst(pno_l, "abcdefghijklmnopqrstuvwxyz") == 11
+    @test findfirst(P(-3), "a") === nothing
+    @test findfirst(P(-3), "aaaa") == 0
     # Fast Forward
     ff = "" >> P"end"
-    @test match(ff, "all the way until the end") == 26
+    @test findfirst(ff, "all the way until the end") == 25
     # A Real Grammar
     lisp = Grammar(
         :lisp    ←  :_ * P"(" * :body * :_ * P")" * :_,
@@ -137,15 +137,14 @@ using Test
         :atom    ←  (R"az" | R"AZ")^1,
         :number  ←  R"09"^1,
         :_       ←  S("\t\n ")^0 )
-    @test match(lisp, "(12)") == 5
-    @test match(lisp, "(12 23 bob)") == 12
-    @test match(lisp, "(12 23 bob (recursive (recursed)))") == 35
-    @test match(lisp, "(12 23 bob (recursive recursed))") == 33
-    @test match(lisp, "(not ,quote a real lisp)") === nothing
+    @test findfirst(lisp, "(12)") == 4
+    @test findfirst(lisp, "(12 23 bob)") == 11
+    @test findfirst(lisp, "(12 23 bob (recursive (recursed)))") == 34
+    @test findfirst(lisp, "(12 23 bob (recursive recursed))") == 32
+    @test findfirst(lisp, "(not ,quote a real lisp)") === nothing
     # Captures: Simple (SubString) captures
     cap1 = C("123")
     @test match(cap1, "123")[1] == "123"
-    @test match(cap1, "abc") === nothing
     @test match(cap1, "123")[1] isa SubString
     cap2 = P"abc" * C("123")
     @test match(cap2, "abc123")[1] == "123"

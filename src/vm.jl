@@ -201,34 +201,6 @@ function followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
     return match
 end
 
-"""
-    match(program::IVector, subject::AbstractString)
-
-Match `program` to `subject`, returning the farthest match index.
-"""
-function Base.match(program::IVector, subject::AbstractString)::Any
-    vm = VMState(subject, program)
-    runvm!(vm)
-    if vm.matched
-        if lcap(vm) > 0
-            return oncapmatch(vm)
-        else
-            return vm.s
-        end
-    else
-        return nothing
-    end
-end
-
-"""
-    match(patt::Pattern, subject::AbstractString)
-
-Match `patt` to `subject`, returning the farthest match index
-"""
-function Base.match(patt::Pattern, subject::AbstractString)::Any
-    code = compile!(patt).code
-    match(code, subject)
-end
 
 # ## VM core and instructions
 #
@@ -513,6 +485,55 @@ function oncapmatch(vm::VMState)::Any
     end
 
     return Tuple(captures)
+end
+
+## Core Methods exported by JLpeg
+
+"""
+    match(program::IVector, subject::AbstractString)
+
+Match `program` to `subject`, returning the farthest match index.
+"""
+function Base.match(program::IVector, subject::AbstractString)::Any
+    vm = VMState(subject, program)
+    runvm!(vm)
+    if vm.matched
+        if lcap(vm) > 0
+            return oncapmatch(vm)
+        else
+            return vm.s
+        end
+    else
+        return nothing
+    end
+end
+
+"""
+    match(patt::Pattern, subject::AbstractString)
+
+Match `patt` to `subject`, returning the farthest match index
+"""
+function Base.match(patt::Pattern, subject::AbstractString)::Any
+    code = compile!(patt).code
+    match(code, subject)
+end
+
+
+"""
+    Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
+
+Find the first match of `patt` in `string`. Returns the index at the *end* of the match,
+such that string[1:findfirst(patt)] will show the substring.
+"""
+function Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
+    code = compile!(patt).code
+    vm = VMState(string, code)
+    runvm!(vm)
+    if vm.matched
+        return vm.s - 1
+    else
+        return nothing
+    end
 end
 
 include("printing.jl")
