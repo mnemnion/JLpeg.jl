@@ -1,6 +1,7 @@
 # JLpeg virtual machine
 
 include("compile.jl")
+include("pegmatch.jl")
 
 struct StackFrame
     i::Int32   # Instruction pointer
@@ -72,6 +73,9 @@ CapEntry(vm::VMState, inst::OpenCaptureInst) = CapEntry(vm.i, vm.s, Int32(0), IO
 CapEntry(vm::VMState, inst::CloseCaptureInst) = CapEntry(vm.i, vm.s - Int32(1), Int32(0), ICloseCapture, inst.kind)
 CapEntry(vm::VMState, inst::FullCaptureInst) = CapEntry(vm.i, vm.s, inst.off, IFullCapture, inst.kind)
 
+# ## VM Actions
+#
+# All functions which mutate a running VM state other than instruction dispatch.
 
 @inline
 "Push a full frame onto the stack."
@@ -154,7 +158,7 @@ end
 
 @inline
 "Unwind the stacks on a match failure"
-function failmatch(vm::VMState)
+function failmatch!(vm::VMState)
     if !vm.t_on
         vm.running = false
         vm.matched = false
@@ -204,19 +208,7 @@ Match `program` to `subject`, returning the farthest match index.
 """
 function Base.match(program::IVector, subject::AbstractString)::Any
     vm = VMState(subject, program)
-    vm.running = true
-    while vm.running
-        # print(short_vm(vm))
-        # print(vm_to_str(vm))
-        if vm.i > length(vm.program)
-            vm.running = false
-            continue
-        end
-        inst = vm.program[vm.i]
-        if !onInst(inst, vm)
-            failmatch(vm)
-        end
-    end
+    runvm!(vm)
     if vm.matched
         if lcap(vm) > 0
             return oncapmatch(vm)
@@ -237,6 +229,35 @@ function Base.match(patt::Pattern, subject::AbstractString)::Any
     code = compile!(patt).code
     match(code, subject)
 end
+
+# ## VM core and instructions
+#
+# The core execution loop and all dispatched instructions.
+
+"""
+    runvm!(vm::VMState)::Nothing
+
+Run a vm. A classic instruction-dispatch loop, relying on Julia's excellent
+method specialization to provide speed.  Once I have some representative patterns
+and sufficiently weighty test data, I may try swapping in a Vector of function
+pointers to see if the code generated from this approach is, in fact, optimal.
+"""
+function runvm!(vm::VMState)::Nothing
+    vm.running = true
+    while vm.running
+        @debug short_vm(vm)
+        # print(vm_to_str(vm))
+        if vm.i > length(vm.program)
+            vm.running = false
+            continue
+        end
+        inst = vm.program[vm.i]
+        if !onInst(inst, vm)
+            failmatch!(vm)
+        end
+    end
+end
+
 
 """
     onInst(inst::Instruction, vm::VMState)::Bool
