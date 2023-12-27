@@ -137,7 +137,7 @@ end
 @inline
 "Trim the capture stack height to `c``."
 function trimcap!(vm::VMState, c::UInt32)
-    while c > lcap(vm)
+    while lcap(vm) > c
         pop!(vm.cap)
     end
     return
