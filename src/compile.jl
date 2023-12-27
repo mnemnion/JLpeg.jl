@@ -168,7 +168,8 @@ abstract type ThrowRecInst end
  struct FullCaptureInst <: Instruction
     op::Opcode
     kind::CapKind
-    FullCaptureInst(kind::CapKind) = new(IFullCapture, kind)
+    off::Int32
+    FullCaptureInst(kind::CapKind, off::Integer) = new(IFullCapture, kind, Int32(off))
  end
 
 ### Compilers

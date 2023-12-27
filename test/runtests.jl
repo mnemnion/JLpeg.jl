@@ -142,4 +142,13 @@ using Test
     @test match(lisp, "(12 23 bob (recursive (recursed)))") == 35
     @test match(lisp, "(12 23 bob (recursive recursed))") == 33
     @test match(lisp, "(not ,quote a real lisp)") === nothing
+    # Captures: Simple (SubString) captures
+    cap1 = C("123")
+    @test match(cap1, "123")[1] == "123"
+    @test match(cap1, "abc") === nothing
+    @test match(cap1, "123")[1] isa SubString
+    cap2 = P"abc" * C("123")
+    @test match(cap2, "abc123")[1] == "123"
+    cap3 = cap2^1
+    @test match(cap3, "abc123abc123abc123") == ("123", "123", "123")
 end

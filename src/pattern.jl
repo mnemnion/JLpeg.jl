@@ -6,7 +6,7 @@ Always has `val`, which may be primitive or a Vector{Pattern},
 and `code`, an IVector. Some patterns have a field
 unique to that pattern type.
 """
-abstract type Pattern end
+abstract type Pattern <: AbstractPattern end
 
 "A bytecode instruction"
 abstract type Instruction end
@@ -280,9 +280,9 @@ R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 
 Create a capture. Matching `patt` with return the matched substring.
 """
-function C(patt::Pattern)
-    PCapture(patt, Csimple)
-end
+C(patt::Pattern) = PCapture(patt, Csimple)
+C(s::String) = PCapture(P(s), Csimple)
+C(n::Integer) = PCapture(P(n), Csimple)
 
 
 

@@ -8,9 +8,15 @@ struct StackFrame
     c::Int     # Capture level
 end
 
-# TODO What's a CapEntry?
+"An entry in the capture stack"
 struct CapEntry
-
+    i::Int32       # Instruction pointer
+    s::UInt32      # String index
+    off::Int32     # Offset (for full captures)
+    op::Opcode     # What variety of capture is this
+    kind::CapKind  # Sort of capture
+    CapEntry(i::Int32, s::UInt32, off::Int32, op::Opcode, kind::CapKind) = new(i, s, off, op, kind)
+    CapEntry(i::Int32, s::UInt32, op::Opcode, kind::CapKind) = new(i, s, 0, op, kind)
 end
 
 """
@@ -62,32 +68,13 @@ mutable struct VMState
    end
 end
 
-@inline
-function thischar(vm::VMState)
-    if vm.s > vm.top
-        return nothing
-    end
-    vm.subject[vm.s]
-end
+CapEntry(vm::VMState, inst::OpenCaptureInst) = CapEntry(vm.i, vm.s, Int32(0), IOpenCapture, inst.kind)
+CapEntry(vm::VMState, inst::CloseCaptureInst) = CapEntry(vm.i, vm.s - Int32(1), Int32(0), ICloseCapture, inst.kind)
+CapEntry(vm::VMState, inst::FullCaptureInst) = CapEntry(vm.i, vm.s, inst.off, IFullCapture, inst.kind)
 
-# TODO I think it makes sense to keep a register for the captop
-# and only ever grow it, this might be true for the vm stack as well
-# meanwhile we access everything through functions
-# Seems like the kind of workload where Julia would produce efficient
-# code without micromanaging though
 
 @inline
-lcap(vm::VMState) = length(vm.cap)
-
-@inline
-function trimcap!(vm::VMState, c::UInt32)
-    while lcap(vm) > c
-        pop!(vm.cap)
-    end
-    return nothing
-end
-
-@inline
+"Push a full frame onto the stack."
 function pushframe!(vm::VMState, i::Int32, s::UInt32)
     if !vm.t_on
         vm.ti, vm.ts, vm.tc = i, s, lcap(vm)
@@ -100,6 +87,7 @@ function pushframe!(vm::VMState, i::Int32, s::UInt32)
 end
 
 @inline
+"Push a call onto the stack."
 function pushcall!(vm::VMState)
     if !vm.t_on
        vm.ti = vm.i + 1
@@ -112,6 +100,7 @@ function pushcall!(vm::VMState)
 end
 
 @inline
+"Pop a stack frame. Returns a tuple (i, s, c)"
 function popframe!(vm::VMState)
     if !vm.t_on
         return (nothing, nothing, nothing)
@@ -127,12 +116,44 @@ function popframe!(vm::VMState)
 end
 
 @inline
+"Update the top stack frame."
 function updatetop_s!(vm::VMState)
     vm.ts = vm.s
     vm.tc = lcap(vm)
 end
 
 @inline
+"Length/height of the capture stack."
+function lcap(vm::VMState)
+    return length(vm.cap)
+end
+
+@inline
+"Trim the capture stack height to `c``."
+function trimcap!(vm::VMState, c::UInt32)
+    while c > lcap(vm)
+        pop!(vm.cap)
+    end
+    return
+end
+
+@inline
+"Push a CapEntry."
+function pushcap!(vm::VMState, inst::Instruction)
+   push!(vm.cap, CapEntry(vm, inst))
+end
+
+@inline
+"Return the char at `vm.s`."
+function thischar(vm::VMState)
+    if vm.s > vm.top
+        return nothing
+    end
+    vm.subject[vm.s]
+end
+
+@inline
+"Unwind the stacks on a match failure"
 function failmatch(vm::VMState)
     if !vm.t_on
         vm.running = false
@@ -154,6 +175,13 @@ function failmatch(vm::VMState)
     end
 end
 
+
+"""
+    followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
+
+Follow a set of instructions forming a single logical set instruction.
+Return the success of any of these instructions, or `false`.
+"""
 function followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
     if !inst.final
         vm.i += 1
@@ -174,7 +202,7 @@ end
 
 Match `program` to `subject`, returning the farthest match index.
 """
-function Base.match(program::IVector, subject::AbstractString)::Union{UInt32, Nothing}
+function Base.match(program::IVector, subject::AbstractString)::Any
     vm = VMState(subject, program)
     vm.running = true
     while vm.running
@@ -190,7 +218,11 @@ function Base.match(program::IVector, subject::AbstractString)::Union{UInt32, No
         end
     end
     if vm.matched
-        return vm.s
+        if lcap(vm) > 0
+            return oncapmatch(vm)
+        else
+            return vm.s
+        end
     else
         return nothing
     end
@@ -201,7 +233,7 @@ end
 
 Match `patt` to `subject`, returning the farthest match index
 """
-function Base.match(patt::Pattern, subject::AbstractString)::Union{UInt32, Nothing}
+function Base.match(patt::Pattern, subject::AbstractString)::Any
     code = compile!(patt).code
     match(code, subject)
 end
@@ -318,6 +350,28 @@ function onInst(inst::TestSetInst, vm::VMState)::Bool
     end
 end
 
+"onOpenCapture"
+function onInst(inst::OpenCaptureInst, vm::VMState)::Bool
+    pushcap!(vm, inst)
+    vm.i += 1
+    return true
+end
+
+"onCloseCapture"
+function onInst(inst::CloseCaptureInst, vm::VMState)::Bool
+    pushcap!(vm, inst)
+    vm.i +=1
+    return true
+end
+
+"onFullCapture"
+function onInst(inst::FullCaptureInst, vm::VMState)::Bool
+    pushcap!(vm, inst)
+    vm.i += 1
+    return true
+end
+
+
 "onChoice"
 function onInst(inst::ChoiceInst, vm::VMState)
     pushframe!(vm, vm.i + inst.l, vm.s + inst.n)
@@ -408,6 +462,36 @@ end
 function onFailTwice(vm::VMState)
     popframe!(vm)
     return false
+end
+
+"""
+    oncapmatch(vm::VMState)
+
+Process the capture list and return what we find
+"""
+function oncapmatch(vm::VMState)::Any
+    # Iterate C style so I can try optimizing use of the captable
+    # For now, we just handle simple captures:
+    captures = Vector{SubString}()
+    s1, s2 = nothing, nothing
+    for i in 1:lcap(vm)
+        cap = vm.cap[i]
+        if cap.kind == Csimple
+            if cap.op == IOpenCapture
+                s1 = cap.s
+            elseif cap.op == ICloseCapture
+                s2 = cap.s
+                if isnothing(s1)
+                    error("Found a close capture without an open")
+                end
+                push!(captures, vm.subject[s1:s2])
+            end
+        else
+            @warn "No actions for $(cap.kind) yet!"
+        end
+    end
+
+    return Tuple(captures)
 end
 
 include("printing.jl")
