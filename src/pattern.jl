@@ -11,6 +11,26 @@ abstract type Pattern end
 "A bytecode instruction"
 abstract type Instruction end
 
+"A kind of capture"
+@enum CapKind begin
+    Cclose      # not used in trees
+    Cposition
+    Cconst      # ktable[key] is Lua constant
+    Cbackref    # ktable[key] is "name" of group to get capture
+    Carg        # 'key' is arg's number
+    Csimple     # next node is pattern
+    Ctable      # next node is pattern
+    Cfunction   # ktable[key] is function; next node is pattern
+    Cquery      # ktable[key] is table; next node is pattern
+    Cstring     # ktable[key] is string; next node is pattern
+    Cnum        # numbered capture; 'key' is number of value to return
+    Csubst      # substitution capture; next node is pattern
+    Cfold       # ktable[key] is function; next node is pattern
+    Cruntime    # not used in trees (is uses another type for tree)
+    Cgroup      # ktable[key] is group's "name"
+  end
+
+
 const IVector = Vector{Instruction}
 
 
@@ -160,11 +180,17 @@ struct PGrammar <: Pattern
     end
 end
 
+struct PCapture <: Pattern
+    val::Vector{Pattern}
+    code::IVector
+    kind::CapKind
+    # TODO probably want more than this
+    PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k)
+end
 # TODO the rest of these need to be concrete:
 
 abstract type PRunTime <:Pattern end
 abstract type PBehind <:Pattern end
-abstract type PCapture <:Pattern end
 abstract type PTXInfo <:Pattern end
 abstract type PThrow <:Pattern end
 
@@ -248,6 +274,17 @@ than the second.
 """
 R(s::AbstractString) = PRange(s)
 R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
+
+"""
+    C(patt::Pattern)
+
+Create a capture. Matching `patt` with return the matched substring.
+"""
+function C(patt::Pattern)
+    PCapture(patt, Csimple)
+end
+
+
 
 # Operators
 

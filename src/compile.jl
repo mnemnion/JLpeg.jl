@@ -7,12 +7,11 @@ include("pattern.jl")
     IAny        # if no char, fail
     IChar       # if char != aux, fail
     ISet        # if char not in buff, fail
-    IMultiSet       # Multibyte vectored sets
+    IMultiSet   # Multibyte vectored sets
     ITestAny    # in no char, jump to 'offset'
     ITestChar   # if char != aux, jump to 'offset'
     ITestSet    # if char not in buff, jump to 'offset'
     ISpan       # read a span of chars in buff
-    IUTFR       # if codepoint not in range [offset, utf_to], fail
     IBehind     # walk back 'aux' characters (fail if not possible)
     IReturn     # return from a rule
     IEnd        # end of pattern
@@ -146,6 +145,31 @@ struct HoldInst <: Instruction
 end
 
 # To be continued...
+
+abstract type SpanInst end
+abstract type PredChoiceInst end
+abstract type NameCallInst end
+abstract type CloseRunTimeInst end
+abstract type ThrowInst end
+abstract type ThrowRecInst end
+
+ struct OpenCaptureInst <: Instruction
+    op::Opcode
+    kind::CapKind
+    OpenCaptureInst(kind::CapKind) = new(IOpenCapture, kind)
+ end
+
+ struct CloseCaptureInst <: Instruction
+    op::Opcode
+    kind::CapKind
+    CloseCaptureInst(kind::CapKind) = new(ICloseCapture, kind)
+ end
+
+ struct FullCaptureInst <: Instruction
+    op::Opcode
+    kind::CapKind
+    FullCaptureInst(kind::CapKind) = new(IFullCapture, kind)
+ end
 
 ### Compilers
 
@@ -402,6 +426,18 @@ function _compile!(patt::PChoice)::Pattern
         end
     end
 
+    return patt
+end
+
+function _compile!(patt::PCapture)::Pattern
+    c = patt.code
+    ccode = copy(patt.val[1].code)
+    # TODO full capture optimization
+    trimEnd!(ccode)
+    push!(c, OpenCaptureInst(patt.kind))
+    append!(c, ccode)
+    push!(c, CloseCaptureInst(patt.kind))
+    pushEnd!(c)
     return patt
 end
 
