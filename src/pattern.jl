@@ -211,15 +211,15 @@ optimizePChoice(a::Pattern, b::Pattern) = [a, b]
 
 
 """
-    P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern
+    P(p::Union{AbstractString,AbstractChar,Integer,Bool,Symbol})::Pattern
 
 Create a Pattern.
 
 If `p` is a String, this matches that string.
-If `p` is a positive Int, it matches that many characters.
+If `p` is a positive Integer, it matches that many characters.
 If `p` is `true`, the rules succeeds, if `false`, the rule fails.
 If `p` is a Symbol, this represents a call to the rule with that name.
-If `p` is a negative Int, matches if that many characters remain, consumes no input.
+If `p` is a negative Integer, matches if that many characters remain, consumes no input.
 """
 function P(p::Any)::Pattern end
 

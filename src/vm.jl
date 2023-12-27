@@ -5,10 +5,8 @@ include("compile.jl")
 struct StackFrame
     i::Int32   # Instruction pointer
     s::UInt32  # String index
+    c::Int     # Capture level
 end
-
-CallFrame(i::Int32) = StackFrame(i, 0)
-CallFrame(i::UInt32) = StackFrame(Int32(i), 0)
 
 # TODO What's a CapEntry?
 struct CapEntry
@@ -26,8 +24,8 @@ Contains the state of a match on `subject` by `program`.
 
 - top: the byte length of `subject`
 - i: Instruction counter
-- i: Subject pointer
-- ti, ts: Stack top registers
+- s: Subject pointer
+- ti, ts, tc: Stack top registers
 - t_on: flag for nonempty stack
 - stack: Contains stack frames for calls and backtracks
 - cap: A stack for captures
@@ -50,6 +48,7 @@ mutable struct VMState
    s::UInt32        # Subject pointer
    ti::Int32        # Stack top instruction register
    ts::UInt32       # Stack top subject register
+   tc::UInt32       # Stack top capture level register
    t_on::Bool       # Is there a frame on the stack?
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapEntry}
@@ -59,7 +58,7 @@ mutable struct VMState
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(s)
-      return new(s, p, top, 1, 1, 0, 0, false, stack, cap, false, false)
+      return new(s, p, top, 1, 1, 0, 0, 0, false, stack, cap, false, false)
    end
 end
 
@@ -71,14 +70,31 @@ function thischar(vm::VMState)
     vm.subject[vm.s]
 end
 
+# TODO I think it makes sense to keep a register for the captop
+# and only ever grow it, this might be true for the vm stack as well
+# meanwhile we access everything through functions
+# Seems like the kind of workload where Julia would produce efficient
+# code without micromanaging though
+
+@inline
+lcap(vm::VMState) = length(vm.cap)
+
+@inline
+function trimcap!(vm::VMState, c::UInt32)
+    while lcap(vm) > c
+        pop!(vm.cap)
+    end
+    return nothing
+end
+
 @inline
 function pushframe!(vm::VMState, i::Int32, s::UInt32)
     if !vm.t_on
-        vm.ti, vm.ts = i, s
+        vm.ti, vm.ts, vm.tc = i, s, lcap(vm)
         vm.t_on = true
     else
-        frame = StackFrame(vm.ti, vm.ts)
-        vm.ti, vm.ts = i, s
+        frame = StackFrame(vm.ti, vm.ts, vm.tc)
+        vm.ti, vm.ts, vm.tc = i, s, lcap(vm)
         push!(vm.stack, frame)
     end
 end
@@ -89,8 +105,8 @@ function pushcall!(vm::VMState)
        vm.ti = vm.i + 1
        vm.t_on = true
     else
-        frame = StackFrame(vm.ti, vm.ts)
-        vm.ti, vm.ts = vm.i + 1, 0
+        frame = StackFrame(vm.ti, vm.ts, vm.tc)
+        vm.ti, vm.ts, vm.tc = vm.i + 1, 0, 0
         push!(vm.stack, frame)
     end
 end
@@ -98,21 +114,22 @@ end
 @inline
 function popframe!(vm::VMState)
     if !vm.t_on
-        return (nothing, nothing)
+        return (nothing, nothing, nothing)
     end
     if isempty(vm.stack)
         vm.t_on = false
-        return vm.ti, vm.ts
+        return vm.ti, vm.ts, vm.tc
     end
     frame = pop!(vm.stack)
-    _ti, _ts = vm.ti, vm.ts
+    _ti, _ts, _tc = vm.ti, vm.ts, vm.tc
     vm.ti, vm.ts = frame.i, frame.s
-    return _ti, _ts
+    return _ti, _ts, _tc
 end
 
 @inline
 function updatetop_s!(vm::VMState)
     vm.ts = vm.s
+    vm.tc = lcap(vm)
 end
 
 @inline
@@ -122,9 +139,9 @@ function failmatch(vm::VMState)
         vm.matched = false
         return
     end
-    i, s = popframe!(vm)
+    i, s, c = popframe!(vm)
     while s == 0 # return from calls
-        i, s = popframe!(vm)
+        i, s, c = popframe!(vm)
         if i === nothing break end
     end # until we find a choice frame or exhaust the stack
     if i === nothing
@@ -133,6 +150,7 @@ function failmatch(vm::VMState)
     else
         vm.s = s
         vm.i = i
+        trimcap!(vm, c)
     end
 end
 
@@ -141,7 +159,7 @@ function followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
         vm.i += 1
         inst = vm.program[vm.i]
         if match
-            followSet(inst, match, vm)
+            return followSet(inst, match, vm)
         elseif onInst(inst, vm)
             match = true
         end

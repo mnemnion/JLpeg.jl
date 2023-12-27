@@ -2,7 +2,7 @@
 
 JLpeg provides a fast PEG engine for matching patterns in strings, using a bytecode virtual machine based on the pioneering work of [Roberto Ierusalimschy](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf).
 
-Compared to regular expressions, PEGs offer greater power and expressivity, being, in a sense, a formalized and extended version of the deviations from regular languages matched by production regex engines such as PCRE.  PEGs are able to parse recursive rule patterns, employ lookahead and lookbehind predicates, and avoid the sort of worst-case complexity the regex is prone to for most useful patterns.
+Compared to regular expressions, PEGs offer greater power and expressivity, being, in a sense, a formalized and extended version of the deviations from regular languages offered by production regex engines such as PCRE.  PEGs are able to parse recursive rule patterns, employ lookahead and lookbehind predicates, and avoid the sort of worst-case complexity the regex is prone to for most useful patterns.
 
 Compared with parser combinators, a more common algorithm for matching PEG grammars, the approach taken by this package is superior.  A bytecode interpreter allows several key optimizations which parser combinators do not allow; generally such libraries choose between a naive backtracking algorithm with bad time complexity and a memorizing packrat algorithm which trades this for bad space complexity, with consequent memory pressure.  JLpeg generates programs which may be inspected and modified, and uses an innovative thrown-label pattern to allow excellent error reporting and recovery.
 
@@ -24,11 +24,11 @@ The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/
 | `patt1 * patt2`         | Match the sequence `patt1` , `patt2`                        |
 | `patt1 \| patt2`        | Match `patt1` or `patt2`, in that order                     |
 | `patt1 - patt2`         | Match `patt1` if `patt2` does not match                     |
-| `!patt`                 | Looks ahead for `patt`, succeeds if it does *not* find it   |
-| `~patt`, `¬patt`        | Match `patt` without advancing in the string                |
+| `!patt`, `¬patt`        | Negative lookahead, succeeds if `patt` fails                |
+| `~patt`                 | Lookahead, match `patt` without advancing                   |
 | `patt1` >> `patt2`      | Match `patt1`, then search the string for the next `patt2`. |
 | `P(true)`, `P(false)`   | Always succeed or always fail, respectively                 |
-| `lpeg.B(patt)`          | Match `patt` behind the cursor, without advancing           |
+| `B(patt)`               | Match `patt` behind the cursor, without advancing           |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and this is true for `S` and `R` as well.
 
@@ -49,4 +49,30 @@ abc123 = Grammar(abc_and, _123s)
 match(abc123, "abc123123123abc123abc")
 ```
 
-The variable names aren't a part of the rule, which is named by the left-hand symbol
+The variable names aren't a part of the rule, which is named by the left-hand symbol.  #TODO A terminal rule, one which doesn't call other rules, may be called on `match` like an ordinary pattern.
+
+
+## Captures and Actions
+
+  As fun as it may be to find a single index into a string, practical parsing is more involved than this.
+
+I haven't implemented any of this yet, so, here's a #TODO list:
+
+| [ ] | Operation          | What it produces                                        |
+| --- | ------------------ | ------------------------------------------------------- |
+| [ ] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
+| [ ] | `Carg(n)`          | value of the `n`th extra argument                       |
+| [ ] | `Cb(key)`          | values of the the previous group capture named `key`    |
+| [ ] | `Cc(values)`       | given `values` (matches the empty string)               |
+| [ ] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
+| [ ] | `Cp()`             | current position (matches the empty string)             |
+| [ ] | `Cs(patt)`         | match for patt with the values from nested captures     |
+|     |                    | replacing their matches                                 |
+| [ ] | `Ct(patt)`         | a table with all captures from patt                     |
+| [ ] | `patt / string`    | string, with some marks replaced by captures of patt    |
+| [ ] | `patt / number`    | nth value captured by patt                              |
+| [ ] | `patt / vec`       | Vector of capturs                                       |
+| [ ] | `patt / λ`         | the returns of function applied to the captures of patt |
+| [ ] | `patt % λ`         | reduces captures with λ                                 |
+| [ ] | `Cmt(patt, λ)`     | λ applied to match-time captures at match time          |
+
