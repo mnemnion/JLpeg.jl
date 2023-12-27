@@ -127,6 +127,9 @@ using Test
     @test match(pno_l, "abcdefghijklmnopqrstuvwxyz") == 0x0c
     @test match(P(-3), "a") === nothing
     @test match(P(-3), "aaaa") == 1
+    # Fast Forward
+    ff = "" >> P"end"
+    @test match(ff, "all the way until the end") == 26
     # A Real Grammar
     lisp = Grammar(
         :lisp    ←  :_ * P"(" * :body * :_ * P")" * :_,

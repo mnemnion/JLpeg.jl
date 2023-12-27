@@ -63,6 +63,7 @@ struct PAny <: Pattern
     val::UInt32
     code::IVector
     PAny(val::UInt) = new(val, Inst())
+
 end
 
 struct PAnd <: Pattern
@@ -220,11 +221,11 @@ If `p` is `true`, the rules succeeds, if `false`, the rule fails.
 If `p` is a Symbol, this represents a call to the rule with that name.
 If `p` is a negative Int, matches if that many characters remain, consumes no input.
 """
-function P(p::Union{AbstractString,AbstractChar,Int,Bool,Symbol})::Pattern end
+function P(p::Any)::Pattern end
 
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
-P(n::Int) = n ≥ 0 ? PAny(n) : PAnd(PAny(UInt(-n)))
+P(n::Integer) = n ≥ 0 ? PAny(UInt(n)) : PAnd(PAny(UInt(-n)))
 P(b::Bool) = b ? PTrue() : PFalse()
 P(sym::Symbol) = POpenCall(sym)
 const Grammar = PGrammar
@@ -253,24 +254,68 @@ R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
 Base.:*(a::Symbol, b::Pattern)  = PSeq(POpenCall(a), b)
+Base.:*(a::Pattern, b::Union{Integer,String}) = PSeq(a, P(b))
+Base.:*(a::Union{Integer,String}, b::Pattern) = PSeq(P(a), b)
+
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
 Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
 Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
+Base.:|(a::Pattern, b::Union{Integer,String}) = PChoice(a, P(b))
+Base.:|(a::Union{Integer,String}, b::Pattern) = PChoice(P(a), b)
+
 Base.:-(a::Pattern, b::Pattern) = PDiff(a, b)
+Base.:-(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))
+Base.:-(a::Union{Integer,String}, b::Pattern) = PDiff(P(a), b)
 Base.:-(a::Pattern, b::Symbol)  = PDiff(a, POpenCall(b))
 Base.:-(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
-Base.:^(a::Pattern, b::Int)  = PStar(a, b)
-Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
+
+Base.:^(a::Pattern, b::Integer)  = PStar(a, b)
 Base.:~(a::Pattern) = PAnd(a)
-Base.:~(a::Symbol) = PAnd(POpenCall(a))
 Base.:!(a::Pattern) = PNot(a)
-Base.:!(a::Symbol) = PNot(POpenCall(a))
+¬(a::Pattern) = PNot(a)
+
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
 ←(a::Symbol, b::Pattern) = PRule(a,b)
+
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:
 Base.:^(a::Tuple{Pattern, Nothing}, b::Int) = PStar(a[1], -b)
 Base.inv(a::Pattern) = (a, nothing)
+
+# Fast-forward operator
+function Base.:>>(a::Pattern, b::Pattern)
+    a * (!b * P(1))^0 * b
+end
+Base.:>>(a::String, b::Pattern) = P(a) >> b
+
+"""
+    extrasugar()
+
+Perform type piracy of the gravest kind, allowing symbols to be
+interpreted as calls to pattern rules for all combining and
+modifying forms.
+"""
+function extrasugar()
+    @eval Base.:!(a::Symbol) = PNot(POpenCall(a))
+    @eval Base.:|(a::Symbol, b::Symbol) = PChoice(POpenCall(a), POpenCall(b))
+    @eval Base.:*(a::Symbol, b::Symbol) = PSeq(POpenCall(a), POpenCall(b))
+    @eval Base.:~(a::Symbol) = PAnd(POpenCall(a))
+    @eval Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
+end
+
+"""
+    modulesugar()
+
+Introduces operator overloads to `:symbol`s limited to the enclosing module scope.
+
+"""
+function modulesugar()
+    @eval $(@__MODULE__).:!(a::Symbol) = PNot(POpenCall(a))
+    @eval $(@__MODULE__).:|(a::Symbol, b::Symbol) = PChoice(POpenCall(a), POpenCall(b))
+    @eval $(@__MODULE__).:*(a::Symbol, b::Symbol) = PSeq(POpenCall(a), POpenCall(b))
+    @eval $(@__MODULE__).:~(a::Symbol) = PAnd(POpenCall(a))
+    @eval $(@__MODULE__).:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
+end
 
 """Helper for macros"""
 function compile_raw_string(str::String)::String

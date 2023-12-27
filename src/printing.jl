@@ -73,7 +73,7 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
         isrule = haskey(mapsite, idx)
         if isrule
             ipad = green(ipad)
-            label = " :$(green(mapsite[idx]))"
+            label = green(" :$(mapsite[idx])")
         end
         line = ["  $ipad: "]
         frags = inst_pieces(inst, idx)
