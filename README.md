@@ -2,7 +2,7 @@
 
 JLpeg provides a fast PEG engine for matching patterns in strings, using a bytecode virtual machine based on the pioneering work of [Roberto Ierusalimschy](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf).
 
-Compared to regular expressions, PEGs offer greater power and expressivity, being, in a sense, a formalized and extended version of the deviations from regular languages offered by production regex engines such as PCRE.  PEGs are able to parse recursive rule patterns, employ lookahead and lookbehind predicates, and avoid the sort of worst-case complexity the regex is prone to for most useful patterns.
+Compared to regular expressions, PEGs offer greater power and expressivity, being, in a sense, a formalized and extended version of the deviations from regular languages offered by production regex engines such as PCRE.  PEGs are able to parse recursive rule patterns, employ lookahead and lookbehind predicates, and avoid the sort of worst-case complexity the regex is prone to, for most useful patterns.
 
 Compared with parser combinators, a more common algorithm for matching PEG grammars, the approach taken by this package is superior.  A bytecode interpreter allows several key optimizations which parser combinators do not allow; generally such libraries choose between a naive backtracking algorithm with bad time complexity and a memorizing packrat algorithm which trades this for bad space complexity, with consequent memory pressure.  JLpeg generates programs which may be inspected and modified, and uses an innovative thrown-label pattern to allow excellent error reporting and recovery.
 
@@ -40,7 +40,6 @@ The simplest use of JLPeg is as a drop-in replacement for regular expressions:
 julia> match(P"123", "123456")
 PegMatch("123")
 ```
-
 With the immediate advantage that patterns combine.
 
 Patterns are immutable once defined, and may be built up incrementally into more complex patterns.  Although this may be done with the constructors in `pattern.jl`, it's far more pleasant and readable to use operators, like so:
@@ -67,14 +66,18 @@ PegMatch("")
 julia> match(~P"abc", "123abc") # fails
 
 ```
-
 Note that unlike regular expressions, PEG always starts with the first character, any match (other than `nothing`) returned by a call to `match(patt, string)` will therefore be a prefix of the string, up to and including the entire string.  To get something usefully similar to a regex, you can start with a capture pattern like this:
 
-```jlexample
-
+```jldoctest
+julia> match("" >> (P"56",), "1234567")
+PegMatch("123456", 1="56")
 ```
 
-As this shows, there's a pattern 'context', where any `a <op> b` combination where `a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  We provide two convenience functions, `modulesugar()` and `extrasugar()`, which will cast binary operations of `a::Symbol <op> a::String` (in either order) and both binary and unary operations of `Symbol` to `Pattern`, as used in rules and grammars (see below); the difference is that `modulesugar` defines these methods in the enclosing module, and `extrasugar` defines them on `Base`.  Please use `modulesugar` in any shared packages, as type piracy is impolite.
+JLPeg captures can nest, unlike regexes, so you can define another pattern with the captures you want and use the recipe above to make it behave like a regex.
+
+This matches the empty string, fast-forwards to the first 56, and captures it.  Note that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for `P("") >> C(P("56"))`.
+
+The operators introduce a pattern 'context', where any `a <op> b` combination where `a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  We provide two convenience functions, `modulesugar()` and `extrasugar()`, which will cast binary operations of `a::Symbol <op> a::String` (in either order) and both binary and unary operations of `Symbol` to `Pattern`, as used in rules and grammars (see below); the difference is that `modulesugar` defines these methods in the enclosing module, and `extrasugar` defines them on `Base`.  Please use `modulesugar` in any shared packages, as type piracy is impolite.
 
 
 ### Rules

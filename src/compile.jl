@@ -289,7 +289,13 @@ end
 function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
     c = patt.code
-    code = copy(patt.val[1].code)
+    # Optimization: remove captures from PNot patterns,
+    # which never succeed (except match-time captures)
+    if patt isa PCapture && patt.kind != Cruntime
+        code = copy(patt.val[1][1].code)
+    else
+        code = copy(patt.val[1].code)
+    end
     trimEnd!(code)
     l = length(code) + 2  # 3 -> FailTwice, next
     push!(c, ChoiceInst(l))
