@@ -21,7 +21,7 @@ struct CapEntry
 end
 
 """
-    VMState(subject::String, program::IVector)
+    VMState(patt::Pattern, string::AbstractString)
 
 Contains the state of a match on `subject` by `program`.
 
@@ -49,6 +49,7 @@ permitting the PartialCommit optimization.
 mutable struct VMState
    subject::AbstractString # The subject we're parsing
    program::IVector # Our program
+   patt::Pattern # The pattern it's derived from
    top::UInt32  # Byte length of subject string
    # Registers
    i::Int32         # Instruction Counter
@@ -61,11 +62,12 @@ mutable struct VMState
    cap::Vector{CapEntry}
    running::Bool
    matched::Bool
-   function VMState(s::AbstractString, p::IVector)
+   function VMState(patt::Pattern, subject::AbstractString)
+      program = compile!(patt).code
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
-      top = ncodeunits(s)
-      return new(s, p, top, 1, 1, 0, 0, 0, false, stack, cap, false, false)
+      top = ncodeunits(subject)
+      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, stack, cap, false, false)
    end
 end
 
@@ -460,13 +462,17 @@ end
 """
     oncapmatch(vm::VMState)
 
-Process the capture list and return what we find
+Process the capture list and return what we find.
 """
-function oncapmatch(vm::VMState)::Any
+function oncapmatch(vm::VMState)::PegMatch
     # Iterate C style so I can try optimizing use of the captable
-    # For now, we just handle simple captures:
-    captures = Vector{SubString}()
+    # For now, we just handle simple captures.
+    S = typeof(vm.subject)
+    match = SubString{S}(vm.subject, 1, vm.s-1)
     s1, s2 = nothing, nothing
+    offset = 1
+    captures = Vector{Union{SubString{S},Nothing}}()
+    offsets = Vector{Int}()
     for i in 1:lcap(vm)
         cap = vm.cap[i]
         if cap.kind == Csimple
@@ -477,6 +483,7 @@ function oncapmatch(vm::VMState)::Any
                 if isnothing(s1)
                     error("Found a close capture without an open")
                 end
+                push!(offsets, Int(s1))
                 push!(captures, vm.subject[s1:s2])
             end
         else
@@ -484,50 +491,37 @@ function oncapmatch(vm::VMState)::Any
         end
     end
 
-    return Tuple(captures)
+    return PegMatch(match, captures, offset, offsets, vm.patt)
 end
 
-## Core Methods exported by JLpeg
+## Core Method extensions
+
 
 """
-    match(program::IVector, subject::AbstractString)
+    match(patt::Pattern, subject::AbstractString)::Union{PegMatch, Nothing}
 
-Match `program` to `subject`, returning the farthest match index.
+Match `patt` to `subject`, returning a `PegMatch` implementing the expected interface
+for its supertype `AbstractMatch`, or `nothing` if the match fails.
 """
-function Base.match(program::IVector, subject::AbstractString)::Any
-    vm = VMState(subject, program)
+function Base.match(patt::Pattern, subject::AbstractString)::Union{PegMatch, Nothing}
+    vm = VMState(patt, subject)
     runvm!(vm)
     if vm.matched
-        if lcap(vm) > 0
-            return oncapmatch(vm)
-        else
-            return vm.s
-        end
+        return oncapmatch(vm)
     else
         return nothing
     end
 end
 
-"""
-    match(patt::Pattern, subject::AbstractString)
-
-Match `patt` to `subject`, returning the farthest match index
-"""
-function Base.match(patt::Pattern, subject::AbstractString)::Any
-    code = compile!(patt).code
-    match(code, subject)
-end
-
 
 """
-    Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
+    findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
 
 Find the first match of `patt` in `string`. Returns the index at the *end* of the match,
 such that string[1:findfirst(patt)] will show the substring.
 """
 function Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
-    code = compile!(patt).code
-    vm = VMState(string, code)
+    vm = VMState(patt, string)
     runvm!(vm)
     if vm.matched
         return vm.s - 1

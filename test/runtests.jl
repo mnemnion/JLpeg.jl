@@ -149,5 +149,5 @@ using Test
     cap2 = P"abc" * C("123")
     @test match(cap2, "abc123")[1] == "123"
     cap3 = cap2^1
-    @test match(cap3, "abc123abc123abc123") == ("123", "123", "123")
+    @test match(cap3, "abc123abc123abc123").captures == ["123", "123", "123"]
 end

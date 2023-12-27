@@ -41,6 +41,28 @@ function Base.keys(m::PegMatch)::Vector
     return collect(eachindex(m.captures))
 end
 
+"""
+    show(io::IO, m::PegMatch)
+
+Show a `PegMatch`.
+"""
+function Base.show(io::IO, m::PegMatch)
+    print(io, "PegMatch(")
+    show(io, m.match)
+    capture_keys = keys(m)
+    if !isempty(capture_keys)
+        print(io, ", ")
+        for (i, capture_name) in enumerate(capture_keys)
+            print(io, capture_name, "=")
+            show(io, m.captures[i])
+            if i < length(m)
+                print(io, ", ")
+            end
+        end
+    end
+    print(io, ")")
+end
+
 Base.getindex(m::PegMatch, i::Integer) = m.captures[i]
 # TODO handle other key types
 
