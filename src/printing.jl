@@ -111,9 +111,14 @@ Base.show(io::IO, vm::VMState) = show(io, MIME("text/plain"), vm)
 # Pattern Printer
 
 function patt_str(patt::Pattern)::String
-    lines=[typeof(patt), "("]
+    T = typeof(patt)
+    if T == PCapture
+        lines=[patt.kind, "("]
+    else
+        lines=[T, "("]
+    end
     push!(lines, "val→", repr("text/plain", patt.val, context=:compact=>true), ", ")
-    if hasfield(typeof(patt), :n)
+    if hasfield(T, :n)
         push!(lines, "n=", string(patt.n), ", ")
     end
     push!(lines, repr("text/plain", patt.code, context=:compact=>true), ")")

@@ -382,10 +382,12 @@ function onInst(inst::LabelInst, vm::VMState)
 end
 
 function onInst(inst::MereInst, vm::VMState)
-     if inst.op == IEnd           return onEnd(vm)
-     elseif inst.op == IReturn    return onReturn(vm)
-     elseif inst.op == IFail      return false
-     elseif inst.op == IFailTwice return onFailTwice(vm)
+    if inst.op == INoOp
+        vm.i += 1; return true
+    elseif inst.op == IEnd       return onEnd(vm)
+    elseif inst.op == IReturn    return onReturn(vm)
+    elseif inst.op == IFail      return false
+    elseif inst.op == IFailTwice return onFailTwice(vm)
     end
 end
 
@@ -472,10 +474,17 @@ function oncapmatch(vm::VMState)::PegMatch
     patt = vm.patt
     # To handle nested captures of all sorts we use a stack
     capstack = []
+    # And another stack for grouping captures
+    groupstack = []
     for i in 1:lcap(vm)
         cap = vm.cap[i]
         if cap.inst.op == IOpenCapture
             push!(capstack, cap)
+            if cap.inst.kind == Cgroup
+                # Push our current captures and offsets onto the group stack
+                push!(groupstack, (captures, offsets))
+                captures, offsets = PegCapture(), PegOffset()
+            end
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
             ikey = cap.inst
@@ -493,6 +502,17 @@ function oncapmatch(vm::VMState)::PegMatch
                     else
                         @warn "missing capture for Instruction: $(ikey)"
                     end
+                elseif ikey.kind == Cgroup
+                    #grab the outer captures and offsets
+                    caps, offs = pop!(groupstack)
+                    if haskey(patt.aux[:caps], ikey) && patt.aux[:caps][ikey] !== nothing
+                        key = patt.aux[:caps][ikey]
+                        push!(caps, key => captures)
+                    else
+                        push!(caps, captures)
+                    end
+                    push!(offs, offsets)
+                    captures, offsets = caps, offs
                 else
                     @warn "doesn't handle the case of $(ikey.kind) yet!"
                     # Keep the offsets correct:

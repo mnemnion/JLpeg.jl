@@ -158,4 +158,7 @@ using Test
     @test match(capsym, "it's in the middle of the string") === nothing
     capstr = "" >> C("middle", "the middle")
     @test match(capstr, "it's in the middle of the string")["the middle"] == "middle"
+    # Captures: Grouped captures
+    groupedcap = Cg(P("" >> C(R"09"^1))^1)
+    @test match(groupedcap, "abc123def456")[1] == ["123", "456"]
 end

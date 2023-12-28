@@ -278,11 +278,12 @@ function mergeaux!(patt::Pattern, val::PAuxT)
                 @error "need to be able to merge $key in $(typeof(val)).aux"
             end
         else
-            if :cap == key continue
+            if :cap == key || :prepared == key || :call == key || :terminal == key
+                continue
             elseif :caps == key
                 paux[:caps] = merge!(Dict(), val)
             else
-                @error "need to create-merge $key in $(typeof(paux)).aux"
+                @error "need to create-merge $key in $(typeof(patt)).aux"
             end
         end
     end
@@ -377,13 +378,13 @@ function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
     c = patt.code
     code = copy(patt.val[1].code)
-    # Optimization: remove captures from PNot patterns,
-    # which never succeed (except match-time captures)
-    # if patt isa PCapture && patt.kind != Cruntime
-    #     code = copy(patt.val[1][1].code)
-    # else
-    #     code = copy(patt.val[1].code)
-    # end
+    # We must remove captures from PNot patterns,
+    # which never succeed (except match-time captures)I
+    for (idx, inst) in enumerate(code)
+        if inst.op == IOpenCapture || inst.op == ICloseCapture || inst.op == IFullCapture
+            code[idx] = OpNoOp
+        end
+    end
     trimEnd!(code)
     l = length(code) + 2  # 3 -> FailTwice, next
     push!(c, ChoiceInst(l))

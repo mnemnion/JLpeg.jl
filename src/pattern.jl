@@ -276,16 +276,22 @@ If `p` is a positive Integer, it matches that many characters.
 If `p` is `true`, the rules succeeds, if `false`, the rule fails.
 If `p` is a Symbol, this represents a call to the rule with that name.
 If `p` is a negative Integer, matches if that many characters remain, consumes no input.
+If `p` is already a Pattern, it is simply returned.
 """
-function P(p::Any)::Pattern end
+function P end
+
+const Patternable = Union{AbstractString,AbstractChar,Integer,Bool,Symbol}
+const Grammar = PGrammar
+const Rule = PRule
+const CapSym = Union{Symbol,AbstractString}
 
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::Integer) = n ≥ 0 ? PAny(UInt(n)) : PAnd(PAny(UInt(-n)))
 P(b::Bool) = b ? PTrue() : PFalse()
 P(sym::Symbol) = POpenCall(sym)
-const Grammar = PGrammar
-const Rule = PRule
+P(p::Pattern) = p
+
 
 """
     S(s::AbstractString)
@@ -311,24 +317,33 @@ R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 Create a capture. Matching `patt` with return the matched substring.
 """
 C(patt::Pattern) = PCapture(patt, Csimple, AuxDict(:cap => nothing))
-"Create a capture for P(s)."
-C(s::String) = PCapture(P(s), Csimple, AuxDict(:cap => nothing))
-"Create a capture for P(n)."
-C(n::Integer) = PCapture(P(n), Csimple, AuxDict(:cap => nothing))
+C(p::Patternable) = PCapture(P(p), Csimple, AuxDict(:cap => nothing))
 
 """
     C(patt::Pattern, sym::Union{Symbol,AbstractString})
 
 Create a named capture with key :sym or "sym".
 """
-function C(patt::Pattern, sym::Union{Symbol,AbstractString})
+function C(patt::Pattern, sym::CapSym)
     aux = AuxDict(:cap => sym)
     PCapture(patt, Csymbol, aux)
 end
-C(p::Union{String,Integer}, sym::Union{Symbol,AbstractString}) = C(P(p), sym)
+C(p::Patternable, sym::CapSym) = C(P(p), sym)
 
 const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
 
+"""
+    Cg(patt::Pattern [, sym::Union{Symbol,AbstractString}])
+
+Create a group capture, which groups all captures from P into a vector inside
+the `PegMatch` object.  If `sym` is provided, the group will be found at that
+key.
+"""
+function Cg(patt::Pattern, sym::Union{CapSym, Nothing})
+    PCapture(patt, Cgroup, AuxDict(:cap => sym))
+end
+Cg(p::Patternable, sym::Union{CapSym, Nothing}) = Cg(P(p), sym)
+Cg(p::Union{Patternable, Pattern}) = Cg(p, nothing)
 # Operators
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
