@@ -82,4 +82,4 @@ end
 
 Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
 Base.length(m::PegMatch) = length(m.captures)
-Base.eltype(m::PegMatch) = eltype(m.captures)
+Base.eltype(::PegMatch) = Pair{PegKey, PegVal}

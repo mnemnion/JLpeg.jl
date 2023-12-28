@@ -83,43 +83,48 @@ struct PAny <: Pattern
     val::UInt32
     code::IVector
     PAny(val::UInt) = new(val, Inst())
-
 end
 
 struct PAnd <: Pattern
     val::Vector{Pattern}
     code::IVector
-    PAnd(val::Pattern) = new([val], Inst())
+    aux::Dict{Symbol,Any}
+    PAnd(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PNot <: Pattern
     val::Vector{Pattern}
     code::IVector
-    PNot(val::Pattern) = new([val], Inst())
+    aux::Dict{Symbol,Any}
+    PNot(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PDiff <: Pattern
     val::Vector{Pattern}
     code::IVector
-    PDiff(a::Pattern, b::Pattern) = new([a, b], Inst())
+    aux::Dict{Symbol,Any}
+    PDiff(a::Pattern, b::Pattern) = new([a, b], Inst(), Dict())
 end
 
 "Includes n, dictating the sort of repetition"
 struct PStar <: Pattern
     val::Vector{Pattern}
     code::IVector
+    aux::Dict{Symbol,Any}
     n::Int
-    PStar(patt::Pattern, n::Int) = new([patt], Inst(), n)
+    PStar(patt::Pattern, n::Int) = new([patt], Inst(), Dict(), n)
 end
 
 struct PSeq <: Pattern
     val::Vector{Pattern}
     code::IVector
+    aux::Dict{Symbol,Any}
 end
 
 struct PChoice <: Pattern
     val::Vector{Pattern}
     code::IVector
+    aux::Dict{Symbol,Any}
 end
 
 struct PTrue <: Pattern
@@ -137,8 +142,7 @@ struct PFalse <: Pattern
 struct POpenCall <: Pattern
     val::Symbol
     code::IVector
-    aux::Dict{Symbol,Any}
-    POpenCall(sym::Symbol) = new(sym, Inst(), Dict())
+    POpenCall(sym::Symbol) = new(sym, Inst())
 end
 
 POpenCall(s::AbstractString) = POpenCall(Symbol(s))
@@ -206,13 +210,13 @@ function PSeq(str::AbstractString)
     for char in str
         push!(val, PChar(char))
     end
-    PSeq(val, code)
+    PSeq(val, code, Dict())
 end
 
 
 function PSeq(a::Pattern, b::Pattern)
     val = optimizePSeq(a, b)
-    PSeq(val, Inst())
+    PSeq(val, Inst(), Dict())
 end
 
 optimizePSeq(a::Pattern, b::Pattern) = [a, b]
@@ -220,7 +224,7 @@ optimizePSeq(a::PSeq, b::PSeq) = vcat(a.val, b.val)
 
 function PChoice(a::Pattern, b::Pattern)
     val = optimizePChoice(a, b)
-    PChoice(val, Inst())
+    PChoice(val, Inst(), Dict())
 end
 
 optimizePChoice(a::PChoice, b::PChoice) = vcat(a.val, b.val)
@@ -281,11 +285,11 @@ R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 
 Create a capture. Matching `patt` with return the matched substring.
 """
-C(patt::Pattern) = PCapture(patt, Csimple)
+C(patt::Pattern) = PCapture(patt, Csimple, Dict{Symbol,Any}(:cap => nothing))
 "Create a capture for P(s)."
-C(s::String) = PCapture(P(s), Csimple)
+C(s::String) = PCapture(P(s), Csimple, Dict{Symbol,Any}(:cap => nothing))
 "Create a capture for P(n)."
-C(n::Integer) = PCapture(P(n), Csimple)
+C(n::Integer) = PCapture(P(n), Csimple, Dict{Symbol,Any}(:cap => nothing))
 
 """
     C(patt::Pattern, sym::Symbol)
@@ -293,7 +297,7 @@ C(n::Integer) = PCapture(P(n), Csimple)
 Create a named capture with key :sym.
 """
 function C(patt::Pattern, sym::Symbol)
-    aux = Dict{Symbol,Any}(:symbolCap => sym)
+    aux = Dict{Symbol,Any}(:cap => sym)
     PCapture(patt, Csymbol, aux)
 end
 

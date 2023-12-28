@@ -443,7 +443,9 @@ function _compile!(patt::PCapture)::Pattern
     trimEnd!(ccode)
     push!(c, OpenCaptureInst(patt.kind))
     append!(c, ccode)
-    push!(c, CloseCaptureInst(patt.kind))
+    close = CloseCaptureInst(patt.kind)
+    patt.aux[:inst] = close => patt.aux[:cap]
+    push!(c, close)
     pushEnd!(c)
     return patt
 end
