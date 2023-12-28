@@ -1,8 +1,8 @@
 
 const PegKey = Union{Symbol, AbstractString, Integer}
-const PegVal = Union{SubString, Pair{PegKey, Any}, Vector{Any}}
-const PegCapture = Vector{Union{SubString,Pair{PegKey, PegVal},Vector{Any}}}
-const PegOffset = Vector{Union{Integer, Vector{Any}}}
+const PegCap = Union{SubString, Pair, Vector}
+const PegCapture = Vector{PegCap}
+const PegOffset = Vector{Union{Integer, Vector}}
 
 """
     PegMatch <: AbstractMatch
@@ -76,7 +76,7 @@ end
 
 function Base.show(io::IO, m::PegMatch)
     print(io, "PegMatch(")
-    show(io, @views m.subject[1:m.last])
+    show(io, m.captures)
     print(io, ")")
 end
 

@@ -8,7 +8,6 @@ In addition to LPEG itself (linked above) we have:
 
 - [LPEG Paper](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf) paper describing the implementation of LPEG.
 
-
 ## Prior Art
 
 - [parsimonious.jl](https://github.com/gitfoxi/Parsimonious.jl): A port of a Python library of the same name.  This takes strings and outputs ParseTrees, which will be of some use.  No idea about the internals yet.
@@ -17,11 +16,9 @@ In addition to LPEG itself (linked above) we have:
 
 - [PEGParser.jl](https://github.com/abeschneider/PEGParser.jl): uses Packrat, has a useful-looking `@grammar` macro.  Other than "it's packrat", no idea how it works yet.
 
-
 ## Tools
 
 - [Match.jl](https://juliaservices.github.io/Match.jl/stable/): a macro for match/case style statements, which is an approach to the VM proper.
-
 
 ## Implementation
 
@@ -46,7 +43,6 @@ Wherein I note how I'm building the thing.
 - [ ] Tail call elimination
 
 - [ ] Set span optimization
-
 
 ## Notes on OG Lpeg
 
@@ -104,3 +100,28 @@ end>
 ```
 
 Anyway enough about that for a sec, the important part is keeping track of all this capture business, which we're going to do by having the pattern hoist a Dict keyed by literal Capture instructions so we can successfully do all the capture stuff to the captures. They're tiny, it'll be fine, even the one with the offset fits in a machine word, which is where the code was going to put it, on god, no cap, fr fr.
+
+## Dialects
+
+Making progress on captures, want to get these thoughts out of my head to return to later.
+
+JLPeg will offer dialects for strings which compile to patterns, at least these:
+
+- `re`:  Implementation of Lpeg `re` module
+
+- `peg`: Implementation of Sam Atman style PEG grammars
+
+- `dialect`: For specifying dialects. I simply suspect this will be useful.
+
+- `regex`: I don't see any reason we can't interpret PCRE regex format on the VM.
+
+- `canonical`  A string form any dialect may be transformed to, and any
+               Pattern printed as. Needs to be feature complete, rather than
+               pleasant to look at or write, but must be legible. This is
+               necessary for, among other things:
+
+### Grammar Transforming Dialects
+
+I dunno how this works actually, but the example I have in mind transforms grammars
+into highlighters, so it's a DSL to specify StyledStrings annotations to perform on a
+recognized grammar.

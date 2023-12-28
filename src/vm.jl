@@ -62,7 +62,7 @@ mutable struct VMState
    running::Bool
    matched::Bool
    function VMState(patt::Pattern, subject::AbstractString)
-      program = compile!(patt).code
+      program = prepare!(patt).code
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(subject)
@@ -466,6 +466,7 @@ function oncapmatch(vm::VMState)::PegMatch
     last = vm.s - 1
     captures = PegCapture()
     offsets = PegOffset()
+    patt = vm.patt
     # To handle nested captures of all sorts we use a stack
     capstack = []
     for i in 1:lcap(vm)
@@ -474,12 +475,25 @@ function oncapmatch(vm::VMState)::PegMatch
             push!(capstack, cap)
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
-            if bcap.inst.kind == cap.inst.kind
-                if bcap.inst.kind == Csimple
-                    push!(offsets, Int(bcap.s))
+            ikey = cap.inst
+            if bcap.inst.kind == ikey.kind
+                # TODO if there are non-capturing captures (possible), we
+                # check for those here.
+                push!(offsets, Int(bcap.s))
+                if ikey.kind == Csimple
                     push!(captures, @views vm.subject[bcap.s:cap.s-1])
+                elseif ikey.kind == Csymbol
+                    if haskey(patt.aux[:caps], ikey)
+                        key = patt.aux[:caps][ikey]
+                        sub = @views vm.subject[bcap.s:cap.s-1]
+                        push!(captures, key => sub)
+                    else
+                        @warn "missing capture for Instruction: $(ikey)"
+                    end
                 else
-                    @warn "doesn't handle the case of $(cap.inst.kind) yet!"
+                    @warn "doesn't handle the case of $(ikey.kind) yet!"
+                    # Keep the offsets correct:
+                    push!(captures, :__not_found_capture__ => "")
                 end
             else
                 error("Unbalanced caps begin $(bcap.inst.kind) end $(cap.inst.kind)")
@@ -489,7 +503,7 @@ function oncapmatch(vm::VMState)::PegMatch
     if !isempty(capstack)
         @warn "left entries on the capture stack: $(capstack)"
     end
-    return PegMatch(vm.subject, last, captures, offsets, vm.patt)
+    return PegMatch(vm.subject, last, captures, offsets, patt)
 end
 
 ## Core Method extensions

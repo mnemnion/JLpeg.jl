@@ -172,6 +172,34 @@ abstract type ThrowRecInst end
     FullCaptureInst(kind::CapKind, off::Integer) = new(IFullCapture, kind, Int32(off))
  end
 
+
+"""
+    Base.merge!(dict::AbstractDict, pairs::Pair...)
+
+Adds `pairs` to `dict`.  Synonymous with `push!`, useful for `Union{Dict,Pair}` types.
+
+## Examples
+```jldoctest
+julia> dict = Dict(:a => 'a', :b => 'b')
+Dict{Symbol, Char} with 2 entries:
+  :a => 'a'
+  :b => 'b'
+
+julia> merge!(dict, :c => 'c', :d => 'd')
+Dict{Symbol, Char} with 4 entries:
+  :a => 'a'
+  :b => 'b'
+  :d => 'd'
+  :c => 'c'
+```
+"""
+function Base.merge!(dict::AbstractDict, pairs::Pair...)
+    for pair in pairs
+        dict[pair.first] = pair.second
+    end
+    return dict
+end
+
 ### Compilers
 
 """
@@ -193,11 +221,70 @@ function compile!(patt::Pattern)::Pattern
         if t == Vector{Pattern} || t == Vector{PRule}
             for (idx, val) in enumerate(patt.val)
                 patt.val[idx] = compile!(val)
+                mergeaux!(patt, patt.val[idx])
             end
         end
         _compile!(patt)
     else
         patt
+    end
+end
+
+
+"""
+    prepare!(patt::Pattern)::Pattern
+
+Prepare a pattern for compiling.
+"""
+function prepare!(patt::Pattern)::Pattern
+    compile!(patt)
+end
+
+"""
+    prepare!(patt::PAuxT)::Pattern
+
+TBW
+"""
+function prepare!(patt::PAuxT)::Pattern
+    if haskey(patt.aux, :prepared)
+        return patt
+    end
+    patt = compile!(patt)
+    if !isa(patt, PAuxT)
+        return patt
+    end
+    for (key, value) in patt.aux
+        if value isa Pair
+            patt.aux[key] = Dict(value)
+        end
+    end
+    patt.aux[:prepared] = true
+    return patt
+end
+
+mergeaux!(p::Pattern, v::Pattern) = return
+
+function mergeaux!(patt::Pattern, val::PAuxT)
+    paux, vaux = patt.aux, val.aux
+    for (key, val) in vaux
+        if haskey(paux, key)
+            # We'll special-case everything until the end then consolidate
+            if :cap == key
+                # Already promoted to :caps by _compile!
+                continue
+            elseif :caps == key
+                merge!(paux[:caps], val)
+            else
+                @error "need to be able to merge $key in $(typeof(val)).aux"
+            end
+        else
+            if :cap == key continue
+            elseif :caps == key
+                paux[:caps] = merge!(Dict(), val)
+            else
+                @error "need to create-merge $key in $(typeof(paux)).aux"
+            end
+        end
     end
 end
 
@@ -289,13 +376,14 @@ end
 function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
     c = patt.code
+    code = copy(patt.val[1].code)
     # Optimization: remove captures from PNot patterns,
     # which never succeed (except match-time captures)
-    if patt isa PCapture && patt.kind != Cruntime
-        code = copy(patt.val[1][1].code)
-    else
-        code = copy(patt.val[1].code)
-    end
+    # if patt isa PCapture && patt.kind != Cruntime
+    #     code = copy(patt.val[1][1].code)
+    # else
+    #     code = copy(patt.val[1].code)
+    # end
     trimEnd!(code)
     l = length(code) + 2  # 3 -> FailTwice, next
     push!(c, ChoiceInst(l))
@@ -444,7 +532,7 @@ function _compile!(patt::PCapture)::Pattern
     push!(c, OpenCaptureInst(patt.kind))
     append!(c, ccode)
     close = CloseCaptureInst(patt.kind)
-    patt.aux[:inst] = close => patt.aux[:cap]
+    patt.aux[:caps] = close => patt.aux[:cap]
     push!(c, close)
     pushEnd!(c)
     return patt

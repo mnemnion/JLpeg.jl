@@ -28,12 +28,35 @@ abstract type Instruction end
     Cfold       # ktable[key] is function; next node is pattern
     Cruntime    # not used in trees (is uses another type for tree)
     Cgroup      # ktable[key] is group's "name"
-  end
+end
 
-
+"A Vector of `Instructions` representing a complete pattern."
 const IVector = Vector{Instruction}
 
+"""
+    AuxDict = Dict{Symbol, Any}
 
+The `.aux` field of any compound `Pattern`, contains the auxiliary data
+needed to correctly compile the pattern.  Everything in any `patt.val[n].aux`
+is merged with `patt.aux`, through a non-trivial algorithm aka the shape is
+somtimes transformed. Like all pattern data, `patt.aux` is treated as immutable
+after `compile!` returns.
+
+Possible fields include:
+
+- `:cap`:  The supplemental information of a PCapture. This is promoted within the
+           PCapture to `:caps`, see below. Type of the value is based on `CapKind`:
+    - `CSimple`: `:cap isa Nothing`
+    - `CSymbol`: `:cap isa Symbol`
+    - To Be continued...
+
+- `:caps`:  A mapping of capture closing `Instruction`s to the value of `:cap` for
+            the originating capture. Will be either a Pair or a Dict, depending.
+
+**To Be Continued**
+
+"""
+const AuxDict = Dict{Symbol, Any}
 
 function Inst()
     IVector(undef, 0)
@@ -88,21 +111,21 @@ end
 struct PAnd <: Pattern
     val::Vector{Pattern}
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     PAnd(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PNot <: Pattern
     val::Vector{Pattern}
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     PNot(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PDiff <: Pattern
     val::Vector{Pattern}
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     PDiff(a::Pattern, b::Pattern) = new([a, b], Inst(), Dict())
 end
 
@@ -110,7 +133,7 @@ end
 struct PStar <: Pattern
     val::Vector{Pattern}
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     n::Int
     PStar(patt::Pattern, n::Int) = new([patt], Inst(), Dict(), n)
 end
@@ -118,13 +141,13 @@ end
 struct PSeq <: Pattern
     val::Vector{Pattern}
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
 end
 
 struct PChoice <: Pattern
     val::Vector{Pattern}
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
 end
 
 struct PTrue <: Pattern
@@ -151,7 +174,7 @@ POpenCall(s::AbstractString) = POpenCall(Symbol(s))
 struct PCall <: Pattern
     val::Symbol
     code::IVector
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     ref::Pattern
     """
     PCall(patt::POpenCall, ref::Pattern)
@@ -167,7 +190,7 @@ struct PRule <: Pattern
     val::Vector{Pattern}
     code::IVector
     name::Symbol
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     PRule(name::Symbol, val::Pattern) = new([val], Inst(), name, Dict())
 end
 
@@ -175,7 +198,7 @@ struct PGrammar <: Pattern
     val::Vector{PRule}
     code::IVector
     start::Symbol
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     function PGrammar(start::PRule, rest::Vararg{PRule})
         start_sym = start.name
         val = [start]
@@ -188,9 +211,9 @@ struct PCapture <: Pattern
     val::Vector{Pattern}
     code::IVector
     kind::CapKind
-    aux::Dict{Symbol,Any}
+    aux::AuxDict
     PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k, Dict())
-    PCapture(a::Pattern, k::CapKind, aux::Dict{Symbol,Any}) = new([a], Inst(), k, aux)
+    PCapture(a::Pattern, k::CapKind, aux::AuxDict) = new([a], Inst(), k, aux)
 end
 # TODO the rest of these need to be concrete:
 
@@ -198,6 +221,8 @@ abstract type PRunTime <:Pattern end
 abstract type PBehind <:Pattern end
 abstract type PTXInfo <:Pattern end
 abstract type PThrow <:Pattern end
+
+const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}
 
 # TODO add PCompiled for string-dumped rules and grammars
 
@@ -216,7 +241,7 @@ end
 
 function PSeq(a::Pattern, b::Pattern)
     val = optimizePSeq(a, b)
-    PSeq(val, Inst(), Dict())
+    PSeq(val, Inst(), AuxDict())
 end
 
 optimizePSeq(a::Pattern, b::Pattern) = [a, b]
@@ -224,7 +249,7 @@ optimizePSeq(a::PSeq, b::PSeq) = vcat(a.val, b.val)
 
 function PChoice(a::Pattern, b::Pattern)
     val = optimizePChoice(a, b)
-    PChoice(val, Inst(), Dict())
+    PChoice(val, Inst(), AuxDict())
 end
 
 optimizePChoice(a::PChoice, b::PChoice) = vcat(a.val, b.val)
@@ -285,11 +310,11 @@ R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 
 Create a capture. Matching `patt` with return the matched substring.
 """
-C(patt::Pattern) = PCapture(patt, Csimple, Dict{Symbol,Any}(:cap => nothing))
+C(patt::Pattern) = PCapture(patt, Csimple, AuxDict(:cap => nothing))
 "Create a capture for P(s)."
-C(s::String) = PCapture(P(s), Csimple, Dict{Symbol,Any}(:cap => nothing))
+C(s::String) = PCapture(P(s), Csimple, AuxDict(:cap => nothing))
 "Create a capture for P(n)."
-C(n::Integer) = PCapture(P(n), Csimple, Dict{Symbol,Any}(:cap => nothing))
+C(n::Integer) = PCapture(P(n), Csimple, AuxDict(:cap => nothing))
 
 """
     C(patt::Pattern, sym::Symbol)
@@ -297,9 +322,10 @@ C(n::Integer) = PCapture(P(n), Csimple, Dict{Symbol,Any}(:cap => nothing))
 Create a named capture with key :sym.
 """
 function C(patt::Pattern, sym::Symbol)
-    aux = Dict{Symbol,Any}(:cap => sym)
+    aux = AuxDict(:cap => sym)
     PCapture(patt, Csymbol, aux)
 end
+C(p::Union{String,Integer}, sym::Symbol) = C(P(p), sym)
 
 const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
 
@@ -451,6 +477,4 @@ each of which is a rule-pair as can be created with `<=` or `←`, with some dif
 - Rule and call symbols don't need the `:`, although this is valid.
 - Strings, number, and booleans are converted to patterns, even at the head of a rule.
 """
-macro grammar(name, rules)
-
-end
+# TODO working it out in scratch

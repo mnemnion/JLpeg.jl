@@ -152,6 +152,6 @@ using Test
     @test match(cap3, "abc123abc123abc123").captures == ["123", "123", "123"]
     capff = cap = P"" >> (P"56",)
     @test match(capff, "12345678").captures == ["56"]
-    capsym = C(ff, :the_end)
+    capsym = "" >> C("end", :the_end)
     @test match(capsym, "it's at the end")[:the_end] == "end"
 end
