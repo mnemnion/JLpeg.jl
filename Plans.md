@@ -125,3 +125,8 @@ JLPeg will offer dialects for strings which compile to patterns, at least these:
 I dunno how this works actually, but the example I have in mind transforms grammars
 into highlighters, so it's a DSL to specify StyledStrings annotations to perform on a
 recognized grammar.
+
+### More Dialect Notes
+
+So there's [ReplMaker](https://juliahub.com/ui/Packages/General/ReplMaker) for
+constructing custom repl modes, which we can use for dialect builders.

@@ -542,4 +542,19 @@ function Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, N
     end
 end
 
+"""
+    occursin(needle::Pattern, haystack::AbstractString)
+
+Check if `needle` matches in `haystack`.  PEG patterns, unlike regex, must match
+from the first character in the string; to convert a pattern `p` to match anywhere,
+use `psearch = "" >> p`.
+"""
+function Base.occursin(needle::Pattern, haystack::AbstractString)
+    if findfirst(needle, haystack) !== nothing
+        return true
+    else
+        return false
+   end
+end
+
 include("printing.jl")

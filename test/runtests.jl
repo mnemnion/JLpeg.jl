@@ -130,6 +130,7 @@ using Test
     # Fast Forward
     ff = "" >> P"end"
     @test findfirst(ff, "all the way until the end") == 25
+    @test occursin(ff, "all the way until the end")
     # A Real Grammar
     lisp = Grammar(
         :lisp    ←  :_ * P"(" * :body * :_ * P")" * :_,

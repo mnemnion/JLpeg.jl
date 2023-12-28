@@ -5,6 +5,7 @@ version = "1.0.0-DEV"
 
 [deps]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+VimBindings = "51b3953f-5e5d-4a6b-bd62-c64b6fa1518a"
 
 [compat]
 julia = "1"
