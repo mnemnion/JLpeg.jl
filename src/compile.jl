@@ -262,7 +262,7 @@ function prepare!(patt::PAuxT)::Pattern
     return patt
 end
 
-mergeaux!(p::Pattern, v::Pattern) = return
+mergeaux!(::Pattern, ::Pattern) = return
 
 function mergeaux!(patt::Pattern, val::PAuxT)
     paux, vaux = patt.aux, val.aux
@@ -381,7 +381,10 @@ function _compile!(patt::PNot)::Pattern
     # We must remove captures from PNot patterns,
     # which never succeed (except match-time captures)I
     for (idx, inst) in enumerate(code)
-        if inst.op == IOpenCapture || inst.op == ICloseCapture || inst.op == IFullCapture
+        if ( ( inst.op == IOpenCapture
+            || inst.op == ICloseCapture
+            || inst.op == IFullCapture )
+                && !(inst.kind == Cruntime))
             code[idx] = OpNoOp
         end
     end
