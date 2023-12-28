@@ -317,15 +317,15 @@ C(s::String) = PCapture(P(s), Csimple, AuxDict(:cap => nothing))
 C(n::Integer) = PCapture(P(n), Csimple, AuxDict(:cap => nothing))
 
 """
-    C(patt::Pattern, sym::Symbol)
+    C(patt::Pattern, sym::Union{Symbol,AbstractString})
 
-Create a named capture with key :sym.
+Create a named capture with key :sym or "sym".
 """
-function C(patt::Pattern, sym::Symbol)
+function C(patt::Pattern, sym::Union{Symbol,AbstractString})
     aux = AuxDict(:cap => sym)
     PCapture(patt, Csymbol, aux)
 end
-C(p::Union{String,Integer}, sym::Symbol) = C(P(p), sym)
+C(p::Union{String,Integer}, sym::Union{Symbol,AbstractString}) = C(P(p), sym)
 
 const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
 

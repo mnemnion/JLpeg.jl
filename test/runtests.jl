@@ -155,4 +155,7 @@ using Test
     @test match(capff, "12345678").captures == ["56"]
     capsym = "" >> C("end", :the_end)
     @test match(capsym, "it's at the end")[:the_end] == "end"
+    @test match(capsym, "it's in the middle of the string") === nothing
+    capstr = "" >> C("middle", "the middle")
+    @test match(capstr, "it's in the middle of the string")["the middle"] == "middle"
 end

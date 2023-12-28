@@ -242,6 +242,9 @@ end
 
 "onAny"
 function onInst(any::AnyInst, vm::VMState)::Bool
+    if vm.s > vm.top
+        return false
+    end
     idx = vm.s
     for i in any.n:-1:1
         idx = nextind(vm.subject, idx)
