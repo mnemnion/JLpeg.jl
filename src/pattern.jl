@@ -14,15 +14,15 @@ abstract type Instruction end
 "A kind of capture"
 @enum CapKind begin
     Cclose      # not used in trees
-    Cposition
-    Cconst      # ktable[key] is Lua constant
-    Cbackref    # ktable[key] is "name" of group to get capture
-    Carg        # 'key' is arg's number
-    Csimple     # next node is pattern
+    Cposition   # Yes
+    Cconst      # ? Action, I think
+    Cbackref    # Might be a different mechanism
+    Carg        # Probably an Action
+    Csimple     # Implemented
     Ctable      # next node is pattern
     Cfunction   # ktable[key] is function; next node is pattern
     Cquery      # ktable[key] is table; next node is pattern
-    Cstring     # ktable[key] is string; next node is pattern
+    Csymbol     # Next up.  Can also be a string probably
     Cnum        # numbered capture; 'key' is number of value to return
     Csubst      # substitution capture; next node is pattern
     Cfold       # ktable[key] is function; next node is pattern
@@ -137,7 +137,7 @@ struct PFalse <: Pattern
 struct POpenCall <: Pattern
     val::Symbol
     code::IVector
-    meta::Dict{AbstractString, Any}
+    aux::Dict{Symbol,Any}
     POpenCall(sym::Symbol) = new(sym, Inst(), Dict())
 end
 
@@ -147,7 +147,7 @@ POpenCall(s::AbstractString) = POpenCall(Symbol(s))
 struct PCall <: Pattern
     val::Symbol
     code::IVector
-    meta::Dict{AbstractString, Any}
+    aux::Dict{Symbol,Any}
     ref::Pattern
     """
     PCall(patt::POpenCall, ref::Pattern)
@@ -163,7 +163,7 @@ struct PRule <: Pattern
     val::Vector{Pattern}
     code::IVector
     name::Symbol
-    meta::Dict{Symbol, Any}
+    aux::Dict{Symbol,Any}
     PRule(name::Symbol, val::Pattern) = new([val], Inst(), name, Dict())
 end
 
@@ -171,7 +171,7 @@ struct PGrammar <: Pattern
     val::Vector{PRule}
     code::IVector
     start::Symbol
-    meta::Dict{Symbol, Any}
+    aux::Dict{Symbol,Any}
     function PGrammar(start::PRule, rest::Vararg{PRule})
         start_sym = start.name
         val = [start]
@@ -184,8 +184,9 @@ struct PCapture <: Pattern
     val::Vector{Pattern}
     code::IVector
     kind::CapKind
-    # TODO probably want more than this
-    PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k)
+    aux::Dict{Symbol,Any}
+    PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k, Dict())
+    PCapture(a::Pattern, k::CapKind, aux::Dict{Symbol,Any}) = new([a], Inst(), k, aux)
 end
 # TODO the rest of these need to be concrete:
 
@@ -281,8 +282,20 @@ R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 Create a capture. Matching `patt` with return the matched substring.
 """
 C(patt::Pattern) = PCapture(patt, Csimple)
+"Create a capture for P(s)."
 C(s::String) = PCapture(P(s), Csimple)
+"Create a capture for P(n)."
 C(n::Integer) = PCapture(P(n), Csimple)
+
+"""
+    C(patt::Pattern, sym::Symbol)
+
+Create a named capture with key :sym.
+"""
+function C(patt::Pattern, sym::Symbol)
+    aux = Dict{Symbol,Any}(:symbolCap => sym)
+    PCapture(patt, Csymbol, aux)
+end
 
 const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
 

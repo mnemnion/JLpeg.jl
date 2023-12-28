@@ -62,63 +62,45 @@ Trees are built into more complex patterns through combinator rules, which becom
 
 ## Strategy
 
-The distinction between Pattern and TTree isn't something we really need, I don't think.  The distinction is basically between the encapsulation of Lua-side userdata, code, and a TTree, where the latter is used to do manipulation of the pattern stuff without affecting the Lua VM.  We can just have Patterns as containers that also do the Tree-like things.
+The distinction between Pattern and TTree isn't something we really need, I don't
+think.  The distinction is basically between the encapsulation of Lua-side userdata,
+code, and a TTree, where the latter is used to do manipulation of the pattern stuff
+without affecting the Lua VM.  We can just have Patterns as containers that also do
+the Tree-like things.
 
 ## Implementation Notes and Details
 
+Current work is on captures, and the early foray has convinced me that the Julian
+solution will differ considerably both from the Lua (in Julia, not _everything_ is a
+table/Dict) and from how the regex package implements AbstractMatch. So this is notes on how I want captures to work, and we'll work back from there.
 
-## Instructions
+Syntax: mostly, I like the "your tuple is a capture" syntax, and will add "your vector is a group of captures" to that.
 
-New ones are noted as such.
+```julia
+( :a  ←  P"123" * ("abc",) | [("qwerty", :qwerty) | :b ],
+  :b  ←  (("qwertz", :qwertz) | ("azerty", :azerty))^1 )
+```
 
-### Char _char_
+I don't hate it.  Syntax-wise, I'm a bit torn between adding a macro for the Snobol
+operator overload style to pour a bit more sugar in the teacup, and just getting on
+with porting my existing PEG format to JLPeg, that being the QED and all.
 
-Julia has a native unicode character type, so this can be up to four bytes.
+Anyway. The data structure, and therefore, what we even capture to begin with.
 
-### Jump _label_
+```julia
+const PegKey = Union{Symbol, AbstractString, Integer}
+const PegCapture = Vector{Union{SubString,Tuple{PegKey,PegCapture},PegCapture}}
+const PegOffset = Vector{Union{Integer, PegOffset}}
+```
 
-### Choice _label_ _offset_
+is this terrible? it's a plist pretty much. kinda terrible? but iterable, allows duplicate named matches, and it reflects the actual structure of what a recursive pattern matcher produces, which is a big plus.
 
-### Call _label_
+```julia
+struct PegMatch <: AbstractMatch
+   pattern::Pattern
+   captures::PegCapture
+   offsets::PegOffset
+end>
+```
 
-### OpenCall _string_
-
-### Return
-
-### Commit _label_
-
-### PartialCommit _label_
-
-### BackCommit _label_
-
-### Capture _directive_ _offset_
-
-Directives are _begin_, _end_, and _full_ (both _begin_ and _end_)
-
-### NameCapture _directive_ _offset_ _name_ (new)
-
-These captures are retained by name and used in comparisons. Work in progress.
-
-### Fail
-
-### FailTwice
-
-### End
-
-### Any _n_
-
-### SingleCharset
-
-### SecondCharset (new)
-
-### ThirdCharset (new)
-
-### FourthCharset (new)
-
-### Span _Charset_
-
-### TestChar _Char_ _label_
-
-### TestCharset _Charset_ _label_
-
-### TestAny _n_ _label_
+Anyway enough about that for a sec, the important part is keeping track of all this capture business, which we're going to do by having the pattern hoist a Dict keyed by literal Capture instructions so we can successfully do all the capture stuff to the captures. They're tiny, it'll be fine, even the one with the offset fits in a machine word, which is where the code was going to put it, on god, no cap, fr fr.

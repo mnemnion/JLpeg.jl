@@ -13,11 +13,10 @@ end
 struct CapEntry
     i::Int32       # Instruction pointer
     s::UInt32      # String index
-    off::Int32     # Offset (for full captures)
-    op::Opcode     # What variety of capture is this
-    kind::CapKind  # Sort of capture
-    CapEntry(i::Int32, s::UInt32, off::Int32, op::Opcode, kind::CapKind) = new(i, s, off, op, kind)
-    CapEntry(i::Int32, s::UInt32, op::Opcode, kind::CapKind) = new(i, s, 0, op, kind)
+    inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}
+    CapEntry(i::Int32,
+             s::UInt32,
+             inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}) = new(i, s, inst)
 end
 
 """
@@ -70,10 +69,6 @@ mutable struct VMState
       return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, stack, cap, false, false)
    end
 end
-
-CapEntry(vm::VMState, inst::OpenCaptureInst) = CapEntry(vm.i, vm.s, Int32(0), IOpenCapture, inst.kind)
-CapEntry(vm::VMState, inst::CloseCaptureInst) = CapEntry(vm.i, vm.s - Int32(1), Int32(0), ICloseCapture, inst.kind)
-CapEntry(vm::VMState, inst::FullCaptureInst) = CapEntry(vm.i, vm.s, inst.off, IFullCapture, inst.kind)
 
 # ## VM Actions
 #
@@ -146,7 +141,7 @@ end
 @inline
 "Push a CapEntry."
 function pushcap!(vm::VMState, inst::Instruction)
-   push!(vm.cap, CapEntry(vm, inst))
+   push!(vm.cap, CapEntry(vm.i, vm.s, inst))
 end
 
 @inline
@@ -468,30 +463,33 @@ function oncapmatch(vm::VMState)::PegMatch
     # Iterate C style so I can try optimizing use of the captable
     # For now, we just handle simple captures.
     S = typeof(vm.subject)
-    match = SubString{S}(vm.subject, 1, vm.s-1)
-    s1, s2 = nothing, nothing
-    offset = 1
-    captures = Vector{Union{SubString{S},Nothing}}()
-    offsets = Vector{Int}()
+    last = vm.s - 1
+    captures = PegCapture()
+    offsets = PegOffset()
+    # To handle nested captures of all sorts we use a stack
+    capstack = []
     for i in 1:lcap(vm)
         cap = vm.cap[i]
-        if cap.kind == Csimple
-            if cap.op == IOpenCapture
-                s1 = cap.s
-            elseif cap.op == ICloseCapture
-                s2 = cap.s
-                if isnothing(s1)
-                    error("Found a close capture without an open")
+        if cap.inst.op == IOpenCapture
+            push!(capstack, cap)
+        elseif cap.inst.op == ICloseCapture
+            bcap = pop!(capstack)
+            if bcap.inst.kind == cap.inst.kind
+                if bcap.inst.kind == Csimple
+                    push!(offsets, Int(bcap.s))
+                    push!(captures, @views vm.subject[bcap.s:cap.s-1])
+                else
+                    @warn "doesn't handle the case of $(cap.inst.kind) yet!"
                 end
-                push!(offsets, Int(s1))
-                push!(captures, vm.subject[s1:s2])
+            else
+                error("Unbalanced caps begin $(bcap.inst.kind) end $(cap.inst.kind)")
             end
-        else
-            @warn "No actions for $(cap.kind) yet!"
         end
     end
-
-    return PegMatch(match, captures, offset, offsets, vm.patt)
+    if !isempty(capstack)
+        @warn "left entries on the capture stack: $(capstack)"
+    end
+    return PegMatch(vm.subject, last, captures, offsets, vm.patt)
 end
 
 ## Core Method extensions

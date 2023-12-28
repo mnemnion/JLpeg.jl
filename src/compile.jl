@@ -450,7 +450,7 @@ end
 
 function _compile!(patt::PRule)::Pattern
     c = patt.code
-    meta = patt.meta
+    meta = patt.aux
     calls = meta[:call] = Dict{Int, Symbol}()
     for (idx, op) in enumerate(patt.val[1].code)
         if op.op == IOpenCall
@@ -469,7 +469,7 @@ end
 
 function _compile!(patt::PGrammar)::Pattern
     rules = Dict{Symbol, PRule}()
-    meta = patt.meta
+    meta = patt.aux
     for rule in patt.val
         rules[rule.name] = rule
     end

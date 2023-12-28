@@ -1,11 +1,11 @@
 # Printing methods for elements of JLpeg
 
-"Show an Instruction"
+"Show an Instruction."
 function Base.show(io::IO, inst::Instruction)
     print(io, inst_str(inst, Int32(0)))
 end
 
-"Show a vector of Bytecode instructions"
+"Show a vector of Bytecode instructions."
 function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     if isempty(code)
         return print(io, "IVec[]")
@@ -27,7 +27,7 @@ function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     print(io, join(lines, "\n"))
 end
 
-"Show a vector of patterns"
+"Show a vector of patterns."
 function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
     compact = get(io, :compact, false)
     lines = ["["]
@@ -43,7 +43,7 @@ function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
 end
 
 
-"Show a Pattern"
+"Show a Pattern."
 function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
     compact = get(io, :compact, false)
     if compact
@@ -53,14 +53,14 @@ function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
     print(io, patt_str(patt))
 end
 
-"Show a Grammar"
+"Show a Grammar."
 function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
-    if !haskey(patt.meta, :start) # Not yet compiled
+    if !haskey(patt.aux, :start) # Not yet compiled
         return print(io, patt_str(patt))
     end
     green(s::Union{String,Symbol}) = "\x1b[32m$s\x1b[0m"
     bold(s::Union{String,Symbol}) = "\x1b[1m$s\x1b[0m"
-    meta = patt.meta
+    meta = patt.aux
     pad = length(patt.code) > 99 ? 3 : 2
     lines = [":$(meta[:start])", '-'^(length(string(meta[:start]))+1)]
     mapsite = Dict()
@@ -95,10 +95,18 @@ end
 
 
 
-"Show a VMState"
+"Show a VMState."
 function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
-    print(io, vm_to_str(vm))
+    if get(io, :compact, false)
+        print(io, short_vm(vm))
+    else
+        print(io, vm_to_str(vm))
+    end
 end
+
+Base.show(io::IO, vm::VMState) = show(io, MIME("text/plain"), vm)
+
+
 
 # Pattern Printer
 
