@@ -2,7 +2,7 @@
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "f8a8f18bc946eb6447251b53c4422c0bb805f237"
+project_hash = "6ef94778878a0b2a2413e82ef0fbc8c23cfb3ad1"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -13,6 +13,12 @@ uuid = "b77e0a4c-d291-57a0-90e8-8db25a27a240"
 
 [[deps.Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
+
+[[deps.MacroTools]]
+deps = ["Markdown", "Random"]
+git-tree-sha1 = "b211c553c199c111d998ecdaf7623d1b89b69f93"
+uuid = "1914dd2f-81c6-5fcd-8719-6d5c9610ff09"
+version = "0.5.12"
 
 [[deps.Markdown]]
 deps = ["Base64"]

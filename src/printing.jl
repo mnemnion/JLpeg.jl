@@ -5,6 +5,11 @@ function Base.show(io::IO, inst::Instruction)
     print(io, inst_str(inst, Int32(0)))
 end
 
+"Show a CapEntry"
+function Base.show(io::IO, cap::CapEntry)
+    print(io, "{i:$(cap.i) s:$(Int(cap.s)) $(cap.inst)}")
+end
+
 "Show a vector of Bytecode instructions."
 function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     if isempty(code)
@@ -98,7 +103,7 @@ end
 "Show a VMState."
 function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
     if get(io, :compact, false)
-        print(io, short_vm(vm))
+        print(io, vm_head(vm))
     else
         print(io, vm_to_str(vm))
     end
@@ -135,6 +140,19 @@ end
 function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     line = ["$(inst.op)"]
     t = typeof(inst)
+    if t == OpenCaptureInst || t == CloseCaptureInst || t == FullCaptureInst
+        pop!(line)
+        push!(line, "$(inst.kind)")
+        if t == OpenCaptureInst
+            push!(line, " open")
+        elseif t == CloseCaptureInst
+            push!(line, " close")
+        else
+            push!(line, " full")
+            push!(line, " ($(inst.l + off))")
+        end
+        return line
+    end
     if hasfield(t, :c)
         push!(line, " '$(inst.c)'" )
     end
@@ -155,7 +173,7 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     elseif hasfield(t, :vec) && hasfield(t, :lead)
         push!(line, " {$(multivec_string(inst))}")
     end
-    line
+    return line
 end
 
 
@@ -282,31 +300,46 @@ end
 
 # VMState printing helpers
 
-function short_vm(vm::VMState)::String
+function vm_head(vm::VMState)::String
     o = vm.t_on ? 1 : 0
     b = vm.t_on ? "yes" : "no"
-    "State: [i:$(vm.i)] $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
+    "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_subject(vm.subject, vm.s))\n"
 end
 
-function frame_to_str(vm::VMState, i, s)::String
+function vm_head_color(vm::VMState)::String
+    o = vm.t_on ? 1 : 0
+    b = vm.t_on ? "yes" : "no"
+    "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
+end
+
+function frame_to_str(vm::VMState, i, s, c)::String
     inst = vm.program[i]
     if s == 0
-        "[i:$(i)] $(inst_str(inst,i))"
+        "[i:$(i)] {$c} $(inst_str(inst,i))"
     else
-        "[i:$(i)] $(inst_str(inst, i)) s:$(in_red(vm.subject, s))"
+        "[i:$(i)] {$c} $(inst_str(inst, i)) s:$(in_subject(vm.subject, s))"
     end
 end
 
 function vm_to_str(vm::VMState)::String
-    lines = [short_vm(vm)[1:end-1]]
+    lines = [vm_head(vm)[1:end-1]]
     if !vm.t_on
         push!(lines, "Frame: []")
     else
         push!(lines, "Frames:")
-        push!(lines, frame_to_str(vm, vm.ti, vm.ts))
+        push!(lines, frame_to_str(vm, vm.ti, vm.ts, vm.tc))
     end
     for frame in Iterators.reverse(vm.stack)
-        push!(lines, frame_to_str(vm, frame.i, frame.s))
+        push!(lines, frame_to_str(vm, frame.i, frame.s, frame.c))
+    end
+    push!(lines, "---")
+    if isempty(vm.cap)
+        push!(lines, "Caps:[]")
+    else
+        push!(lines, "Caps:")
+        for entry in Iterators.reverse(vm.cap)
+            push!(lines, repr(entry))
+        end
     end
     push!(lines, "---\n")
     return join(lines, "\n")
@@ -331,10 +364,41 @@ end
 function red_i(str::String, i::UInt32)
     red_start = "\x1B[31m"
     red_end = "\x1B[0m"
+    s_end = "⟫"
     sstr = sizeof(str)
     i1 = clamp(i, 1, sstr)
     i2 = clamp(i+1, 1, sstr)
     highlighted_str = str[1:i1-1] * red_start * str[i1:i1] * red_end
+    if i2 ≠ i1
+        highlighted_str *= str[i2:end]
+    end
+
+    return highlighted_str
+end
+
+function in_subject(str::String, i::UInt32)
+    if isempty(str)
+        return "\"\""
+    end
+    if i == 0
+        str1 = "⟪*⟫"
+        str2, _ = substr_at_i(str, UInt32(1))
+        return str1 * str2
+    elseif i > sizeof(str)
+        str2 = "⟪*⟫"
+        str1, _ = substr_at_i(str, UInt32(sizeof(str)))
+        return str1 * str2
+    end
+    subject_i(substr_at_i(str, i)...)
+end
+
+function subject_i(str::String, i::UInt32)
+    s_start = "⟪"
+    s_end = "⟫"
+    sstr = sizeof(str)
+    i1 = clamp(i, 1, sstr)
+    i2 = clamp(i+1, 1, sstr)
+    highlighted_str = str[1:i1-1] * s_start * str[i1:i1] * s_end
     if i2 ≠ i1
         highlighted_str *= str[i2:end]
     end

@@ -214,7 +214,7 @@ pointers to see if the code generated from this approach is, in fact, optimal.
 function runvm!(vm::VMState)::Nothing
     vm.running = true
     while vm.running
-        @debug short_vm(vm)
+        @info vm_head_color(vm)
         # print(vm_to_str(vm))
         if vm.i > length(vm.program)
             vm.running = false
@@ -543,7 +543,7 @@ function oncapmatch(vm::VMState)::PegMatch
                 end
             elseif ikey.kind == Caction
                 λ = capdict[ikey]::Function
-                # The Action either created the groupr, or it *is* the group
+                # The Action either created the group, or it *is* the group
                 if ikey.op == IFullCapture || isempty(captures)
                     arg = @views vm.subject[bcap.s:cap.s-1]
                     if isempty(captures) && isempty(groupstack)

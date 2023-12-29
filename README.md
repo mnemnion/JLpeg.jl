@@ -28,7 +28,9 @@ suited to full grammars, a task JLPeg also excels at.
 ## Interface
 
 The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/),
-with several extensions and refinements.  The basic operations are as follows:
+with several extensions, refinements, and a more natively Julian character.
+
+The basic operations are as follows:
 
 | Operator                | Description                                                 |
 | ----------------------- | ----------------------------------------------------------- |
@@ -56,7 +58,7 @@ The simplest use of JLPeg is as a drop-in replacement for regular expressions:
 
 ```jldoctest
 julia> match(P"123", "123456")
-PegMatch("123")
+PegMatch(["123"])
 ```
 
 With the immediate advantage that patterns combine.
@@ -66,23 +68,26 @@ complex patterns.  Although this may be done with the constructors in `pattern.j
 it's far more pleasant and readable to use operators, like so:
 
 ```jldoctest
+julia> match(P"123", "123456")
+PegMatch(["123"])
+
 julia> match(P"abc" * "123", "abc123")
-PegMatch("abc123")
+PegMatch(["abc123"])
 
 julia> match(P"abc" | "123", "123")
-PegMatch("123")
+PegMatch(["123"])
 
 julia> match(P"abc"^1, "abcabcabc")
-PegMatch("abcabcabc")
+PegMatch(["abcabcabc"])
 
 julia> match((!S"123" * R"09")^1, "0987654321")
-PegMatch("0987654")
+PegMatch(["0987654"])
 
 julia> match("" >> P"5", "0987654321")
-PegMatch("098765")
+PegMatch(["098765"])
 
 julia> match(~P"abc", "abc123")
-PegMatch("")
+PegMatch([""])
 
 julia> match(~P"abc", "123abc") # fails
 
@@ -96,15 +101,15 @@ this:
 
 ```jldoctest
 julia> match("" >> (P"56",), "1234567")
-PegMatch("123456", 1="56")
+PegMatch(["56"])
 ```
 
 JLPeg captures can nest, unlike regexes, so you can define another pattern with the
 captures you want and use the recipe above to make it behave like a regex.
 
 This matches the empty string, fast-forwards to the first 56, and captures it.  Note
-that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for `P("")
->> C(P("56"))`.
+that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for
+`P("") >> C(P("56"))`.
 
 The operators introduce a pattern 'context', where any `a <op> b` combination where
 `a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  We
@@ -138,17 +143,14 @@ The variable names aren't a part of the rule, which is named by the left-hand sy
 
 ## Captures and Actions
 
-
-
 | [ ] | Operation          | What it produces                                        |
 | --- | ------------------ | ------------------------------------------------------- |
 | [X] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
-| [ ] | `Cb(key)`          | values of the the previous group capture named `key`    |
 | [X] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
-| [ ] | `Cp()`             | current position (matches the empty string)             |
-| [ ] | `Cr(patt [, key])` | Range of indexes [start:end] of `patt`, optional `key`  |
+| [X] | `Cp()`             | current position (matches the empty string)             |
+| [X] | `Cr(patt [, key])` | Range of indexes [start:end] of `patt`, optional `key`  |
 | [X] | `A(patt, λ)`,      | the returns of function applied to the captures of patt |
 | [X] | `patt / λ`         | ""                                                      |
-| [ ] | `ANow(patt, λ)`,   | λ applied to match-time captures at match time          |
+| [ ] | `Anow(patt, λ)`,   | λ applied to match-time captures at match time          |
 | [ ] | `patt // λ`        |                                                         |
 | [ ] | `patt % λ`         | fold/reduces captures with λ                            |

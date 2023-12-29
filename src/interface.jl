@@ -271,13 +271,6 @@ macro S_str(str)
     S(compile_raw_string(str))
 end
 
-"""
-    @grammar(name, rules)
 
-Syntax sugar for defining a set of rules as a single grammar. Expects a block `rules`,
-each of which is a rule-pair as can be created with `<=` or `←`, with some differences:
 
-- Rule and call symbols don't need the `:`, although this is valid.
-- Strings, number, and booleans are converted to patterns, even at the head of a rule.
-"""
-# TODO working it out in scratch
+include("grammar.jl")
