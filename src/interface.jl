@@ -45,6 +45,8 @@ than the second.
 R(s::AbstractString) = PRange(s)
 R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 
+# Captures
+
 """
     C(patt::Pattern)
 
@@ -78,6 +80,17 @@ function Cg(patt::Pattern, sym::Union{CapSym, Nothing})
 end
 Cg(p::Patternable, sym::Union{CapSym, Nothing}) = Cg(P(p), sym)
 Cg(p::Union{Patternable, Pattern}) = Cg(p, nothing)
+
+"""
+    Cp()
+
+Captures the empty string in `.captures`, consuming no input.  Useful for the
+side effect, of storing the corresponding offset.
+"""
+function Cp() #TODO implement this as a FullCapture with offset 0.
+    PCapture(P(true), Cposition, AuxDict(:cap => nothing))
+end
+
 # Operators
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)

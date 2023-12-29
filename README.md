@@ -141,10 +141,8 @@ The variable names aren't a part of the rule, which is named by the left-hand sy
 | [ ] | Operation          | What it produces                                        |
 | --- | ------------------ | ------------------------------------------------------- |
 | [X] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
-| [ ] | `Carg(n)`          | value of the `n`th extra argument                       |
 | [ ] | `Cb(key)`          | values of the the previous group capture named `key`    |
-| [ ] | `Cc(values)`       | given `values` (matches the empty string)               |
-| [ ] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
+| [X] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
 | [ ] | `Cp()`             | current position (matches the empty string)             |
 | [ ] | `Cs(patt)`         | match for patt with the values from nested captures     |
 |     |                    | replacing their matches                                 |

@@ -1,6 +1,6 @@
 
 const PegKey = Union{Symbol, AbstractString, Integer}
-const PegCap = Union{SubString, Pair, Vector}
+const PegCap = Union{SubString, Pair, Vector, Integer}
 const PegCapture = Vector{PegCap}
 const PegOffset = Vector{Union{Integer, Vector}}
 
@@ -12,22 +12,22 @@ function.
 
 Fields:
 
-    - `subject` stores the string matched.
+    -  `subject` stores the string matched.
 
-    - `last` is the index of the last character matched by `patt`.  Due to the nature
-       of PEGs, the match always begins at the first character, so there is little
-       point in storing this information as a SubString (although the subject itself
-       may be one).
+    -  `last` is the index of the last character matched by `patt`.  Due to the nature
+        of PEGs, the match always begins at the first character, so there is little
+        point in storing this information as a SubString (although the subject itself
+        may be one).
 
-    -  `captures` contains any captures from matching `patt` to `subject`.  A `Vector`
-       whose elements are variously `SubStrings`, `Pairs`, or `Vector`s, recursively
-       defined.  As PEGs are recursive in the general case, any number of e.g. named
-       captures may recur, and Vector captures can group them to arbitrary depth, so
-       this is necessary.
+    -  `captures` contains any captures from matching `patt` to `subject`.  This
+        Vector can in principle contain anything, as captures may call functions,
+        in which case the return value of that function becomes the capture.  For
+        more information, consult the `JLPeg` documentation, and the docstrings
+        for `C`, `Cg`, #Todo others
 
-    - `offsets` is a `Vector` of offsets matching the start of these captures, and
-      `Vector`s of that vector, such that the same pattern of iterative search will
-      produce the offset and its substring.
+    -  `offsets` is a `Vector` of offsets matching the start of these captures, and
+       `Vector`s of that vector, such that the same pattern of iterative search will
+       produce the offset and its substring.
 
     - `patt` is the `Pattern` matched against the subject.
 """
@@ -73,10 +73,32 @@ function Base.getindex(m::PegMatch, i::PegKey)
 end
 
 
+function showcaptures(io::IO, caps::Vector)
+    print(io, "[")
+    for (idx, cap) in enumerate(caps)
+        if cap isa Pair
+            show(io, cap.first)
+            print(io, " => ")
+            if cap.second isa Vector
+                showcaptures(io, cap.second)
+            else
+                show(io, cap.second)
+            end
+        elseif cap isa Vector
+            showcaptures(io, cap)
+        else
+            show(io, cap)
+        end
+        if idx < length(caps)
+            print(io, ", ")
+        end
+    end
+    print(io, "]")
+end
 
 function Base.show(io::IO, m::PegMatch)
     print(io, "PegMatch(")
-    show(io, m.captures)
+    showcaptures(io, m.captures)
     print(io, ")")
 end
 

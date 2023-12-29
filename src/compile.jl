@@ -529,6 +529,11 @@ function _compile!(patt::PChoice)::Pattern
 end
 
 function _compile!(patt::PCapture)::Pattern
+    # Special-case Cp()
+    if patt.kind == Cposition
+        push!(patt.code, FullCaptureInst(Cposition, 0), OpEnd)
+        return patt
+    end
     c = patt.code
     ccode = copy(patt.val[1].code)
     # TODO full capture optimization

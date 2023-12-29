@@ -163,4 +163,6 @@ using Test
     @test match(groupedcap, "abc123def456")[1] == ["123", "456"]
     namegroup = Cg(P("" >> C(R"09"^1))^1, :numbers)
     @test match(namegroup, "abc123def456")[:numbers] == ["123", "456"]
+    poscap = P"123" * Cp() * P"abc"
+    @test match(poscap, "123abc").offsets[1] == 4
 end

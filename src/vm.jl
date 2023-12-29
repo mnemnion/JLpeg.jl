@@ -465,13 +465,19 @@ end
 Process the capture list and return what we find.
 """
 function oncapmatch(vm::VMState)::PegMatch
-    # Iterate C style so I can try optimizing use of the captable
-    # For now, we just handle simple captures.
-    S = typeof(vm.subject)
+
     last = vm.s - 1
     captures = PegCapture()
     offsets = PegOffset()
     patt = vm.patt
+    # there may not be any captures, in which case the whole
+    # matched string is the capture:
+    if lcap(vm) == 0
+        push!(captures, @views vm.subject[1:last])
+        push!(offsets, 1)
+        return PegMatch(vm.subject, last, captures, offsets, patt)
+    end
+    # Otherwise:
     # To handle nested captures of all sorts we use a stack
     capstack = []
     # And another stack for grouping captures
@@ -485,42 +491,51 @@ function oncapmatch(vm::VMState)::PegMatch
                 push!(groupstack, (captures, offsets))
                 captures, offsets = PegCapture(), PegOffset()
             end
+            continue
+        end
+        if cap.inst.op == IFullCapture
+            # Make a synthetic back capture reusing this one
+            # The only distinct value of bcap we use is .s,
+            # Which we calculate thus:
+            bcap = CapEntry(Int32(0), cap.s + cap.inst.off, cap.inst)
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
-            ikey = cap.inst
-            if bcap.inst.kind == ikey.kind
-                # TODO if there are non-capturing captures (possible), we
-                # check for those here.
-                push!(offsets, Int(bcap.s))
-                if ikey.kind == Csimple
-                    push!(captures, @views vm.subject[bcap.s:cap.s-1])
-                elseif ikey.kind == Csymbol
-                    if haskey(patt.aux[:caps], ikey)
-                        key = patt.aux[:caps][ikey]
-                        sub = @views vm.subject[bcap.s:cap.s-1]
-                        push!(captures, key => sub)
-                    else
-                        @warn "missing capture for Instruction: $(ikey)"
-                    end
-                elseif ikey.kind == Cgroup
-                    #grab the outer captures and offsets
-                    caps, offs = pop!(groupstack)
-                    if haskey(patt.aux[:caps], ikey) && patt.aux[:caps][ikey] !== nothing
-                        key = patt.aux[:caps][ikey]
-                        push!(caps, key => captures)
-                    else
-                        push!(caps, captures)
-                    end
-                    push!(offs, offsets)
-                    captures, offsets = caps, offs
+        end
+        ikey = cap.inst
+        if bcap.inst.kind == ikey.kind
+            # TODO if there are non-capturing captures (possible), we
+            # check for those here.
+            push!(offsets, Int(bcap.s))
+            if ikey.kind == Csimple
+                push!(captures, @views vm.subject[bcap.s:cap.s-1])
+            elseif ikey.kind == Csymbol
+                if haskey(patt.aux[:caps], ikey)
+                    key = patt.aux[:caps][ikey]
+                    sub = @views vm.subject[bcap.s:cap.s-1]
+                    push!(captures, key => sub)
                 else
-                    @warn "doesn't handle the case of $(ikey.kind) yet!"
-                    # Keep the offsets correct:
-                    push!(captures, :__not_found_capture__ => "")
+                    @warn "missing capture for Instruction: $(ikey)"
                 end
+            elseif ikey.kind == Cgroup
+                #grab the outer captures and offsets
+                caps, offs = pop!(groupstack)
+                if haskey(patt.aux[:caps], ikey) && patt.aux[:caps][ikey] !== nothing
+                    key = patt.aux[:caps][ikey]
+                    push!(caps, key => captures)
+                else
+                    push!(caps, captures)
+                end
+                push!(offs, offsets)
+                captures, offsets = caps, offs
+            elseif ikey.kind == Cposition
+                push!(captures, @views " "[1:0])
             else
-                error("Unbalanced caps begin $(bcap.inst.kind) end $(cap.inst.kind)")
+                @warn "doesn't handle the case of $(ikey.kind) yet!"
+                # Keep the offsets correct:
+                push!(captures, :__not_found_capture__ => "")
             end
+        else
+            error("Unbalanced caps begin $(bcap.inst.kind) end $(cap.inst.kind)")
         end
     end
     if !isempty(capstack)
