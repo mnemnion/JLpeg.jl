@@ -112,7 +112,7 @@ function popframe!(vm::VMState)
     end
     frame = pop!(vm.stack)
     _ti, _ts, _tc = vm.ti, vm.ts, vm.tc
-    vm.ti, vm.ts = frame.i, frame.s
+    vm.ti, vm.ts, vm.tc = frame.i, frame.s, frame.c
     return _ti, _ts, _tc
 end
 
@@ -214,13 +214,13 @@ pointers to see if the code generated from this approach is, in fact, optimal.
 function runvm!(vm::VMState)::Nothing
     vm.running = true
     while vm.running
-        @info vm_head_color(vm)
         # print(vm_to_str(vm))
         if vm.i > length(vm.program)
             vm.running = false
             continue
         end
         inst = vm.program[vm.i]
+        @debug vm_head_color(vm)
         if !onInst(inst, vm)
             failmatch!(vm)
         end
@@ -286,6 +286,7 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     followSet(inst, match, vm)
 end
 
+"onMultiSet"
 function onInst(inst::MultiSetInst, vm::VMState)::Bool
     # Check if there's room to match
     match = false
