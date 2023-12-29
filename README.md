@@ -25,7 +25,13 @@ near-optimal machine code on the fly.  PEGs are also far more suitable for scann
 captures, and other pattern-recognition tasks than these programs, which are best
 suited to full grammars, a task JLPeg also excels at.
 
-## Interface
+# Patterns
+
+Parsing Expression Grammars are built out of patterns, which begin with atomic units
+of recognition and are combined into complex rules which can recognize context free,
+and some context sensitive, languages.  LPeg, JLpeg's inspiration, uses a
+Snobol-style set of operator overloads as the basic tool for building up patterns, a
+practice we also follow.
 
 The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/),
 with several extensions, refinements, and a more natively Julian character.
@@ -38,6 +44,7 @@ The basic operations are as follows:
 | `P(s::Integer)`         | Match any `n` characters                                    |
 | `S(s::String)`          | Match the set of all characters in `string`                 |
 | `R("xy")`, `R('x','y')` | Matches any character between `x` and `y` (Range)           |
+| `B(patt)`               | Match `patt` behind the cursor, without advancing           |
 | `patt^n`                | Match `n` repetitions of `patt` at most                     |
 | `patt^-n`               | Match `n` repetitions of `patt` at least                    |
 | `patt1 * patt2`         | Match the sequence `patt1` , `patt2`                        |
@@ -47,21 +54,32 @@ The basic operations are as follows:
 | `~patt`                 | Lookahead, match `patt` without advancing                   |
 | `patt1` >> `patt2`      | Match `patt1`, then search the string for the next `patt2`. |
 | `P(true)`, `P(false)`   | Always succeed or always fail, respectively                 |
-| `B(patt)`               | Match `patt` behind the cursor, without advancing           |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
-this is true for `S` and `R` as well.
+this is true for `S` and `R` as well.  These basic operations are not self
+referential, and without further modification merely match the longest substring
+recognized by the pattern, but suffice to match all regulat languages.
 
 ## Patterns, Rules, and Grammars
+## Matching
 
-The simplest use of JLPeg is as a drop-in replacement for regular expressions:
+`match(pattern::Pattern, string::String)` will attempt to match the pattern against
+the string, returning a `PegMatch <: AbstractMatch`.  Note that unlike regular
+expressions, JLpeg will not skip ahead to find a pattern in a string, unless the
+pattern is so constructed.  We offer the easy shorthand `"" >> patt` to convert a
+pattern into its searching equivalent; `P""` matches the empty string, and JLPeg will
+convert strings and numbers (but not booleans) into patterns when able.
+
+## Captures
 
 ```jldoctest
 julia> match(P"123", "123456")
 PegMatch(["123"])
 ```
 
-With the immediate advantage that patterns combine.
+Patterns are immutable once defined, and may be built up incrementally into more
+complex patterns.  To match recursive structures, patterns must be able to call
+themselves, which is a `Rule`.  A collection of Rules is a Grammar.
 
 Patterns are immutable once defined, and may be built up incrementally into more
 complex patterns.  Although this may be done with the constructors in `pattern.jl`,
@@ -127,6 +145,8 @@ To match recursive structures, patterns must be able to call themselves, which i
 
 As is the PEG convention, a rule is defined with `<=` or `←`.  A simple Grammar can
 look like this:
+As is the PEG convention, a rule is defined with `<=` or `←`.  A simple Grammar can
+look like this:
 
 ```julia
 abc_and = :a <= P"abc" * (:b | P"")
@@ -146,7 +166,9 @@ The variable names aren't a part of the rule, which is named by the left-hand sy
 | [ ] | Operation          | What it produces                                        |
 | --- | ------------------ | ------------------------------------------------------- |
 | [X] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
+| [X] | `(patt,)`          | same as above, note the comma!                          |
 | [X] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
+| [X] | `(patt, key)`      | `key` may be `:symbol` or `"string"`                    |
 | [X] | `Cp()`             | current position (matches the empty string)             |
 | [X] | `Cr(patt [, key])` | Range of indexes [start:end] of `patt`, optional `key`  |
 | [X] | `A(patt, λ)`,      | the returns of function applied to the captures of patt |
