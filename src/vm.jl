@@ -535,6 +535,12 @@ function oncapmatch(vm::VMState)::PegMatch
                 captures, offsets = caps, offs
             elseif ikey.kind == Cposition
                 push!(captures, @views vm.subject[cap.s:cap.s-1])
+            elseif ikey.kind == Crange
+                if haskey(capdict, ikey)
+                    push!(captures, [bcap.s:cap.s-1])
+                else
+                    push!(captures, [bcap.s:cap.s-1])
+                end
             elseif ikey.kind == Caction
                 λ = capdict[ikey]::Function
                 # The Action either created the groupr, or it *is* the group
@@ -556,7 +562,11 @@ function oncapmatch(vm::VMState)::PegMatch
                 else  # all of captures is our arguments
                     args = captures
                     off = offsets[1]
-                    captures, offsets = pop!(groupstack)
+                    if isempty(groupstack)
+                        captures, offsets = PegCapture(), PegOffset()
+                    else
+                        captures, offsets = pop!(groupstack)
+                    end
                     push!(offsets, off)
                     push!(captures, λ(args...))
                 end

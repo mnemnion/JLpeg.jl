@@ -87,10 +87,22 @@ Cg(p::Union{Patternable, Pattern}) = Cg(p, nothing)
 Captures the empty string in `.captures`, consuming no input.  Useful for the
 side effect, of storing the corresponding offset.
 """
-function Cp() #TODO implement this as a FullCapture with offset 0.
+function Cp()
     PCapture(P(true), Cposition, AuxDict(:cap => nothing))
 end
 
+"""
+    Cr(patt::Pattern, sym::Union{CapSym, Nothing})
+
+Captures a UnitRange of matches in `patt`, optionally keyed by `sym`.
+Convenient for substitutions and annotations.
+"""
+function Cr(patt::Pattern, sym::Union{CapSym, Nothing})
+    PCapture(patt, Crange, AuxDict(:cap => sym))
+end
+
+Cr(p::Patternable, sym::Union{CapSym, Nothing}) = Cr(P(p), sym)
+Cr(p::Union{Patternable, Pattern}) = Cr(p, nothing)
 
 """
     A(patt::Pattern, fn::Function)

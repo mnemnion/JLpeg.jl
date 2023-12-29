@@ -167,4 +167,8 @@ using Test
     @test match(poscap, "123abc").offsets[1] == 4
     func = A("" >> P"func", uppercase)
     @test match(func, "Make my func the Pfunc")[1] == "MAKE MY FUNC"
+    funky = "" >> C("func") / uppercase
+    @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
+    caprange = (Cr("123") | P(1))^1
+    @test match(caprange, "abc123abc123abc").captures == [[4:6], [10:12]]
 end

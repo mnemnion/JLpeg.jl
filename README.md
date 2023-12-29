@@ -124,7 +124,7 @@ As is the PEG convention, a rule is defined with `<=` or `←`.  A simple Gramma
 look like this:
 
 ```julia
-abc_and = :a <= P"abc" * (:b | "")
+abc_and = :a <= P"abc" * (:b | P"")
 _123s = :b ← P"123"^1 :a
 abc123 = Grammar(abc_and, _123s)
 
@@ -138,18 +138,17 @@ The variable names aren't a part of the rule, which is named by the left-hand sy
 
 ## Captures and Actions
 
+
+
 | [ ] | Operation          | What it produces                                        |
 | --- | ------------------ | ------------------------------------------------------- |
 | [X] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
 | [ ] | `Cb(key)`          | values of the the previous group capture named `key`    |
 | [X] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
 | [ ] | `Cp()`             | current position (matches the empty string)             |
-| [ ] | `Cs(patt)`         | match for patt with the values from nested captures     |
-|     |                    | replacing their matches                                 |
-| [ ] | `Ct(patt)`         | a table with all captures from patt                     |
-| [ ] | `patt / string`    | string, with some marks replaced by captures of patt    |
-| [ ] | `patt / number`    | nth value captured by patt                              |
-| [ ] | `patt / vec`       | Vector of capturs                                       |
-| [ ] | `patt / λ`         | the returns of function applied to the captures of patt |
-| [ ] | `patt % λ`         | reduces captures with λ                                 |
-| [ ] | `Cmt(patt, λ)`     | λ applied to match-time captures at match time          |
+| [ ] | `Cr(patt [, key])` | Range of indexes [start:end] of `patt`, optional `key`  |
+| [X] | `A(patt, λ)`,      | the returns of function applied to the captures of patt |
+| [X] | `patt / λ`         | ""                                                      |
+| [ ] | `ANow(patt, λ)`,   | λ applied to match-time captures at match time          |
+| [ ] | `patt // λ`        |                                                         |
+| [ ] | `patt % λ`         | fold/reduces captures with λ                            |

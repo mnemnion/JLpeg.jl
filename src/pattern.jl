@@ -16,13 +16,10 @@ abstract type Instruction end
     Cposition   # ✅ Captures the empty string to record an offset
     Cconst      # ? Action, I think
     Cbackref    # Might be a different mechanism
-    Carg        # Probably an Action
     Csimple     # ✅ captures a substring of the region matched
+    Crange      # Captures a UnitRange [first:last] of region
     Caction     # [ ] an action taken on a successful match.
-    Cquery      # ktable[key] is table; next node is pattern
     Csymbol     # ✅ captures its match as a pair `:symbol => "match"` (:symbol can be a string)
-    Cnum        # numbered capture; 'key' is number of value to return
-    Csubst      # substitution capture; next node is pattern
     Cfold       # ktable[key] is function; next node is pattern
     Cruntime    # [ ] a Caction but applied at runtime
     Cgroup      # ✅ groups all its captures into a Vector.
