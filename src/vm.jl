@@ -465,7 +465,6 @@ end
 Process the capture list and return what we find.
 """
 function oncapmatch(vm::VMState)::PegMatch
-
     last = vm.s - 1
     captures = PegCapture()
     offsets = PegOffset()
@@ -482,6 +481,12 @@ function oncapmatch(vm::VMState)::PegMatch
     capstack = []
     # And another stack for grouping captures
     groupstack = []
+    # our :caps dict, or a dummy if we don't have one
+    if haskey(patt.aux, :caps)
+        capdict = patt.aux[:caps]
+    else
+        capdict = Dict{Symbol,Any}()
+    end
     for i in 1:lcap(vm)
         cap = vm.cap[i]
         if cap.inst.op == IOpenCapture
@@ -494,7 +499,7 @@ function oncapmatch(vm::VMState)::PegMatch
             continue
         end
         if cap.inst.op == IFullCapture
-            # Make a synthetic back capture reusing this one
+            # Make a synthetic back capture, reusing this Instruction
             # The only distinct value of bcap we use is .s,
             # Which we calculate thus:
             bcap = CapEntry(Int32(0), cap.s + cap.inst.off, cap.inst)
@@ -509,18 +514,19 @@ function oncapmatch(vm::VMState)::PegMatch
             if ikey.kind == Csimple
                 push!(captures, @views vm.subject[bcap.s:cap.s-1])
             elseif ikey.kind == Csymbol
-                if haskey(patt.aux[:caps], ikey)
-                    key = patt.aux[:caps][ikey]
+                if haskey(capdict, ikey)
+                    key = capdict[ikey]
                     sub = @views vm.subject[bcap.s:cap.s-1]
                     push!(captures, key => sub)
                 else
-                    @warn "missing capture for Instruction: $(ikey)"
+                    @warn "missing capture symbol for Instruction: $(ikey) at offset $(length(offsets))"
+                    push!(captures, key)
                 end
             elseif ikey.kind == Cgroup
                 #grab the outer captures and offsets
                 caps, offs = pop!(groupstack)
-                if haskey(patt.aux[:caps], ikey) && patt.aux[:caps][ikey] !== nothing
-                    key = patt.aux[:caps][ikey]
+                if haskey(capdict, ikey)
+                    key = capdict[ikey]
                     push!(caps, key => captures)
                 else
                     push!(caps, captures)
@@ -528,7 +534,37 @@ function oncapmatch(vm::VMState)::PegMatch
                 push!(offs, offsets)
                 captures, offsets = caps, offs
             elseif ikey.kind == Cposition
-                push!(captures, @views " "[1:0])
+                push!(captures, @views vm.subject[cap.s:cap.s-1])
+            elseif ikey.kind == Caction
+                λ = capdict[ikey]::Function
+                # The Action either created the groupr, or it *is* the group
+                if ikey.op == IFullCapture || isempty(captures)
+                    arg = @views vm.subject[bcap.s:cap.s-1]
+                    if isempty(captures) && isempty(groupstack)
+                        push!(captures, λ(arg))
+                    elseif !isempty(captures)
+                        # A FullCapture inside another group to be closed later
+                        push!(captures, λ(arg))
+                    elseif isempty(captures) && !isempty(groupstack)
+                        # We had to use an OpenCap Action, captures is discarded
+                        # but we need the offset we just put in it
+                        off = offsets[end]
+                        captures, offsets = pop!(groupstack)
+                        push!(offsets, off)
+                        push!(captures, λ(arg))
+                    end
+                else  # all of captures is our arguments
+                    args = captures
+                    off = offsets[1]
+                    captures, offsets = pop!(groupstack)
+                    push!(offsets, off)
+                    push!(captures, λ(args...))
+                end
+                # remove `nothing` matches
+                if captures[end] === nothing
+                    pop!(captures)
+                    pop!(offsets)
+                end
             else
                 @warn "doesn't handle the case of $(ikey.kind) yet!"
                 # Keep the offsets correct:

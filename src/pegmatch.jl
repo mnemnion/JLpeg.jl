@@ -1,6 +1,6 @@
 
 const PegKey = Union{Symbol, AbstractString, Integer}
-const PegCap = Union{SubString, Pair, Vector, Integer}
+const PegCap = Any
 const PegCapture = Vector{PegCap}
 const PegOffset = Vector{Union{Integer, Vector}}
 

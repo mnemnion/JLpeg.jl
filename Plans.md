@@ -77,29 +77,22 @@ Syntax: mostly, I like the "your tuple is a capture" syntax, and will add "your 
   :b  ←  (("qwertz", :qwertz) | ("azerty", :azerty))^1 )
 ```
 
-I don't hate it.  Syntax-wise, I'm a bit torn between adding a macro for the Snobol
-operator overload style to pour a bit more sugar in the teacup, and just getting on
-with porting my existing PEG format to JLPeg, that being the QED and all.
+## Back references: Mark and Check
 
-Anyway. The data structure, and therefore, what we even capture to begin with.
+This is the separate mechanism I want to add based on the code I hacked together for
+bridge.  A Mark wraps the sequence in Choice/Commit, but this one is MarkCommit: we
+pop the choice frame and combine it with the MarkCommit, and this goes on its own stack.
+There's also a CheckCommit, every Mark/Check pair has its own name in the Pattern but we
+convert these to a counter since the VM doesn't need them. The Check looks backward for
+the first Mark, if it's within the first, say, eight frames (usually it's on top) we
+remove it, if not, we slip in a hold frame, and one of the canonical mark/check actions
+is performed, namely: are they the same substring, is one longer than the other, or
+equal length without regard to contents.  There's also a runtime mark for taking an
+Action on both captures, the result of which succeeds or fails the pattern.
 
-```julia
-const PegKey = Union{Symbol, AbstractString, Integer}
-const PegCapture = Vector{Union{SubString,Tuple{PegKey,PegCapture},PegCapture}}
-const PegOffset = Vector{Union{Integer, PegOffset}}
-```
-
-is this terrible? it's a plist pretty much. kinda terrible? but iterable, allows duplicate named matches, and it reflects the actual structure of what a recursive pattern matcher produces, which is a big plus.
-
-```julia
-struct PegMatch <: AbstractMatch
-   pattern::Pattern
-   captures::PegCapture
-   offsets::PegOffset
-end>
-```
-
-Anyway enough about that for a sec, the important part is keeping track of all this capture business, which we're going to do by having the pattern hoist a Dict keyed by literal Capture instructions so we can successfully do all the capture stuff to the captures. They're tiny, it'll be fine, even the one with the offset fits in a machine word, which is where the code was going to put it, on god, no cap, fr fr.
+I _could_ implement this as captures but there are good reasons not to, this decomplects
+what is after all a pattern-matching operation from capturing, Mark/Check can cross rule
+and capture boundaries freely, which is the important thing from my perspective.
 
 ## Dialects
 

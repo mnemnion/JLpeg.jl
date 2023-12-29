@@ -13,21 +13,19 @@ abstract type Instruction end
 
 "A kind of capture"
 @enum CapKind begin
-    Cclose      # not used in trees
-    Cposition   # Yes
+    Cposition   # ✅ Captures the empty string to record an offset
     Cconst      # ? Action, I think
     Cbackref    # Might be a different mechanism
     Carg        # Probably an Action
-    Csimple     # Implemented
-    Ctable      # next node is pattern
-    Cfunction   # ktable[key] is function; next node is pattern
+    Csimple     # ✅ captures a substring of the region matched
+    Caction     # [ ] an action taken on a successful match.
     Cquery      # ktable[key] is table; next node is pattern
-    Csymbol     # Next up.  Can also be a string probably
+    Csymbol     # ✅ captures its match as a pair `:symbol => "match"` (:symbol can be a string)
     Cnum        # numbered capture; 'key' is number of value to return
     Csubst      # substitution capture; next node is pattern
     Cfold       # ktable[key] is function; next node is pattern
-    Cruntime    # not used in trees (is uses another type for tree)
-    Cgroup      # ktable[key] is group's "name"
+    Cruntime    # [ ] a Caction but applied at runtime
+    Cgroup      # ✅ groups all its captures into a Vector.
 end
 
 "A Vector of `Instructions` representing a complete pattern."
@@ -212,7 +210,7 @@ struct PCapture <: Pattern
     code::IVector
     kind::CapKind
     aux::AuxDict
-    PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k, Dict())
+    PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k, AuxDict())
     PCapture(a::Pattern, k::CapKind, aux::AuxDict) = new([a], Inst(), k, aux)
 end
 # TODO the rest of these need to be concrete:

@@ -165,4 +165,6 @@ using Test
     @test match(namegroup, "abc123def456")[:numbers] == ["123", "456"]
     poscap = P"123" * Cp() * P"abc"
     @test match(poscap, "123abc").offsets[1] == 4
+    func = A("" >> P"func", uppercase)
+    @test match(func, "Make my func the Pfunc")[1] == "MAKE MY FUNC"
 end

@@ -91,6 +91,32 @@ function Cp() #TODO implement this as a FullCapture with offset 0.
     PCapture(P(true), Cposition, AuxDict(:cap => nothing))
 end
 
+
+"""
+    A(patt::Pattern, fn::Function)
+
+Acts as a grouping capture for `patt`, applying `fn` to a successful match
+with the captures as arguments (not as a single Vector). If `patt` contains
+no captures, the capture is the SubString.  The return value of `fn` becomes
+the capture; if `nothing` is returned, the capture (and its offset) are deleted.
+"""
+function A(patt::Pattern, fn::Function)
+    PCapture(patt, Caction, AuxDict(:cap => fn))
+end
+
+A(p::Patternable, fn::Function) = A(P(p), fn)
+
+"""
+    Anow(patt::Pattern, fn::Function)
+
+Acts as a grouping capture, applying `fn` immediately upon a match succeeding
+to the captures inside `patt`, or the span of `patt` if there are no captures
+within it.  The return value of `fn` becomes the capture, but if `nothing` is
+returned, the entire pattern fails.
+"""
+function Anow(patt::Pattern, fn::Function)
+    PCapture(patt, Cruntime, AuxDict(:cap => fn))
+end
 # Operators
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
@@ -120,6 +146,9 @@ Base.:-(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))
 Base.:-(a::Union{Integer,String}, b::Pattern) = PDiff(P(a), b)
 Base.:-(a::Pattern, b::Symbol)  = PDiff(a, POpenCall(b))
 Base.:-(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
+
+Base.:/(a::Pattern, b::Function) = A(a, b)
+Base.://(a::Pattern, b::Function) = Anow(a, b)
 
 Base.:^(a::Pattern, b::Integer)  = PStar(a, b)
 Base.:~(a::Pattern) = PAnd(a)
