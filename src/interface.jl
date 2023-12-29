@@ -1,4 +1,4 @@
-
+# Interface for JLPeg.
 
 """
     P(p::Union{AbstractString,AbstractChar,Integer,Bool,Symbol})::Pattern
@@ -65,8 +65,8 @@ function C(patt::Pattern, sym::CapSym)
     PCapture(patt, Csymbol, aux)
 end
 C(p::Patternable, sym::CapSym) = C(P(p), sym)
-
-const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
+C(p::Vector) = Cg(p)
+C(p::Vector, sym::CapSym) = Cg(p, sym)
 
 """
     Cg(patt::Pattern [, sym::Union{Symbol,AbstractString}])
@@ -75,11 +75,17 @@ Create a group capture, which groups all captures from P into a vector inside
 the `PegMatch` object.  If `sym` is provided, the group will be found at that
 key.
 """
-function Cg(patt::Pattern, sym::Union{CapSym, Nothing})
+function Cg(patt::Pattern, sym::Union{CapSym,Nothing})
     PCapture(patt, Cgroup, AuxDict(:cap => sym))
 end
 Cg(p::Patternable, sym::Union{CapSym, Nothing}) = Cg(P(p), sym)
 Cg(p::Union{Patternable, Pattern}) = Cg(p, nothing)
+function Cg(p::Vector)
+    if length(p) > 1
+        error("Cg with Vector must have a length of 1")
+    end
+    return Cg(p[1])
+end
 
 """
     Cp()
@@ -129,7 +135,10 @@ returned, the entire pattern fails.
 function Anow(patt::Pattern, fn::Function)
     PCapture(patt, Cruntime, AuxDict(:cap => fn))
 end
+
 # Operators
+
+const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
@@ -141,6 +150,9 @@ Base.:*(a::Pattern, b::CaptureTuple) = a * C(b...)
 Base.:*(a::Union{Integer,String}, b::CaptureTuple) = P(a) * C(b...)
 Base.:*(a::CaptureTuple, b::Union{Integer,String}) = C(a...) * P(b)
 Base.:*(a::CaptureTuple, b::CaptureTuple) = C(a...) * C(b...)
+Base.:*(a::Vector, b::Pattern) = Cg(a) * b
+Base.:*(a::Pattern, b::Vector) = a * Cg(b)
+
 
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
 Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
@@ -152,6 +164,8 @@ Base.:|(a::Pattern, b::CaptureTuple) = a | C(b...)
 Base.:|(a::Union{Integer,String}, b::CaptureTuple) = P(a) | C(b...)
 Base.:|(a::CaptureTuple, b::Union{Integer,String}) = C(a...) | P(b)
 Base.:|(a::CaptureTuple, b::CaptureTuple) = C(a...) | C(b...)
+Base.:|(a::Vector, b::Pattern) = Cg(a) | b
+Base.:|(a::Pattern, b::Vector) = a | Cg(b)
 
 Base.:-(a::Pattern, b::Pattern) = PDiff(a, b)
 Base.:-(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))

@@ -25,7 +25,7 @@ near-optimal machine code on the fly.  PEGs are also far more suitable for scann
 captures, and other pattern-recognition tasks than these programs, which are best
 suited to full grammars, a task JLPeg also excels at.
 
-# Patterns
+## Patterns
 
 Parsing Expression Grammars are built out of patterns, which begin with atomic units
 of recognition and are combined into complex rules which can recognize context free,
@@ -60,7 +60,6 @@ this is true for `S` and `R` as well.  These basic operations are not self
 referential, and without further modification merely match the longest substring
 recognized by the pattern, but suffice to match all regulat languages.
 
-## Patterns, Rules, and Grammars
 ## Matching
 
 `match(pattern::Pattern, string::String)` will attempt to match the pattern against
@@ -69,21 +68,6 @@ expressions, JLpeg will not skip ahead to find a pattern in a string, unless the
 pattern is so constructed.  We offer the easy shorthand `"" >> patt` to convert a
 pattern into its searching equivalent; `P""` matches the empty string, and JLPeg will
 convert strings and numbers (but not booleans) into patterns when able.
-
-## Captures
-
-```jldoctest
-julia> match(P"123", "123456")
-PegMatch(["123"])
-```
-
-Patterns are immutable once defined, and may be built up incrementally into more
-complex patterns.  To match recursive structures, patterns must be able to call
-themselves, which is a `Rule`.  A collection of Rules is a Grammar.
-
-Patterns are immutable once defined, and may be built up incrementally into more
-complex patterns.  Although this may be done with the constructors in `pattern.jl`,
-it's far more pleasant and readable to use operators, like so:
 
 ```jldoctest
 julia> match(P"123", "123456")
@@ -111,68 +95,72 @@ julia> match(~P"abc", "123abc") # fails
 
 ```
 
+The operators introduce a pattern 'context', where any `a <op> b` combination where
+`a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  This UI is adequate for light work, but the macros discussed later are much cleaner.
+
 Note that unlike regular expressions, PEG always starts with the first character, any
 match (other than `nothing`) returned by a call to `match(patt, string)` will
-therefore be a prefix of the string, up to and including the entire string.  To get
-something usefully similar to a regex, you can start with a capture pattern like
-this:
+therefore be a prefix of the string, up to and including the entire string.
+
+Most interesting uses of pattern recognition will call for more than matching the
+longest substring.  For those more complex cases, we have captures and actions.
+
+## Captures and Actions
+
+A `PegMatch` defaults to the longest `SubString` when no captures are provided, or
+when the pattern succeeds but all captures within fail (#TODO I may change this
+behavior).  To capture only the substring of interest, use `C(patt)` or just make a
+tuple `(patt,)`.  Don't forget the comma or Julia will interpret this as a group.
 
 ```jldoctest
 julia> match("" >> (P"56",), "1234567")
 PegMatch(["56"])
 ```
 
-JLPeg captures can nest, unlike regexes, so you can define another pattern with the
-captures you want and use the recipe above to make it behave like a regex.
-
 This matches the empty string, fast-forwards to the first 56, and captures it.  Note
 that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for
 `P("") >> C(P("56"))`.
 
-The operators introduce a pattern 'context', where any `a <op> b` combination where
-`a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  We
-provide two convenience functions, `modulesugar()` and `extrasugar()`, which will
-cast binary operations of `a::Symbol <op> a::String` (in either order) and both
-binary and unary operations of `Symbol` to `Pattern`, as used in rules and grammars
-(see below); the difference is that `modulesugar` defines these methods in the
-enclosing module, and `extrasugar` defines them on `Base`.  Please use `modulesugar`
-in any shared packages, as type piracy is impolite.
+| [ ] | Operation               | What it produces                                        |
+| --- | ----------------------- | ------------------------------------------------------- |
+| [X] | `C(patt [, key])`       | captures the substring of `patt`                        |
+| [X] | `(patt,)`               | same as above, note the comma!                          |
+| [X] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                    |
+| [X] | `Cg(patt [, key])`      | values produced by `patt`, optionally tagged with `key` |
+| [ ] | `[patt], ([patt], key)` |                                                         |
+| [X] | `Cp()`                  | current position (matches the empty string)             |
+| [X] | `Cr(patt [, key])`      | Range of indexes [start:end] of `patt`, optional `key`  |
+| [X] | `A(patt, λ)`,           | the returns of function applied to the captures of patt |
+| [X] | `patt / λ`              | ""                                                      |
+| [ ] | `Anow(patt, λ)`,        | λ applied to match-time captures at match time          |
+| [ ] | `patt // λ`             |                                                         |
+| [ ] | `patt % λ`              | fold/reduces captures with λ                            |
 
 ### Rules
 
 To match recursive structures, patterns must be able to call themselves, which is a
 `Rule`.  A collection of Rules is a Grammar.
 
-As is the PEG convention, a rule is defined with `<=` or `←`.  A simple Grammar can
-look like this:
-As is the PEG convention, a rule is defined with `<=` or `←`.  A simple Grammar can
-look like this:
+As is the PEG convention, a rule reduction uses the left arrow `←`, which you can
+type as `\leftarrow` (or in fact `\lef[TAB]`).  We overload `<=` if you happen to hate
+Unicode.  A simple Grammar can look like this:
 
 ```julia
 abc_and = :a <= P"abc" * (:b | P"")
-_123s = :b ← P"123"^1 :a
-abc123 = Grammar(abc_and, _123s)
+_123s   = :b ← P"123"^1 * :a
+abc123  = Grammar(abc_and, _123s)
 
 match(abc123, "abc123123123abc123abc")
 ```
 
-The variable names aren't a part of the rule, which is named by the left-hand symbol.
+The `@grammar` and `@rule` macros are much prettier ways to make a pattern, however:
 
-- [#TODO] A terminal rule, one which doesn't call other rules, may be called on
-`match` like an ordinary pattern.
+```julia
+@grammar abc123 begin
+:a  ←  "abc" * (:b | "")
+:b  ←  "123"^1 * :a
+```
 
-## Captures and Actions
+Always use `R"az"` and `S"abc"`` forms for ranges and sets in these macros, or you'll
+get the wrong result.
 
-| [ ] | Operation          | What it produces                                        |
-| --- | ------------------ | ------------------------------------------------------- |
-| [X] | `C(patt)`          | match for `patt` plus all captures made by `patt`       |
-| [X] | `(patt,)`          | same as above, note the comma!                          |
-| [X] | `Cg(patt [, key])` | values produced by `patt`, optionally tagged with `key` |
-| [X] | `(patt, key)`      | `key` may be `:symbol` or `"string"`                    |
-| [X] | `Cp()`             | current position (matches the empty string)             |
-| [X] | `Cr(patt [, key])` | Range of indexes [start:end] of `patt`, optional `key`  |
-| [X] | `A(patt, λ)`,      | the returns of function applied to the captures of patt |
-| [X] | `patt / λ`         | ""                                                      |
-| [ ] | `Anow(patt, λ)`,   | λ applied to match-time captures at match time          |
-| [ ] | `patt // λ`        |                                                         |
-| [ ] | `patt % λ`         | fold/reduces captures with λ                            |

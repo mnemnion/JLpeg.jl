@@ -526,6 +526,14 @@ function oncapmatch(vm::VMState)::PegMatch
             elseif ikey.kind == Cgroup
                 #grab the outer captures and offsets
                 caps, offs = pop!(groupstack)
+                if isempty(captures) # the group is the capture
+                    push!(captures, @views vm.subject[bcap.s:cap.s-1])
+                    push!(offsets, bcap.s)
+                    push!(caps, captures)
+                    push!(offs, offsets)
+                    captures, offsets = caps, offs
+                    continue
+                end
                 if haskey(capdict, ikey)
                     key = capdict[ikey]
                     push!(caps, key => captures)
