@@ -171,4 +171,10 @@ using Test
     @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
     caprange = (Cr("123") | P(1))^1
     @test match(caprange, "abc123abc123abc").captures == [[4:6], [10:12]]
+    # Test @grammar macro (and certain capture conditions)
+    @grammar capnums begin
+        :nums  ←  ((:num,) | P(1) * :nums)^1
+        :num  ←  S"123"^1
+    end
+    @test match(capnums, "abc123abc123").captures == ["123", "123"]
 end
