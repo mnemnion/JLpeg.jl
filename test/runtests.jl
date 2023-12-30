@@ -103,6 +103,15 @@ using Test
         inside = ((P("ab")^0))^1
         @test match(inside, "abab")[1] == "abab"
         @test match(inside, "")[1] == ""
+        ab4plus = P"ab"^4
+        @test match(ab4plus, "ababab") === nothing
+        @test match(ab4plus, "abababab")[1] == "abababab"
+        @test match(ab4plus, "abababababababab")[1] == "abababababababab"
+        ab4minus = P"ab"^-4
+        @test match(ab4minus, "")[1] == ""
+        @test match(ab4minus, "ab")[1] == "ab"
+        @test match(ab4minus, "abababab")[1] == "abababab"
+        @test match(ab4minus, "abababababab")[1] == "abababab"
     end
     @testset "Predicates" begin
         pand = ~P"abc" * S"abcd"^1

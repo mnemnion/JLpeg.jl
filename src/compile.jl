@@ -460,16 +460,29 @@ function _compile!(patt::PStar)::Pattern
     c = patt.code
     code = copy(p.code)
     trimEnd!(code)
+    # TODO TestPattern optimization goes here, pass a flag to `addstar!`
     if patt.n == 0
         addstar!(c, code)
-    elseif patt.n == 1
-        append!(c, code)
+    elseif patt.n ≥ 1
+        for _ = 1:patt.n
+            append!(c, code)
+        end
         addstar!(c, code)
     elseif patt.n == -1
         addstar!(c, code)
         c[end] = CommitInst(1)
+    elseif patt.n < -1
+        _choice = length(c) + 1
+        push!(c, OpNoOp)
+        for _ = patt.n:-2
+            append!(c, code)
+            push!(c, PartialCommitInst(1))
+        end
+        append!(c, code)
+        push!(c, CommitInst(1))
+        c[_choice] = ChoiceInst(length(c) - _choice)
     else
-        @warn "not yet handling PStar.n == $(patt.n)"
+        error("unreachable, logic is broken")
     end
     pushEnd!(c)
     return patt

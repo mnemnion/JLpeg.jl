@@ -26,6 +26,8 @@ Wherein I note how I'm building the thing.
 
 ### Remaining
 
+This list could be a lot longer!
+
 - [ ] Handle the other PStar cases
 - [X] P(-n) for n bytes remaining
 - [X] And and Not predicates
@@ -36,9 +38,10 @@ Wherein I note how I'm building the thing.
 - [X] Captures
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
-- [ ] TestPatt optimizations
-- [ ] Tail call elimination
-- [ ] Set span optimization
+- [ ] Optimizations from The Book:
+  - [ ] TestPatt optimizations
+  - [ ] Tail call elimination
+  - [ ] Set span optimization
 - [ ] Serializing and loading grammars
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 
