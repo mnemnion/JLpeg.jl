@@ -32,17 +32,29 @@ Wherein I note how I'm building the thing.
 
 - [X] And and Not predicates
 
-- [ ] Multibyte sets and chars
+- [#] Multibyte sets and chars
+
+  - [X] Implement multibyte sets
+  - [ ] Fix bug with emoji 🫠
 
 - [ ] B(patt)
 
-- [ ] Captures
+- [X] Captures
+
+- [ ] Mark / Check
+- [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
 
 - [ ] TestPatt optimizations
 
 - [ ] Tail call elimination
 
 - [ ] Set span optimization
+
+Somewhere to put random implementation notes: at some point I intend to add
+serializing of bytecode, just a (versioned!!) minimal string form which allows a
+zero-logic construction of a Grammar.  That would be a good time to remov NoOps,
+which get left around by various optimizations. There's a reason every instruction
+set in existence has them, but it's aesthetically unsatisfying to leave them in.
 
 ## Notes on OG Lpeg
 
@@ -122,4 +134,11 @@ recognized grammar.
 ### More Dialect Notes
 
 So there's [ReplMaker](https://juliahub.com/ui/Packages/General/ReplMaker) for
-constructing custom repl modes, which we can use for dialect builders.
+constructing custom repl modes, which we can use for dialect and grammar builders
+
+### Expr parser
+
+This is something I wanted to do in Lua, Julia having a canonical Expr format makes
+the idea bearable, but this is a separate VM, or program really, which reparses
+changes to a parser Expr to see when they remain valid to the specified Grammar.
+Crucial for getting rid of Treesitter.

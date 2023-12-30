@@ -557,13 +557,10 @@ function _compile!(patt::PRule)::Pattern
         if op.op == IOpenCall
             calls[idx] = op.rule
         end
-        if op == OpEnd
-            push!(c, OpReturn)
-        else
-            push!(c, op)
-        end
+        push!(c, op)
     end  # TODO inline rules sometimes
     meta[:terminal] = isempty(calls) ? true : false
+    pushEnd!(c)
     # TODO probably want to inline 'short' terminals for some value of short. what value?
     return patt
 end
@@ -630,6 +627,8 @@ function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap:
             push!(c, inst)
         end
     end
+    trimEnd!(c)
+    push!(c, OpReturn)
     return next
 end
 

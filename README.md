@@ -124,12 +124,12 @@ that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for
 | [ ] | Operation               | What it produces                                        |
 | --- | ----------------------- | ------------------------------------------------------- |
 | [X] | `C(patt [, key])`       | captures the substring of `patt`                        |
-| [X] | `(patt,)`               | same as above, note the comma!                          |
+| [X] | `(patt,)`,              | same as above, note the comma!                          |
 | [X] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                    |
-| [X] | `Cg(patt [, key])`      | values produced by `patt`, optionally tagged with `key` |
-| [ ] | `[patt], ([patt], key)` |                                                         |
+| [X] | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,         |
+| [X] | `[patt], ([patt], key)` | optionally tagged with `key`                            |
 | [X] | `Cp()`                  | current position (matches the empty string)             |
-| [X] | `Cr(patt [, key])`      | Range of indexes [start:end] of `patt`, optional `key`  |
+| [X] | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key`  |
 | [X] | `A(patt, λ)`,           | the returns of function applied to the captures of patt |
 | [X] | `patt / λ`              | ""                                                      |
 | [ ] | `Anow(patt, λ)`,        | λ applied to match-time captures at match time          |
@@ -157,10 +157,12 @@ The `@grammar` and `@rule` macros are much prettier ways to make a pattern, howe
 
 ```julia
 @grammar abc123 begin
-:a  ←  "abc" * (:b | "")
-:b  ←  "123"^1 * :a
+    :a  ←  "abc" * (:b | "")
+    :b  ←  "123"^1 * :a
+end
+
+@rule :a ← ["abc"^0 * "123"]^1
 ```
 
 Always use `R"az"` and `S"abc"`` forms for ranges and sets in these macros, or you'll
 get the wrong result.
-

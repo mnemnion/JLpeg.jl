@@ -12,7 +12,7 @@ abstract type Pattern <: AbstractPattern end
 abstract type Instruction end
 
 "A kind of capture"
-@enum CapKind begin
+@enum CapKind::UInt8 begin
     Cposition   # ✅ Captures the empty string to record an offset
     Cconst      # ? Action, I think
     Cbackref    # Might be a different mechanism
@@ -164,6 +164,8 @@ struct POpenCall <: Pattern
 end
 
 POpenCall(s::AbstractString) = POpenCall(Symbol(s))
+# Make sure the macros work as often as possible:
+POpenCall(p::POpenCall) = p
 
 # TODO I'm not in fact using this and should do so or get rid of it.
 struct PCall <: Pattern

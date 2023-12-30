@@ -103,7 +103,7 @@ end
 "Show a VMState."
 function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
     if get(io, :compact, false)
-        print(io, vm_head(vm))
+        print(io, vm_head(vm), "\n")
     else
         print(io, vm_to_str(vm))
     end
@@ -303,7 +303,7 @@ end
 function vm_head(vm::VMState)::String
     o = vm.t_on ? 1 : 0
     b = vm.t_on ? "yes" : "no"
-    "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_subject(vm.subject, vm.s))\n"
+    "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_subject(vm.subject, vm.s))"
 end
 
 function vm_head_color(vm::VMState)::String
@@ -322,7 +322,7 @@ function frame_to_str(vm::VMState, i, s, c)::String
 end
 
 function vm_to_str(vm::VMState)::String
-    lines = [vm_head(vm)[1:end-1]]
+    lines = [vm_head(vm)]
     if !vm.t_on
         push!(lines, "Frame: []")
     else
