@@ -26,10 +26,14 @@ This list could be a lot longer!
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ] Optimizations from The Book (paper and/or lpeg C code):
-  - [ ] TestPatt optimizations
-  - [ ] Tail call elimination
-  - [ ] Set span optimization
-  - [ ] Capture-closing optimization
+  - [ ] TestPatt / headfail optimizations
+  - [ ] Tail-call elimination
+  - [ ] Set ISpan optimization
+  - [?] fixed-length detection
+  - [ ] full-capture optimization (bytecode)
+  - [ ] disjoint-PChoice optimization
+  - [ ] Capture-closing optimization (vm)
+- [ ] fail optimization: only update the register once when returning from calls
 - [ ] Serializing and loading grammars
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 

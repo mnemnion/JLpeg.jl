@@ -40,46 +40,6 @@ bootstrap of other dialects.
     :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0
     :arrow        ←  "<-" | "←"
     :num          ←  R"09"^1
-    :string       ←  "\"" * (!S"\"" * P(1))^0 * "\"" | "'" * (!S"'" * P(1))^0 * "'"
+    :string       ←  ("\"" * (!S"\"" * P(1))^0 * "\"" | "'" * (!S"'" * P(1))^0 * "'", :string)
     :defined      ← "%" * :name
 end
-
-# which should match itself:
-@assert match(re, """
-pattern         <- exp !.
-exp             <- S (grammar / alternative)
-
-alternative     <- seq ('/' S seq)*
-seq             <- prefix*
-prefix          <- '&' S prefix / '!' S prefix / suffix
-suffix          <- primary S (([+*?]
-                            / '^' [+-]? num
-                            / '->' S (string / '{}' / name)
-                            / '>>' S name
-                            / '=>' S name) S)*
-
-primary         <- '(' exp ')' / string / class / defined
-                 / '{:' (name ':')? exp ':}'
-                 / '=' name
-                 / '{}'
-                 / '{~' exp '~}'
-                 / '{|' exp '|}'
-                 / '{' exp '}'
-                 / '.'
-                 / name S !arrow
-                 / '<' name '>'          -- old-style non terminals
-
-grammar         <- definition+
-definition      <- name S arrow exp
-
-class           <- '[' '^'? item (!']' item)* ']'
-item            <- defined / range / .
-range           <- . '-' [^]]
-
-S               <- (%s / '--' [^%nl]*)*   -- spaces and comments
-name            <- [A-Za-z_][A-Za-z0-9_]*
-arrow           <- '<-'
-num             <- [0-9]+
-string          <- '"' [^"]* '"' / "'" [^']* "'"
-defined         <- '%' name
-""") !== nothing

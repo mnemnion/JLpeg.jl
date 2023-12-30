@@ -1,4 +1,4 @@
-# Interface for JLPeg.
+# Interface for JLPeg
 
 include("grammar.jl")
 

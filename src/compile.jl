@@ -320,10 +320,14 @@ function _compile!(patt::POpenCall)::Pattern
 end
 
 function _compile!(patt::PSet)::Pattern
-    # Special-case the empty set
+    # Specialize the empty set
     # We'll turn into a Jump when we have the requisite info
     if patt.val == ""  # A valid way of saying "fail"
-        return PFalse()
+        return compile!(PFalse())
+    end
+    # Specialize one-char sets into PChar
+    if sizeof(patt.val) ≤ 4 && length(patt.val) == 1
+        return compile!(PChar(first(patt.val)))
     end
     bvec, prefix_map = vecsforstring(patt.val)
 
@@ -331,8 +335,6 @@ function _compile!(patt::PSet)::Pattern
     if bvec !== nothing
         push!(patt.code, SetInst(bvec, is_final))
     end
-    # We'll deal with the prefix map some other time!
-    # Others are a bit more complex! heh. bit.
     if prefix_map !== nothing
         encode_multibyte_set!(patt.code, prefix_map)
     end
@@ -429,22 +431,14 @@ function _compile!(patt::PSeq)::Pattern
 end
 
 function _compile!(patt::PStar)::Pattern
-    # TODO there are several cases:
-    # [X] n == 0, aka *
-    # [X] n == 1, aka +
-    # [X] n == -1 aka ?
-    # [ ] n > 1, which is + with repetitions
-    # [ ] n < -1, which is the weird one I'll do last
-    #
     # TODO figure out when TestChar etc come into play
     #
     # bad things happen when val is  a PStar, specifically
     # when the inner is optional, e.g. ("ab"?)*, so we check for this
     # and fix it when we need to.
-    # TODO this problem may not occur for even lower than -1, check when we implement.
     p = patt.val[1]
-    if typeof(p) == PStar && (p.n ==  0 || p.n == -1)
-        if p.n == -1 && (patt.n == 0 || patt.n == 1)
+    if typeof(p) == PStar && p.n ≤ 0
+        if p.n ≤ -1 && (patt.n == 0 || patt.n == 1)
             # "As many optionals as you want, as long as you match one" aka P^0
             return compile!(p.val[1]^0)
         elseif p.n == 0 && (patt.n == 0 || patt.n == 1)
@@ -456,6 +450,10 @@ function _compile!(patt::PStar)::Pattern
             # the code actually works fine, but the -1 isn't doing anything here
             return p
         end
+    end
+    # Nullables: pointless for patt.n < 0, infinite loop otherwise, fail:
+    if nullable(p)
+        error("repetition on $(typeof(p)) is not allowed")
     end
     c = patt.code
     code = copy(p.code)
@@ -577,6 +575,22 @@ function _compile!(patt::PRule)::Pattern
     # TODO probably want to inline 'short' terminals for some value of short. what value?
     return patt
 end
+
+# TODO: Grammar
+# [ ] Grammar should have its own compile! so we normally don't have to do weird surgery/copying
+# [ ] This should begin by replacing all POpenCall with PCall,
+#     only then generating code.  What this means is we pass along the rulemap to
+#     the first rule, then go visiting subrules: if it's terminal, we compile it,
+#     if we see it twice, it's recursive: if that's left recursion, bail out, otherwise
+#     we tag as such (and therefore variable length by definition).
+#
+#     Whenever we reach the end of a visited rule, we know if it's recursive, and all
+#     ultimately-terminal calls (at whatever degree of remove) are compiled / we know
+#     what we need to know, so we can compile that rule, and when we reach the end of the
+#     start rule, we're done, and ready to hoist and link.
+#
+# [ ] Inlining? Should we? What circumstances?
+# [ ] Tail-call elimination
 
 function _compile!(patt::PGrammar)::Pattern
     rules = Dict{Symbol, PRule}()
@@ -706,7 +720,7 @@ function headfail(patt::Pattern)::Bool
     elseif isof(patt, PTrue, PStar, PRunTime, PNot, PBehind, PThrow) return false
     elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return headfail(patt.val[1])
     # Pretty sure this one is wrong...
-    elseif patt isa PCall return headfail(patt.val[2])
+    # elseif patt isa PCall return headfail(patt.val[2])
     # This is different than in LPeg and I'm not sure why
     elseif patt isa PSeq return headfail(patt.val[1])
     elseif patt isa PChoice return all(p -> headfail(p), patt.val)
@@ -722,7 +736,7 @@ Answer if the pattern cannot fail.
 function nofail(patt::Pattern)::Bool
     if patt isa PTrue return true
     elseif patt isa PStar && patt.n ≤ 0 return true
-    elseif isof(patt, PChar, PAny, PSet, PFalse, PThrow) return false
+    elseif isof(patt, PRange, PChar, PAny, PSet, PFalse, PThrow) return false
     # POpenCall needs checked later
     elseif patt isa POpenCall return false
     # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
@@ -735,7 +749,7 @@ function nofail(patt::Pattern)::Bool
     elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return nofail(patt.val[1])
     # Why is this true of PCall?
     # TODO Check this assumption when we implement it
-    elseif patt isa PCall return nofail(patt.val[2])
+    # elseif patt isa PCall return nofail(patt.val[2])
     else @error "nofail not defined for $(typeof(patt))"
     end
 end
@@ -750,6 +764,53 @@ function nullable(patt::Pattern)::Bool
     elseif isof(patt, PRunTime) return nullable(patt.val[1])
     elseif nofail(patt) return true
     else return false
+    end
+end
+
+"""
+    fixedlen(patt::Pattern)::Union{Integer,Bool}
+
+If a pattern matches a fixed length, return that length,
+otherwise return `false`.
+"""
+function fixedlen(patt::Pattern)::Union{Integer,Bool}
+    if isof(patt, PChar, PSet, PRange)
+        return 1
+    elseif isof(patt, PAny)
+        return patt.val
+    elseif isof(patt, PTrue, PFalse, PAnd, PNot, PBehind)
+        return 0
+    elseif isof(patt, PStar, PRunTime, POpenCall, PThrow)
+        return false
+    elseif isof(patt, PCapture, PRule)
+        return fixedlen(patt[1])
+    elseif patt isa PCall
+        error("fixedlen not yet implemented for PCall")
+    elseif patt isa PSeq
+        len = 0
+        for p in patt.val
+            l = fixedlen(p)
+            if l === false
+                return false
+            else
+                len += 1
+            end
+        end
+        return len
+    elseif patt isa PChoice
+        len = fixedlen(patt.val[1])
+        if len === false
+            return false
+        end
+        for i = 2:length(patt.val)
+            l = fixedlen(patt.val[i])
+            if l === false || len != l
+                return false
+            end
+        end
+        return len
+    else
+        error("unexpected pattern type $(typeof(patt))")
     end
 end
 

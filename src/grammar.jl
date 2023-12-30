@@ -2,7 +2,6 @@
 
 using MacroTools
 
-
 const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 
 function wrap_rule(expr::Expr)::Expr
@@ -15,7 +14,7 @@ function wrap_rule(expr::Expr)::Expr
             elseif @capture(x, (@R_str(P(val_))))
                 :(@R_str($val))
             elseif @capture(x, ((cap_, P(sym_))))
-                :(($cap, $sym))
+                :(C($cap, $sym))
             elseif @capture(x, ([val_]))
                 :(Cg([$val]))
             else

@@ -196,4 +196,5 @@ The operator-combining pattern primitives are the basis of JLpeg. Being ordinary
 Julia code, they offer the maximum level of flexibility and power, and are the basis
 of the rest of the system.
 
-For many uses, users may prefer one of the several dialects provided. These are parsers written in, of course, JLpeg itself, which compile down to ordinary patterns.
+For many uses, users may prefer one of the several dialects provided. These are
+parsers written in, of course, JLpeg itself, which compile down to ordinary patterns.
