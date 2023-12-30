@@ -83,10 +83,13 @@ end
 Cg(p::Patternable, sym::Union{CapSym, Nothing}) = Cg(P(p), sym)
 Cg(p::Union{Patternable, Pattern}) = Cg(p, nothing)
 function Cg(p::Vector)
-    if length(p) > 1
-        error("Cg with Vector must have a length of 1")
+    if length(p) == 1
+        return Cg(p[1])
+    elseif length(p) == 2
+        return Cg(p[1], p[2])
+    else
+        error("Cg(::Vector) must have a length of 1 or 2")
     end
-    return Cg(p[1])
 end
 
 """

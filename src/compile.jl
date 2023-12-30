@@ -735,7 +735,10 @@ Answer if the pattern cannot fail.
 """
 function nofail(patt::Pattern)::Bool
     if patt isa PTrue return true
-    elseif patt isa PStar && patt.n ≤ 0 return true
+    elseif patt isa PStar
+        if patt.n ≤ 0 return true
+        else return false
+        end
     elseif isof(patt, PRange, PChar, PAny, PSet, PFalse, PThrow) return false
     # POpenCall needs checked later
     elseif patt isa POpenCall return false

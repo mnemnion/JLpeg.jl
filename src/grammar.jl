@@ -13,10 +13,14 @@ function wrap_rule(expr::Expr)::Expr
                 :(@S_str($val))
             elseif @capture(x, (@R_str(P(val_))))
                 :(@R_str($val))
-            elseif @capture(x, ((cap_, P(sym_))))
-                :(C($cap, $sym))
-            elseif @capture(x, ([val_]))
-                :(Cg([$val]))
+            elseif @capture(x, ((cap_, P(sym1_))))
+                :(C($cap, $sym1))
+            elseif @capture(x, ([val_, sym_]))
+                if sym isa Expr && sym.head == :call
+                    :(Cg([$val, $(sym.args[2])]))
+                else
+                    x
+                end
             else
                 x
             end

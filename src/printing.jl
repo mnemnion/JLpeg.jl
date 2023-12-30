@@ -65,6 +65,7 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
     end
     green(s::Union{String,Symbol}) = "\x1b[32m$s\x1b[0m"
     bold(s::Union{String,Symbol}) = "\x1b[1m$s\x1b[0m"
+    orange(s::Union{String,Symbol}) ="\x1B[38;5;208m$s\x1B[0m"
     meta = patt.aux
     pad = length(patt.code) > 99 ? 3 : 2
     lines = [":$(meta[:start])", '-'^(length(string(meta[:start]))+1)]

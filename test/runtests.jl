@@ -195,4 +195,9 @@ using Test
         end
         @test match(capnums, "abc123abc123").captures == ["123", "123"]
     end
+    @testset "`re` dialect" begin
+        @test match(re, "'string'")[1] == (:string => "'string'")
+        @test match(re, "[a-z]")[1] == (:range => ["a", "z"])
+        @test match(re, "sym")[1] == (:name => "sym")
+    end
 end
