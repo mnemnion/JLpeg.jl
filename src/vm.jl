@@ -465,7 +465,7 @@ end
 
 Process the capture list and return what we find.
 """
-function oncapmatch(vm::VMState)::PegMatch
+function aftermatch(vm::VMState)::PegMatch
     function _substr(s, f)
         # s should always be a valid index, f might not be,
         # and is in all cases one past what we need
@@ -618,7 +618,7 @@ function Base.match(patt::Pattern, subject::AbstractString)::Union{PegMatch, Not
     vm = VMState(patt, subject)
     runvm!(vm)
     if vm.matched
-        return oncapmatch(vm)
+        return aftermatch(vm)
     else
         return nothing
     end

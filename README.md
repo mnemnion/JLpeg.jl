@@ -33,6 +33,10 @@ and some context sensitive, languages.  LPeg, JLpeg's inspiration, uses a
 Snobol-style set of operator overloads as the basic tool for building up patterns, a
 practice we also follow.
 
+Although many users of JLpeg may prefer to use one of the [Dialects](#dialects),
+patterns and their combination are the building block of JLpeg recognition engines,
+that which dialects compile to.
+
 The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/),
 with several extensions, refinements, and a more natively Julian character.
 
@@ -40,20 +44,20 @@ The basic operations are as follows:
 
 | Operator                | Description                                                 |
 | ----------------------- | ----------------------------------------------------------- |
-| `P(s::String)`          | Match a literal String `s`                                  |
-| `P(s::Integer)`         | Match any `n` characters                                    |
-| `S(s::String)`          | Match the set of all characters in `string`                 |
-| `R("xy")`, `R('x','y')` | Matches any character between `x` and `y` (Range)           |
-| `B(patt)`               | Match `patt` behind the cursor, without advancing           |
-| `patt^n`                | Match `n` repetitions of `patt` at most                     |
-| `patt^-n`               | Match `n` repetitions of `patt` at least                    |
-| `patt1 * patt2`         | Match the sequence `patt1` , `patt2`                        |
-| `patt1 \| patt2`        | Match `patt1` or `patt2`, in that order                     |
-| `patt1 - patt2`         | Match `patt1` if `patt2` does not match                     |
-| `!patt`, `¬patt`        | Negative lookahead, succeeds if `patt` fails                |
-| `~patt`                 | Lookahead, match `patt` without advancing                   |
-| `patt1` >> `patt2`      | Match `patt1`, then search the string for the next `patt2`. |
-| `P(true)`, `P(false)`   | Always succeed or always fail, respectively                 |
+| `P(s::String)`          | match a literal String `s`                                  |
+| `P(s::Integer)`         | match any `n` characters                                    |
+| `S(s::String)`          | match the set of all characters in `string`                 |
+| `R("xy")`, `R('x','y')` | matches any character between `x` and `y` (Range)           |
+| `B(patt)`               | match `patt` behind the cursor, without advancing           |
+| `patt^n`                | match `n` repetitions of `patt` at most                     |
+| `patt^-n`               | match `n` repetitions of `patt` at least                    |
+| `patt1 * patt2`         | match the sequence `patt1` , `patt2`                        |
+| `patt1 \| patt2`        | match `patt1` or `patt2`, in that order                     |
+| `patt1 - patt2`         | match `patt1` if `patt2` does not match                     |
+| `!patt`, `¬patt`        | negative lookahead, succeeds if `patt` fails                |
+| `~patt`                 | lookahead, match `patt` without advancing                   |
+| `patt1` >> `patt2`      | match `patt1`, then search the string for the next `patt2`. |
+| `P(true)`, `P(false)`   | always succeed or always fail, respectively                 |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
 this is true for `S` and `R` as well.  These basic operations are not self
@@ -105,7 +109,7 @@ therefore be a prefix of the string, up to and including the entire string.
 Most interesting uses of pattern recognition will call for more than matching the
 longest substring.  For those more complex cases, we have captures and actions.
 
-## Captures and Actions
+## Captures
 
 A `PegMatch` defaults to the longest `SubString` when no captures are provided, or
 when the pattern succeeds but all captures within fail (#TODO I may change this
@@ -121,20 +125,39 @@ This matches the empty string, fast-forwards to the first 56, and captures it.  
 that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for
 `P("") >> C(P("56"))`.
 
-| [ ] | Operation               | What it produces                                        |
-| --- | ----------------------- | ------------------------------------------------------- |
-| [X] | `C(patt [, key])`       | captures the substring of `patt`                        |
-| [X] | `(patt,)`,              | same as above, note the comma!                          |
-| [X] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                    |
-| [X] | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,         |
-| [X] | `[patt], ([patt], key)` | optionally tagged with `key`                            |
-| [X] | `Cp()`                  | current position (matches the empty string)             |
-| [X] | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key`  |
-| [X] | `A(patt, λ)`,           | the returns of function applied to the captures of patt |
-| [X] | `patt / λ`              | ""                                                      |
-| [ ] | `Anow(patt, λ)`,        | λ applied to match-time captures at match time          |
-| [ ] | `patt // λ`             |                                                         |
-| [ ] | `patt % λ`              | fold/reduces captures with λ                            |
+| [ ] | Operation               | What it produces                                       |
+| --- | ----------------------- | ------------------------------------------------------ |
+| [X] | `C(patt [, key])`,      | captures the substring of `patt`                       |
+| [X] | `(patt,)`,              | same as above, note the comma!                         |
+| [X] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                   |
+| [X] | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,        |
+| [X] | `[patt], ([patt], key)` | optionally tagged with `key`                           |
+| [X] | `Cp()`                  | captures `""` so `PegMatch.offsets` has the position   |
+| [ ] | `Cc(any)`               | places `any` in `.captures` at the current offset      |
+| [X] | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key` |
+| [ ] | `Ce(patt, :key)`,       | groups the captures of`patt` and creates an Expr       |
+| [ ] | `patt => :key`          | with head `:key` and args `[patt]`                     |
+
+## Actions
+
+A pattern may be modified with an action to be taken, either at runtime or more commonly
+once the match has completed.  These actions are supplied with all captures in `patt`, or
+the substring matched by `patt` itself if `patt` contains no captures of its own.
+
+`T(:label)` doesn't capture, but rather, fails the match, records the position
+of that failure, and throws `:label`.  If there is a rule by that name, it is
+attempted for error recovery, otherwise `:label` and the error position are attached
+to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
+is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
+
+| [ ] | Action           | Consequence                                             |
+| --- | ---------------- | ------------------------------------------------------- |
+| [X] | `A(patt, λ)`,    | the returns of function applied to the captures of patt |
+| [X] | `patt / λ`       | ""                                                      |
+| [ ] | `Anow(patt, λ)`, | captures `λ(C(patt)...)` at match time, return          |
+| [ ] | `patt // λ`      | `nothing` to fail the match                             |
+| [ ] | `patt % λ`       | fold/reduces captures with `λ`, captures last return    |
+| [ ] | `T(:label)`      | fail the match and throw `:label`                       |
 
 ### Rules
 

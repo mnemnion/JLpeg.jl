@@ -1,24 +1,8 @@
 # Planning for jLPEG
 
-  The intention here is to translate [LPEG](https://github.com/sqmedeiros/lpeglabel), specifically the lpeglabel fork, into idiomatic Julia, and expand it with the various bells and whistles which I've introduced, or plan to, into PEGs generally.
-
-## Primary Sources
-
-In addition to LPEG itself (linked above) we have:
-
-- [LPEG Paper](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf) paper describing the implementation of LPEG.
-
-## Prior Art
-
-- [parsimonious.jl](https://github.com/gitfoxi/Parsimonious.jl): A port of a Python library of the same name.  This takes strings and outputs ParseTrees, which will be of some use.  No idea about the internals yet.
-
-- [PEG.jl](https://github.com/wdebeaum/PEG.jl): "Define a Parsing Expression Grammar via a macro and abuse of Julia syntax", a promising quote.  Not how I'm intending to implement this but we'll see what happens. Also no idea about internals.
-
-- [PEGParser.jl](https://github.com/abeschneider/PEGParser.jl): uses Packrat, has a useful-looking `@grammar` macro.  Other than "it's packrat", no idea how it works yet.
-
-## Tools
-
-- [Match.jl](https://juliaservices.github.io/Match.jl/stable/): a macro for match/case style statements, which is an approach to the VM proper.
+   The intention here is to translate [LPEG](https://github.com/sqmedeiros/lpeglabel),
+specifically the lpeglabel fork, into idiomatic Julia, and expand it with the
+various bells and whistles which I've introduced, or plan to, into PEGs generally.
 
 ## Implementation
 
@@ -28,24 +12,81 @@ Wherein I note how I'm building the thing.
 
 This list could be a lot longer!
 
-- [ ] Handle the other PStar cases
-- [X] P(-n) for n bytes remaining
+- [X] Handle the other PStar cases
+- [X] `P(-n)` for n bytes remaining
 - [X] And and Not predicates
 - [#] Multibyte sets and chars
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
-- [ ] B(patt)
+- [ ] `B(patt)` (prerequisite: determining fixed-length patterns)
+- [ ] `T(:label)` somewhat hefty VM refactor here.
+  - [ ] `PegFail` object with test conversion.
+    - [ ] default label is `:default`.
 - [X] Captures
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
-- [ ] Optimizations from The Book:
+- [ ] Optimizations from The Book (paper and/or lpeg C code):
   - [ ] TestPatt optimizations
   - [ ] Tail call elimination
   - [ ] Set span optimization
+  - [ ] Capture-closing optimization
 - [ ] Serializing and loading grammars
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 
-### Relabeling
+### Capture closing
+
+I knew there was a reason I might want to cache the capture stack...
+
+This optimization changes `CapEntry` back to holding the values of the instruction
+separately, and adds a capture register holding the values of the top frame.  When we
+get a CloseCaptureInst, we mutate the register to hold a FullCaptureEntry with the
+calculated offset. And this simplifies the `aftermatch` code somewhat because there
+will only be FullCaptures, if we find a not-FullCapture there's a mistake somewhere.
+
+This would also mean not having to synthesize a FullCaptureInst in the following,
+although I doubt very much that this would generate different machine code, but
+maybe: the compiler pays a lot of attention to method dispatch.
+
+#### BIG PROBLEM (solvable)
+
+With doing this, is that we use a Dict keyed on the actual CloseInstruction to find
+capture actions.  We can solve this and get something better in the process.
+
+The basic idea is that `prepare` looks through the pattern code for closing captures
+(ICloseCapture and IFullCapture), all capture-type instructions now have a `.tag`
+field which is initialized to `0`.  All such instructions are monotonically replaced
+with the next tag in order, and a Vector is prepared containing the reference values
+from the `:caps` dict, added to `aux`. This simplifies serialization as well because
+we now have a Vector of cap actions instead of a Dict. PCompiled rules are still
+portable provided that hoisting reconstructs the `:caps` dict.
+
+### CaptureCommitInst
+
+We can use this whenever a PCapture is enclosing a PChoice, but it's a slightly tricky
+optimization to get right.  What we do is go through the copied bytecode and replace
+every Commit (not Partial Commit) _which belongs to the PChoice_ with a
+CaptureCommit.  We can accomplish this by using a counter of PChoice instructions in
+the run, and if that counter is greater than 0 then when we encounter ICommit we
+decrement the counter rather than swapping in a CaptureCommit.
+
+`onCaptureCommit` looks like this:
+
+```julia
+@inline
+function onCaptureCommit(inst::LabelInst, vm::VMState)
+    _, s, _ = popframe!(vm)
+    off = vm.s - s
+    fullinst = FullCaptureInst(inst.kind, off)
+    pushcap!(vm, fullinst)
+    vm.i += inst.l
+    return true
+end
+```
+
+This saves us a frame in both the VM stack and (more importantly) the capture stack,
+in a common workload.
+
+### Relabeling Bytecode
 
 At some point I intend to add serializing of bytecode, just a (versioned!!) minimal
 string form which allows a zero-logic construction of a Grammar.  That would be a
@@ -85,40 +126,7 @@ ends with `.`, followed by a Julia serialization of the Dict.  We'll need to fig
 out how to handle functions, the answer is **not** using eval on live Julia code, in
 the Dict we encode them as `missing` and there's some technique to reload them at runtime.
 
-## Notes on OG Lpeg
-
-The OG code contains the basic algorithms we need, but they're expressed in a way which makes a close translation useless. For one thing they heavily manipulate the Lua VM, and for another, it's written in C, with all that implies.
-
-The flow in the OG begins at the bottom of `lpltree.c`, where the Lua interface is created and registered, and works its way backward from the perspective I need to take to translate it.
-
-The interface is various ways of creating patterns, the details of which are largely useless for us, since it's all about pulling the relevant information out of Lua into C.  This involves creating two structs, `Pattern`s and `TTree`s, where a Pattern is a container for both a Tree and its bytecode.  Trees are tagged with an enum saying what variety of tree we're dealing with, a second enum indicating the variety of capture (if it is one), either zero, one, or two children, and sometimes a counter.
-
-Trees are built into more complex patterns through combinator rules, which become parent to the existing patterns, and as grammars, where they eventually get checked and resolved in various ways.
-
-`lp_match` causes the tree to be compiled, and these instructions are passed to the VM for match proper, which runs the bytecode.
-
-## Strategy
-
-The distinction between Pattern and TTree isn't something we really need, I don't
-think.  The distinction is basically between the encapsulation of Lua-side userdata,
-code, and a TTree, where the latter is used to do manipulation of the pattern stuff
-without affecting the Lua VM.  We can just have Patterns as containers that also do
-the Tree-like things.
-
-## Implementation Notes and Details
-
-Current work is on captures, and the early foray has convinced me that the Julian
-solution will differ considerably both from the Lua (in Julia, not _everything_ is a
-table/Dict) and from how the regex package implements AbstractMatch. So this is notes on how I want captures to work, and we'll work back from there.
-
-Syntax: mostly, I like the "your tuple is a capture" syntax, and will add "your vector is a group of captures" to that.
-
-```julia
-( :a  ←  P"123" * ("abc",) | [("qwerty", :qwerty) | :b ],
-  :b  ←  (("qwertz", :qwertz) | ("azerty", :azerty))^1 )
-```
-
-## Back references: Mark and Check
+### Back references: Mark and Check
 
 This is the separate mechanism I want to add based on the code I hacked together for
 bridge.  A Mark wraps the sequence in Choice/Commit, but this one is MarkCommit: we
@@ -145,9 +153,9 @@ JLPeg will offer dialects for strings which compile to patterns, at least these:
 
 - `peg`: Implementation of Sam Atman style PEG grammars
 
-- `dialect`: For specifying dialects. I simply suspect this will be useful.
+- `dialect`: For specifying dialects. I simply suspect this will be useful
 
-- `regex`: I don't see any reason we can't interpret PCRE regex format on the VM.
+- `regex`: I don't see any reason we can't interpret PCRE regex format on the VM
 
 - `canonical`  A string form any dialect may be transformed to, and any
                Pattern printed as. Needs to be feature complete, rather than
@@ -159,11 +167,6 @@ JLPeg will offer dialects for strings which compile to patterns, at least these:
 I dunno how this works actually, but the example I have in mind transforms grammars
 into highlighters, so it's a DSL to specify StyledStrings annotations to perform on a
 recognized grammar.
-
-### More Dialect Notes
-
-So there's [ReplMaker](https://juliahub.com/ui/Packages/General/ReplMaker) for
-constructing custom repl modes, which we can use for dialect and grammar builders
 
 ### Expr parser
 
