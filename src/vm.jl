@@ -466,7 +466,13 @@ end
 Process the capture list and return what we find.
 """
 function oncapmatch(vm::VMState)::PegMatch
-    last = vm.s - 1
+    function _substr(s, f)
+        # s should always be a valid index, f might not be,
+        # and is in all cases one past what we need
+        f1 = prevind(vm.subject, f)
+        return @views (vm.subject[s:f1])
+    end
+    last = prevind(vm.subject, vm.s)
     captures = PegCapture()
     offsets = PegOffset()
     patt = vm.patt
@@ -513,11 +519,11 @@ function oncapmatch(vm::VMState)::PegMatch
             # check for those here.
             push!(offsets, Int(bcap.s))
             if ikey.kind == Csimple
-                push!(captures, @views vm.subject[bcap.s:cap.s-1])
+                push!(captures, _substr(bcap.s, cap.s))
             elseif ikey.kind == Csymbol
                 if haskey(capdict, ikey)
                     key = capdict[ikey]
-                    sub = @views vm.subject[bcap.s:cap.s-1]
+                    sub = _substr(bcap.s, cap.s)
                     push!(captures, key => sub)
                 else
                     @warn "missing capture symbol for Instruction: $(ikey) at offset $(length(offsets))"
@@ -527,7 +533,7 @@ function oncapmatch(vm::VMState)::PegMatch
                 #grab the outer captures and offsets
                 caps, offs = pop!(groupstack)
                 if isempty(captures) # the group is the capture
-                    push!(captures, @views vm.subject[bcap.s:cap.s-1])
+                    push!(captures, _substr(bcap.s, cap.s))
                     push!(offsets, bcap.s)
                     push!(caps, captures)
                     push!(offs, offsets)
@@ -543,18 +549,18 @@ function oncapmatch(vm::VMState)::PegMatch
                 push!(offs, offsets)
                 captures, offsets = caps, offs
             elseif ikey.kind == Cposition
-                push!(captures, @views vm.subject[cap.s:cap.s-1])
+                push!(captures, _substr(bcap.s, cap.s))
             elseif ikey.kind == Crange
                 if haskey(capdict, ikey)
-                    push!(captures, [bcap.s:cap.s-1])
+                    push!(captures, [bcap.s:prevind(vm.subject, cap.s)])
                 else
-                    push!(captures, [bcap.s:cap.s-1])
+                    push!(captures, [bcap.s:prevind(vm.subject, cap.s)])
                 end
             elseif ikey.kind == Caction
                 λ = capdict[ikey]::Function
                 # The Action either created the group, or it *is* the group
                 if ikey.op == IFullCapture || isempty(captures)
-                    arg = @views vm.subject[bcap.s:cap.s-1]
+                    arg = _substr(bcap.s, cap.s)
                     if isempty(captures) && isempty(groupstack)
                         push!(captures, λ(arg))
                     elseif !isempty(captures)
