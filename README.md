@@ -60,9 +60,9 @@ The basic operations are as follows:
 | `P(true)`, `P(false)`   | always succeed or always fail, respectively                 |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
-this is true for `S` and `R` as well.  These basic operations are not self
-referential, and without further modification merely match the longest substring
-recognized by the pattern, but suffice to match all regulat languages.
+this is true for `S` and `R` as well.  These basic operations are not recursive, and
+without further modification merely match the longest substring recognized by the
+pattern, but suffice to match all regulat languages.
 
 ## Matching
 
@@ -122,7 +122,7 @@ PegMatch(["56"])
 ```
 
 This matches the empty string, fast-forwards to the first 56, and captures it.  Note
-that the pattern is `(P"56,)`, a tuple, not a group, this is syntax sugar for
+that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
 `P("") >> C(P("56"))`.
 
 | [ ] | Operation               | What it produces                                       |
@@ -187,5 +187,13 @@ end
 @rule :a ← ["abc"^0 * "123"]^1
 ```
 
-Always use `R"az"` and `S"abc"`` forms for ranges and sets in these macros, or you'll
+Always use `R"az"` and `S"abc"` forms for ranges and sets in these macros, or you'll
 get the wrong result.
+
+## Dialects
+
+The operator-combining pattern primitives are the basis of JLpeg. Being ordinary
+Julia code, they offer the maximum level of flexibility and power, and are the basis
+of the rest of the system.
+
+For many uses, users may prefer one of the several dialects provided. These are parsers written in, of course, JLpeg itself, which compile down to ordinary patterns.
