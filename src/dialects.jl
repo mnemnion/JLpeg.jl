@@ -32,9 +32,9 @@ bootstrap of other dialects.
 
     :grammar      ←  :definition^1
     :definition   ←  :name * :S * :arrow * :exp
-    :class        ←  "[" * "^"^-1 * :item *(!"]" * :item)^0 * "]"
+    :class        ←  "[" * "^"^-1 * :item * (!"]" * :item)^0 * "]"
     :item         ←  :defined | :range | P(1)
-    :range        ←  P(1) * "-" * S"^]"
+    :range        ←  P(1) * "-" * (!S"]" * P(1))
 
     :S            ←  (S"\t\n\v\r " | "--" * (!S"\n" * P(1))^0 * "\n")^0
     :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0
@@ -44,10 +44,8 @@ bootstrap of other dialects.
     :defined      ← "%" * :name
 end
 
-
-# The OG grammar expressed in itself:
-
-"""
+# which should match itself:
+@assert match(re, """
 pattern         <- exp !.
 exp             <- S (grammar / alternative)
 
@@ -84,4 +82,4 @@ arrow           <- '<-'
 num             <- [0-9]+
 string          <- '"' [^"]* '"' / "'" [^']* "'"
 defined         <- '%' name
-"""
+""") !== nothing

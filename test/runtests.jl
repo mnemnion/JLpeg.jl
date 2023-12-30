@@ -104,7 +104,6 @@ using Test
         @test match(inside, "abab")[1] == "abab"
         @test match(inside, "")[1] == ""
     end
-    # more of that to come..
     @testset "Predicates" begin
         pand = ~P"abc" * S"abcd"^1
         @test match(pand, "abcd")[1] == "abcd"

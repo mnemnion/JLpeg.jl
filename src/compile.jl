@@ -90,7 +90,7 @@ end
 
 struct BehindInst <: Instruction
     op::Opcode
-    n::UInt32
+    n::UInt32  # Should be an l, surely
     BehindInst(n::Integer) = n ≥ 0 ? new(IBehind, n) : error("n must be a natural number")
 end
 

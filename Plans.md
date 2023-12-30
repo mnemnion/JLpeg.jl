@@ -27,34 +27,60 @@ Wherein I note how I'm building the thing.
 ### Remaining
 
 - [ ] Handle the other PStar cases
-
 - [X] P(-n) for n bytes remaining
-
 - [X] And and Not predicates
-
 - [#] Multibyte sets and chars
-
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
-
 - [ ] B(patt)
-
 - [X] Captures
-
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
-
 - [ ] TestPatt optimizations
-
 - [ ] Tail call elimination
-
 - [ ] Set span optimization
+- [ ] Serializing and loading grammars
+- [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 
-Somewhere to put random implementation notes: at some point I intend to add
-serializing of bytecode, just a (versioned!!) minimal string form which allows a
-zero-logic construction of a Grammar.  That would be a good time to remov NoOps,
-which get left around by various optimizations. There's a reason every instruction
-set in existence has them, but it's aesthetically unsatisfying to leave them in.
+### Relabeling
+
+At some point I intend to add serializing of bytecode, just a (versioned!!) minimal
+string form which allows a zero-logic construction of a Grammar.  That would be a
+good time to remov NoOps, which get left around by various optimizations. There's a
+reason every instruction set in existence has them, but it's aesthetically
+unsatisfying to leave them in.
+
+It isn't the only or even the best reason to want to relabel the bytecode, which can
+be done in one pass as follows: We initialize an `Option{Int16,missing}` Vector the
+size of the program, and a running count during the pass of how many bytes we've
+added or removed, such that after a full pass, that Vector tells us: how much each
+still-present instruction has moved, and whether a given offset still points at a
+valid location.  There are passes where it's valid for jumps to point at a
+now-missing location, but we always want to know that.  Because the count Vector and
+the operation on it are both dense, we can reuse it for as many passes as we'd like.
+
+Easy test is to generate a random number and take a program we have nice tests for
+(such as `re`, soon), scatter a bunch of OpNoOps in it, correct, remove a bunch,
+correct, and so on, testing each time.
+
+### Serializing
+
+Compiling is expensive, potentially very expensive once we start doing cool stuff.
+And we make no use of the Pattern at all, except the top one as a container for
+`aux`, after we create it. So I want to add a serialize-to-string function which is
+as fast to load as computerly possible, some ideas: Capital letters are enums (Opcode
+and CapKind), lowercase letters are short labels, - means what it always does, `n`
+comes before `l`, jumps further than +-26 are hex as `0ff`, always lowercase because
+we expect an opcode next, always at least two, if an n is encoded as hex, the label
+is always encoded as hex.  I believe that's unambiguous and forward-only, and only
+leaves out sets, which we already know how to serialize with show in a basically
+optimal way, although we'll  make some minor changes in the interest of forward-only
+unambigious optimality: starts with `{`, characters are in order and concatenated,
+ranges start with `|` and cover the next two characters.  That leaves finality, which
+comes before the `vec` and is `!` for false and `+` for true. The program section
+ends with `.`, followed by a Julia serialization of the Dict.  We'll need to figure
+out how to handle functions, the answer is **not** using eval on live Julia code, in
+the Dict we encode them as `missing` and there's some technique to reload them at runtime.
 
 ## Notes on OG Lpeg
 

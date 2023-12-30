@@ -18,6 +18,7 @@ abstract type Instruction end
     Cbackref    # Might be a different mechanism
     Csimple     # ✅ captures a substring of the region matched
     Crange      # Captures a UnitRange [first:last] of region
+    Cexpr       # [ ] Captures the group and makes an Expr with head :symbol
     Caction     # [ ] an action taken on a successful match.
     Csymbol     # ✅ captures its match as a pair `:symbol => "match"` (:symbol can be a string)
     Cfold       # ktable[key] is function; next node is pattern

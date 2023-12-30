@@ -1,5 +1,7 @@
 # Interface for JLPeg.
 
+include("grammar.jl")
+
 """
     P(p::Union{AbstractString,AbstractChar,Integer,Bool,Symbol})::Pattern
 
@@ -284,7 +286,3 @@ Calls S(str) on the string, in close imitation of Lua's calling convention.
 macro S_str(str)
     S(compile_raw_string(str))
 end
-
-
-
-include("grammar.jl")
