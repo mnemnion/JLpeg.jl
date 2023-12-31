@@ -206,6 +206,10 @@ using Test
             fail = match(pthrow, "123456")
             "123456"[fail.errpos:end] == "456"
         end
+        # Test predicate unwinding
+        predthrow = (~P"abc" * T(:nope)) | P"abcd"
+        match(predthrow, "abcd")[1] == "abcd"
+        match(predthrow, "abc").label == :default
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[1] == (:string => "string")
