@@ -54,14 +54,6 @@ OpFailTwice = MereInst(IFailTwice)
 OpReturn = MereInst(IReturn)
 OpNoOp = MereInst(INoOp)
 
-"""
-Global count of capture tags.
-
-If you ever overflow this, please tell me what you were doing. -Sam
-(this is mostly a joke / dirty hack to break the refactor into parts)
-"""
-capcount::UInt16 = UInt16(0)
-
 struct AnyInst <: Instruction
     op::Opcode
     n::UInt32
@@ -273,17 +265,17 @@ function prepare!(patt::PAuxT)::Pattern
     for (idx, inst) in enumerate(patt.code)
         if inst isa CloseCaptureInst
             @assert haskey(patt.aux, :caps) "weird (will fail someday)"
-            if !haskey(patt.aux[:caps], inst)
+            if !haskey(patt.aux[:caps], inst.tag)
                 @warn "AuxDict missing $inst: $(patt.aux)"
                 push!(capvec, nothing) # Safe enough value for captures (now)
             else
-                push!(capvec, patt.aux[:caps][inst])
-                patt.code[idx] = CloseCaptureInst(inst.kind, ccount)
+                push!(capvec, patt.aux[:caps][inst.tag])
             end
+            patt.code[idx] = CloseCaptureInst(inst.kind, ccount)
             ccount += 1
         elseif inst isa FullCaptureInst
             @assert haskey(patt.aux, :caps) "weird (will fail someday)"
-            push!(capvec, patt.aux[:caps][inst])
+            push!(capvec, patt.aux[:caps][inst.tag])
             patt.code[idx] = FullCaptureInst(inst.kind, inst.off, ccount)
             ccount += 1
         end
@@ -576,9 +568,8 @@ function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
     patt.aux[:caps] = caps = get(patt.aux, :caps, Dict())
     if patt.kind == Cposition
-        global capcount += 1
-        full = FullCaptureInst(Cposition, 0, capcount)
-        caps[full] = nothing
+        full = FullCaptureInst(Cposition, 0, patt.tag)
+        caps[patt.tag] = patt.aux[:cap]
         push!(patt.code, full, OpEnd)
         return patt
     end
@@ -588,9 +579,8 @@ function _compile!(patt::PCapture)::Pattern
     trimEnd!(ccode)
     push!(c, OpenCaptureInst(patt.kind))
     append!(c, ccode)
-    global capcount += 1
-    close = CloseCaptureInst(patt.kind, capcount)
-    caps[close] = patt.aux[:cap]
+    close = CloseCaptureInst(patt.kind, patt.tag)
+    caps[patt.tag] = patt.aux[:cap]
     push!(c, close)
     pushEnd!(c)
     return patt

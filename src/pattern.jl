@@ -205,13 +205,27 @@ struct PGrammar <: Pattern
     end
 end
 
+"""
+Global count of capture pattern tags.
+
+If you ever overflow this, please tell me what you were doing. -Sam
+"""
+capcounter::UInt16 = 0
+
 struct PCapture <: Pattern
     val::Vector{Pattern}
     code::IVector
     kind::CapKind
     aux::AuxDict
-    PCapture(a::Pattern, k::CapKind) = new([a], Inst(), k, AuxDict())
-    PCapture(a::Pattern, k::CapKind, aux::AuxDict) = new([a], Inst(), k, aux)
+    tag::UInt16
+    function PCapture(a::Pattern, k::CapKind)
+        global capcounter += 1
+        new([a], Inst(), k, AuxDict(), capcounter)
+    end
+    function PCapture(a::Pattern, k::CapKind, aux::AuxDict)
+        global capcounter += 1
+        new([a], Inst(), k, aux, capcounter)
+    end
 end
 # TODO the rest of these need to be concrete:
 
