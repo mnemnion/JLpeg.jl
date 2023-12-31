@@ -15,7 +15,7 @@ This list could be a lot longer!
 - [X] Handle the other PStar cases
 - [X] `P(-n)` for n bytes remaining
 - [X] And and Not predicates
-- [ ] Check lpeg code for #P(whatever) inside a call, does it use BackCommit?
+- [X] Check lpeg code for #P(whatever) inside a call, does it use BackCommit?
 - [#] Multibyte sets and chars
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
@@ -23,11 +23,13 @@ This list could be a lot longer!
   - [ ] The grammar munges every possible string into P"string", symbols too.
         We need to fix that, possibly by rewriting as a prewalk, not postwalk?
   - [X] `←` needs to take the capture forms on the right hand side
-- [ ] `B(patt)` (prerequisite: determining fixed-length patterns)
-- [ ] `T(:label)` somewhat hefty VM refactor here
-  - [ ] `PegFail` object with test conversion
-    - [ ] default label is `:default`
-- [X] Captures
+- [X] `B(patt)` (prerequisite: determining fixed-length patterns)
+- [X] `T(:label)` somewhat hefty VM refactor here
+  - [X] `PegFail` object with test conversion
+    - [X] default label is `:default`
+- [#] Captures
+  - [ ] Cc
+  - [ ] Ce, =>
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ] Optimizations from The Book (paper and/or lpeg C code):
@@ -43,6 +45,7 @@ This list could be a lot longer!
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
+  - [ ] findall: I think this just returns the .offsets vector of the match
 
 ### Throw notes
 
@@ -69,8 +72,8 @@ So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `i
 - [X]  Re-code `PAnd` and `PNot` to use `IPredChoice`
 - [X]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
        `onChoice`, `onPredChoice`, and `failinst`.
-- [ ]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
-  - [ ]  Good time to re-code the compiler to stop trying to float auxiliaries and just
+- [X]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
+  - [X]  Good time to re-code the compiler to stop trying to float auxiliaries and just
          pass in a `:throws` and `:caps` Dict during `prepare!`, good preparation for
          better compiling of Grammars.
 

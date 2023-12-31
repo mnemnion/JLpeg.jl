@@ -8,6 +8,15 @@ unique to that pattern type.
 """
 abstract type Pattern <: AbstractPattern end
 
+"""
+    PegError(msg)
+
+An error while constructing a JLPeg Pattern.
+"""
+struct PegError <: Exception
+    msg::String
+end
+
 "A bytecode instruction"
 abstract type Instruction end
 
@@ -96,6 +105,13 @@ struct PRange <: Pattern
         new((a, b), Inst())
     end
     PRange(a::AbstractChar, b::AbstractChar) = new((a, b), Inst())
+end
+
+struct PBehind <: Pattern
+    val::Vector{Pattern}
+    code::IVector
+    aux::AuxDict
+    PBehind(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PAny <: Pattern
@@ -247,7 +263,6 @@ struct PThrow <: Pattern
 end
 
 abstract type PRunTime <:Pattern end
-abstract type PBehind <:Pattern end
 abstract type PTXInfo <:Pattern end
 
 const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}

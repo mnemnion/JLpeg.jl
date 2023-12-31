@@ -67,9 +67,10 @@ pattern, but suffice to match all regulat languages.
 ## Matching
 
 `match(pattern::Pattern, string::String)` will attempt to match the pattern against
-the string, returning a `PegMatch <: AbstractMatch`.  Note that unlike regular
-expressions, JLpeg will not skip ahead to find a pattern in a string, unless the
-pattern is so constructed.  We offer the easy shorthand `"" >> patt` to convert a
+the string, returning a `PegMatch <: AbstractMatch`. In the event of a failure, it
+returns a `PegFail`, with the index of the failure at `.errpos`.  Note that unlike
+regular expressions, JLpeg will not skip ahead to find a pattern in a string, unless
+the pattern is so constructed.  We offer the easy shorthand `"" >> patt` to convert a
 pattern into its searching equivalent; `P""` matches the empty string, and JLPeg will
 convert strings and numbers (but not booleans) into patterns when able.
 
@@ -136,7 +137,7 @@ that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
 | [ ] | `Cc(any)`               | places `any` in `.captures` at the current offset      |
 | [X] | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key` |
 | [ ] | `Ce(patt, :key)`,       | groups the captures of`patt` and creates an Expr       |
-| [ ] | `patt => :key`          | with head `:key` and args `[patt]`                     |
+| [ ] | `patt => :key`          | with head `:key` and args `[patt]...`                  |
 
 ## Actions
 
@@ -153,11 +154,11 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | [ ] | Action           | Consequence                                             |
 | --- | ---------------- | ------------------------------------------------------- |
 | [X] | `A(patt, λ)`,    | the returns of function applied to the captures of patt |
-| [X] | `patt / λ`       | ""                                                      |
+| [X] | `patt / λ`       |                                                         |
 | [ ] | `Anow(patt, λ)`, | captures `λ(C(patt)...)` at match time, return          |
 | [ ] | `patt // λ`      | `nothing` to fail the match                             |
 | [ ] | `patt % λ`       | fold/reduces captures with `λ`, captures last return    |
-| [ ] | `T(:label)`      | fail the match and throw `:label`                       |
+| [X] | `T(:label)`      | fail the match and throw `:label`                       |
 
 ### Rules
 

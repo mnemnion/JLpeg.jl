@@ -47,6 +47,14 @@ than the second.
 R(s::AbstractString) = PRange(s)
 R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
 
+"""
+    B(p::Union{Pattern,AbstractString,Integer})
+
+Match `patt` behind the current subject index. `patt` must be of fixed length.
+Most useful `B` pattern is `!B(1)`, which succeeds at the beginning of the string.
+"""
+B(p::Union{AbstractString,Integer}) = PBehind(P(p))
+B(p::Pattern) = PBehind(p)
 # Captures
 
 """

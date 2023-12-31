@@ -344,6 +344,20 @@ function _compile!(patt::POpenCall)::Pattern
     return patt
 end
 
+function _compile!(patt::PBehind)::Pattern
+    @assert length(patt.val) == 1 "too many patterns in PBehind"
+    len = fixedlen(patt.val[1])
+    if len === false
+       throw(PegError("in B(patt), patt must be of fixed length, not a $(typeof(patt.val[1]))"))
+    elseif len == 0  # Optimize to true
+        return compile!(PTrue())
+    end
+    push!(patt.code, BehindInst(len))
+    append!(patt.code, patt.val[1].code)
+    @assert patt.code[end] == OpEnd
+    return patt
+end
+
 function _compile!(patt::PSet)::Pattern
     # Specialize the empty set
     # We'll turn into a Jump when we have the requisite info

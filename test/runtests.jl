@@ -140,11 +140,24 @@ using Test
         @test match(P(-3), "a") isa PegFail
         @test match(P(-3), "aaaa")[1] == ""
     end
-    # Fast Forward
-    ff = "" >> P"end"
-    @test findfirst(ff, "all the way until the end") == 25
-    @test match(ff, "all the way until the end")[1] == "all the way until the end"
-    @test occursin(ff, "all the way until the end")
+    @testset "Match behind" begin
+        behind = P(3) * B("abc") * P"d"
+        @test match(behind, "abcd")[1] == "abcd"
+        toofar = P(3) * B(4) * P(true)
+        @test match(toofar, "abcd").errpos == 4
+        atstart = !B(1)
+        not_at_start = P(1) * atstart
+        @test match(atstart, "12")[1] == ""
+        @test match(not_at_start, "12") isa PegFail
+        bvar = B(P"a"^1)
+        @test_throws PegError match(bvar, "aaaaa")
+    end
+    @testset "Fast Forward" begin
+        ff = "" >> P"end"
+        @test findfirst(ff, "all the way until the end") == 25
+        @test match(ff, "all the way until the end")[1] == "all the way until the end"
+        @test occursin(ff, "all the way until the end")
+    end
     @testset "Grammars" begin
         g1 = Grammar(:a <= P"123" * :b, :b <= S"abd" * (:a | P"q"))
         @test match(g1, "123a123b123dq")[1] == "123a123b123dq"

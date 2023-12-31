@@ -262,7 +262,7 @@ Dispatch an instruction by structure, with match statements by opcode for
 further dispatch. Returns `false` if the instruction fails, otherwise `true`,
 in which case the dispatch function is expected to have altered the VM state.
 """
-function onInst(inst::Instruction, vm::VMState)::Bool
+function onInst(inst::Instruction, ::VMState)::Bool
     @error "unrecognized instruction $inst"
     false
 end
@@ -300,6 +300,25 @@ function onInst(inst::CharInst, vm::VMState)::Bool
     else
         updatesfar!(vm)
         return false
+    end
+end
+
+"onBehind"
+function onInst(inst::BehindInst, vm::VMState)::Bool
+    s = vm.s
+    for _ = inst.n:-1:1
+        s = prevind(vm.subject, s)
+        if s == 0
+            break
+        end
+    end
+    if s == 0
+        updatesfar!(vm)
+        return false
+    else
+        vm.s = s
+        vm.i += 1
+        return true
     end
 end
 
