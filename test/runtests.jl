@@ -18,6 +18,9 @@ using Test
         @test match(abc, "defg")[1] == "def"
         @test match(abc, "ghi")[1] == "ghi"
         @test match(abc, "bcd") isa PegFail
+        # The empty sequence!
+        ptrue = P""
+        @test match(ptrue, "")[1] == ""
     end
     @testset "Sets and Ranges" begin
         bcf = S("bcf")
@@ -196,9 +199,13 @@ using Test
         @test match(capnums, "abc123abc123").captures == ["123", "123"]
     end
     @testset "throws" begin
-        pthrow = P"123" * P"abc" | T(:noletter)
+        pthrow = P"123" * (P"abc" | T(:noletter))
         @test match(pthrow, "123abc")[1] == "123abc"
         @test match(pthrow, "1234").label == :noletter
+        @test begin
+            fail = match(pthrow, "123456")
+            "123456"[fail.errpos:end] == "456"
+        end
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[1] == (:string => "string")
