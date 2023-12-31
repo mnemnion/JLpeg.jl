@@ -33,6 +33,7 @@ Contains the state of a match on `subject` by `program`.
 - s: Subject pointer
 - ti, ts, tc: Stack top registers
 - t_on: flag for nonempty stack
+- sfar: furthest subject pointer we've failed at, for error reporting
 - stack: Contains stack frames for calls and backtracks
 - cap: A stack for captures
 - running: a boolean which is true when the VM is executing
@@ -57,6 +58,7 @@ mutable struct VMState
    ts::UInt32       # Stack top subject register
    tc::UInt32       # Stack top capture level register
    t_on::Bool       # Is there a frame on the stack?
+   sfar::UInt32     # Farthest subject pointer we've failed at
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapEntry}
    running::Bool
@@ -66,7 +68,7 @@ mutable struct VMState
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(subject)
-      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, stack, cap, false, false)
+      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, 1, stack, cap, false, false)
    end
 end
 
@@ -156,6 +158,9 @@ end
 @inline
 "Unwind the stacks on a match failure"
 function failmatch!(vm::VMState)
+    if vm.s > vm.sfar
+        vm.sfar = vm.s
+    end
     if !vm.t_on
         vm.running = false
         vm.matched = false
