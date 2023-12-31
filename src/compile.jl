@@ -349,8 +349,8 @@ function _compile!(patt::PBehind)::Pattern
     len = fixedlen(patt.val[1])
     if len === false
        throw(PegError("in B(patt), patt must be of fixed length, not a $(typeof(patt.val[1]))"))
-    elseif len == 0  # Optimize to true
-        return compile!(PTrue())
+    elseif len == 0  # Return the pattern
+        return return patt.val[1]
     end
     push!(patt.code, BehindInst(len))
     append!(patt.code, patt.val[1].code)

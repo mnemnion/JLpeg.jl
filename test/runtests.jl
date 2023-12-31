@@ -151,6 +151,8 @@ using Test
         @test match(not_at_start, "12") isa PegFail
         bvar = B(P"a"^1)
         @test_throws PegError match(bvar, "aaaaa")
+        bfalse = P"12" * B(P(false))
+        match(bfalse, "12") isa PegFail
     end
     @testset "Fast Forward" begin
         ff = "" >> P"end"
