@@ -260,26 +260,6 @@ function prepare!(patt::PAuxT)::Pattern
             patt.aux[key] = Dict(value)
         end
     end
-    capvec = patt.aux[:capvec] = []  # Eventually we won't clobber
-    ccount::UInt16 = 1
-    for (idx, inst) in enumerate(patt.code)
-        if inst isa CloseCaptureInst
-            @assert haskey(patt.aux, :caps) "weird (will fail someday)"
-            if !haskey(patt.aux[:caps], inst.tag)
-                @warn "AuxDict missing $inst: $(patt.aux)"
-                push!(capvec, nothing) # Safe enough value for captures (now)
-            else
-                push!(capvec, patt.aux[:caps][inst.tag])
-            end
-            patt.code[idx] = CloseCaptureInst(inst.kind, ccount)
-            ccount += 1
-        elseif inst isa FullCaptureInst
-            @assert haskey(patt.aux, :caps) "weird (will fail someday)"
-            push!(capvec, patt.aux[:caps][inst.tag])
-            patt.code[idx] = FullCaptureInst(inst.kind, inst.off, ccount)
-            ccount += 1
-        end
-    end
     patt.aux[:prepared] = true
     return patt
 end
