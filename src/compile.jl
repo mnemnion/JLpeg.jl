@@ -268,6 +268,16 @@ function prepare!(patt::PAuxT)::Pattern
             patt.aux[key] = Dict(value)
         end
     end
+    patt.aux[:capvec] = capvec = get(patt.aux, :capvec, [])
+    for (idx, inst) in enumerate(patt.code)
+        if inst isa CloseCaptureInst
+            @assert haskey(patt.aux, :caps) "weird (will fail someday)"
+            push!(capvec, patt.aux[:caps][inst])
+        elseif inst isa FullCaptureInst
+            @assert haskey(patt.aux, :caps) "weird (will fail someday)"
+            push!(capvec, patt.aux[:caps][inst])
+        end
+    end
     patt.aux[:prepared] = true
     return patt
 end
@@ -277,6 +287,9 @@ mergeaux!(::Pattern, ::Pattern) = return
 function mergeaux!(patt::Pattern, val::PAuxT)
     paux, vaux = patt.aux, val.aux
     for (key, val) in vaux
+        if key == :capvec
+            continue
+        end
         if haskey(paux, key)
             # We'll special-case everything until the end then consolidate
             if :cap == key
@@ -551,9 +564,12 @@ end
 
 function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
+    patt.aux[:caps] = caps = get(patt.aux, :caps, Dict())
     if patt.kind == Cposition
         global capcount += 1
-        push!(patt.code, FullCaptureInst(Cposition, 0, capcount), OpEnd)
+        full = FullCaptureInst(Cposition, 0, capcount)
+        caps[full] = nothing
+        push!(patt.code, full, OpEnd)
         return patt
     end
     c = patt.code
@@ -564,9 +580,7 @@ function _compile!(patt::PCapture)::Pattern
     append!(c, ccode)
     global capcount += 1
     close = CloseCaptureInst(patt.kind, capcount)
-    if patt.aux[:cap] !== nothing
-        patt.aux[:caps] = close => patt.aux[:cap]
-    end
+    caps[close] = patt.aux[:cap]
     push!(c, close)
     pushEnd!(c)
     return patt

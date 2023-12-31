@@ -540,8 +540,8 @@ function aftermatch(vm::VMState)::PegMatch
                     captures, offsets = caps, offs
                     continue
                 end
-                if haskey(capdict, ikey)
-                    key = capdict[ikey]
+                key = capdict[ikey]
+                if key !== nothing
                     push!(caps, key => captures)
                 else
                     push!(caps, captures)
