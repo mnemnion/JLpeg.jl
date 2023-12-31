@@ -7,6 +7,7 @@ struct StackFrame
     i::Int32   # Instruction pointer
     s::UInt32  # String index
     c::Int     # Capture level
+    p::Bool    # Predicate status
 end
 
 "An entry in the capture stack"
@@ -31,9 +32,10 @@ Contains the state of a match on `subject` by `program`.
 - top: the byte length of `subject`
 - i: Instruction counter
 - s: Subject pointer
-- ti, ts, tc: Stack top registers
+- ti, ts, tc, tp: Stack top registers
 - t_on: flag for nonempty stack
 - sfar: furthest subject pointer we've failed at, for error reporting
+- inpred: Bool is `true` inside predicates (PAnd, PNot)
 - stack: Contains stack frames for calls and backtracks
 - cap: A stack for captures
 - running: a boolean which is true when the VM is executing
@@ -57,7 +59,9 @@ mutable struct VMState
    ti::Int32        # Stack top instruction register
    ts::UInt32       # Stack top subject register
    tc::UInt32       # Stack top capture level register
+   tp::Bool         # Stack top predicate register
    t_on::Bool       # Is there a frame on the stack?
+   inpred::Bool     # Are we inside a predicate?
    sfar::UInt32     # Farthest subject pointer we've failed at
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapEntry}
@@ -68,7 +72,7 @@ mutable struct VMState
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(subject)
-      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, 1, stack, cap, false, false)
+      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, false, false, 1, stack, cap, false, false)
    end
 end
 
@@ -80,11 +84,11 @@ end
 "Push a full frame onto the stack."
 function pushframe!(vm::VMState, i::Int32, s::UInt32)
     if !vm.t_on
-        vm.ti, vm.ts, vm.tc = i, s, lcap(vm)
+        vm.ti, vm.ts, vm.tc, vm.tp = i, s, lcap(vm), vm.inpred
         vm.t_on = true
     else
-        frame = StackFrame(vm.ti, vm.ts, vm.tc)
-        vm.ti, vm.ts, vm.tc = i, s, lcap(vm)
+        frame = StackFrame(vm.ti, vm.ts, vm.tc, vm.tp)
+        vm.ti, vm.ts, vm.tc, vm.tp = i, s, lcap(vm), vm.inpred
         push!(vm.stack, frame)
     end
 end
@@ -96,26 +100,26 @@ function pushcall!(vm::VMState)
        vm.ti = vm.i + 1
        vm.t_on = true
     else
-        frame = StackFrame(vm.ti, vm.ts, vm.tc)
-        vm.ti, vm.ts, vm.tc = vm.i + 1, 0, 0
+        frame = StackFrame(vm.ti, vm.ts, vm.tc, vm.tp)
+        vm.ti, vm.ts, vm.tc, vm.tp = vm.i + 1, 0, 0, false
         push!(vm.stack, frame)
     end
 end
 
 @inline
-"Pop a stack frame. Returns a tuple (i, s, c)"
+"Pop a stack frame. Returns a tuple (i, s, c, p)"
 function popframe!(vm::VMState)
     if !vm.t_on
-        return (nothing, nothing, nothing)
+        return (nothing, nothing, nothing, false)
     end
     if isempty(vm.stack)
         vm.t_on = false
-        return vm.ti, vm.ts, vm.tc
+        return vm.ti, vm.ts, vm.tc, vm.tp
     end
     frame = pop!(vm.stack)
-    _ti, _ts, _tc = vm.ti, vm.ts, vm.tc
-    vm.ti, vm.ts, vm.tc = frame.i, frame.s, frame.c
-    return _ti, _ts, _tc
+    _ti, _ts, _tc, _tp = vm.ti, vm.ts, vm.tc, vm.tp
+    vm.ti, vm.ts, vm.tc, vm.tp = frame.i, frame.s, frame.c, frame.p
+    return _ti, _ts, _tc, _tp
 end
 
 @inline
@@ -156,6 +160,28 @@ function thischar(vm::VMState)
 end
 
 @inline
+"""
+    followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
+
+Follow a set of instructions forming a single logical set instruction.
+Return the success of any of these instructions, or `false`.
+"""
+function followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
+    if !inst.final
+        vm.i += 1
+        inst = vm.program[vm.i]
+        if match
+            return followSet!(inst, match, vm)
+        elseif onInst(inst, vm)
+            match = true
+        end
+    else  # if subject advanced, it happened on match
+        vm.i += 1
+    end
+    return match
+end
+
+@inline
 "Unwind the stacks on a match failure"
 function failmatch!(vm::VMState)
     # TODO this has a variant on IThrow and IThrowRec:
@@ -168,9 +194,9 @@ function failmatch!(vm::VMState)
         vm.matched = false
         return
     end
-    i, s, c = popframe!(vm)
+    i, s, c, p = popframe!(vm)
     while s == 0 # return from calls
-        i, s, c = popframe!(vm)
+        i, s, c, p = popframe!(vm)
         if i === nothing break end
     end # until we find a choice frame or exhaust the stack
     if i === nothing
@@ -179,32 +205,10 @@ function failmatch!(vm::VMState)
     else
         vm.s = s
         vm.i = i
+        vm.inpred = p
         trimcap!(vm, c)
     end
 end
-
-
-"""
-    followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
-
-Follow a set of instructions forming a single logical set instruction.
-Return the success of any of these instructions, or `false`.
-"""
-function followSet(inst::Instruction, match::Bool, vm::VMState)::Bool
-    if !inst.final
-        vm.i += 1
-        inst = vm.program[vm.i]
-        if match
-            return followSet(inst, match, vm)
-        elseif onInst(inst, vm)
-            match = true
-        end
-    else  # if subject advanced, it happened on match
-        vm.i += 1
-    end
-    return match
-end
-
 
 # ## VM core and instructions
 #
@@ -290,7 +294,7 @@ function onInst(inst::SetInst, vm::VMState)::Bool
             match = true
         end
     end
-    followSet(inst, match, vm)
+    followSet!(inst, match, vm)
 end
 
 "onMultiSet"
@@ -320,7 +324,7 @@ function onInst(inst::MultiSetInst, vm::VMState)::Bool
             vm.s += width
         end
     end
-    followSet(inst, match, vm)
+    followSet!(inst, match, vm)
 end
 
 "onTestChar"
@@ -423,6 +427,7 @@ end
 @inline
 function onPredChoice(inst::LabelInst, vm::VMState)
     pushframe!(vm, vm.i + inst.l, vm.s)
+    vm.inpred = true
     vm.i += 1
     return true
 end
@@ -455,7 +460,7 @@ function onBackCommit(inst::LabelInst, vm::VMState)
     if !vm.t_on
         return false
     end
-    i, s = popframe!(vm)
+    i, s, _, p = popframe!(vm)
     while s == 0 # return from calls
         i, s = popframe!(vm)
         if i === nothing break end
@@ -465,6 +470,7 @@ function onBackCommit(inst::LabelInst, vm::VMState)
     else
         vm.i += inst.l
         vm.s = s
+        vm.inpred = p
         return true
     end
 end
