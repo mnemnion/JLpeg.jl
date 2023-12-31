@@ -488,12 +488,8 @@ function aftermatch(vm::VMState)::PegMatch
     capstack = []
     # And another stack for grouping captures
     groupstack = []
-    # our :caps dict, or a dummy if we don't have one
-    if haskey(patt.aux, :caps)
-        capdict = patt.aux[:caps]
-    else
-        capdict = Dict{Symbol,Any}()
-    end
+    capdict = patt.aux[:caps]
+    capvec = patt.aux[:capvec]
     for i in 1:lcap(vm)
         cap = vm.cap[i]
         if cap.inst.op == IOpenCapture
