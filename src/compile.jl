@@ -234,7 +234,6 @@ function compile!(patt::Pattern)::Pattern
         if t == Vector{Pattern} || t == Vector{PRule}
             for (idx, val) in enumerate(patt.val)
                 patt.val[idx] = compile!(val)
-                mergeaux!(patt, patt.val[idx])
             end
         end
         _compile!(patt)
@@ -275,7 +274,8 @@ function prepare!(patt::PAuxT)::Pattern
     # We're replacing it with this:
     prewalkpatt!(patt, patt.aux) do p, aux
         if p isa PCapture
-            # Do this one next
+            caps = getordict!(aux, :caps)
+            caps[p.tag] = p.aux[:cap]
         elseif p isa PThrow
             throws = getordict!(aux, :throws)
             throws[p.tag] = p.val
@@ -314,37 +314,6 @@ function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
     end
     return
 end
-
-mergeaux!(::Pattern, ::Pattern) = return
-
-function mergeaux!(patt::Pattern, val::PAuxT)
-    paux, vaux = patt.aux, val.aux
-    for (key, val) in vaux
-        if key == :capvec
-            continue
-        end
-        if haskey(paux, key)
-            # We'll special-case everything until the end then consolidate
-            if :cap == key
-                # Already promoted to :caps by _compile!
-                continue
-            elseif :caps == key
-                merge!(paux[:caps], val)
-            else
-                @error "need to be able to merge $key in $(typeof(val)).aux"
-            end
-        else
-            if :cap == key || :prepared == key || :call == key || :terminal == key
-                continue
-            elseif :caps == key
-                paux[:caps] = merge!(Dict(), val)
-            else
-                @error "need to create-merge $key in $(typeof(patt)).aux"
-            end
-        end
-    end
-end
-
 
 function _compile!(patt::Pattern)::Pattern
     error("Not Yet Implemented for $(typeof(patt))")
