@@ -661,8 +661,11 @@ function aftermatch(vm::VMState)::PegMatch
 end
 
 function afterfail(vm::VMState)::PegFail
-    # more to come!
-    return PegFail(vm.subject, vm.sfar, :default)
+    if vm.failtag == 0
+        return PegFail(vm.subject, vm.sfar, :default)
+    end
+    throws = vm.patt.aux[:throws]
+    return PegFail(vm.subject, vm.sfar, throws[vm.failtag])
 end
 
 ## Core Method extensions

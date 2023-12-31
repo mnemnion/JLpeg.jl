@@ -195,6 +195,11 @@ using Test
         end
         @test match(capnums, "abc123abc123").captures == ["123", "123"]
     end
+    @testset "throws" begin
+        pthrow = P"123" * P"abc" | T(:noletter)
+        @test match(pthrow, "123abc")[1] == "123abc"
+        @test match(pthrow, "1234").label == :noletter
+    end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[1] == (:string => "string")
         @test match(re, "[a-z]")[1] == (:range => ["a", "z"])
