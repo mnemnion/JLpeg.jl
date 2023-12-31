@@ -494,23 +494,12 @@ end
 
 @inline
 function onBackCommit(inst::LabelInst, vm::VMState)
-    # TODO I think this instruction is overly complex, revisit
-    if !vm.t_on
-        return false
-    end
-    i, s, _, p = popframe!(vm)
-    while s == 0 # return from calls
-        i, s, _, p = popframe!(vm)
-        if i === nothing break end
-    end # until we find a choice frame or exhaust the stack
-    if i === nothing
-        return false
-    else
-        vm.i += inst.l
-        vm.s = s
-        vm.inpred = p
-        return true
-    end
+    _, s, c, p = popframe!(vm)
+    vm.i += inst.l
+    vm.s = s
+    vm.inpred = p
+    trimcap!(vm, c)
+    return true
 end
 
 @inline
