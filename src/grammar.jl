@@ -34,7 +34,7 @@ function wrap_rule(expr::Expr)::Expr
                         params[idx] = param.args[2]
                     end
                 end
-                :($fn($(params...)))
+                :($(esc(fn))($(params...)))
             else
                 return x
             end
@@ -62,7 +62,7 @@ This simple grammar captures the first string of numbers it finds:
 
 ```jldoctest
 julia> @grammar capnums begin
-    :nums  ←  (:num,) | P(1) * :nums # Numbers are not wrapped
+    :nums  ←  (:num,) | 1 * :nums
     :num   ←  S"123"^1
 end
 [...]

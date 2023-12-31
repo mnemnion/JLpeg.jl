@@ -210,12 +210,16 @@ using Test
         @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
         caprange = (Cr("123") | P(1))^1
         @test match(caprange, "abc123abc123abc").captures == [[4:6], [10:12]]
+        capconst = P"123" * Cc(12, 23, 32)
+        @test match(capconst, "123")[1] == (12, 23, 32)
         # Test @grammar macro (and certain capture conditions)
         @grammar capnums begin
             :nums  ←  ((:num,) | P(1) * :nums)^1
             :num  ←  S"123"^1
         end
         @test match(capnums, "abc123abc123").captures == ["123", "123"]
+        @rule :ccap ← "abc" * Cc(12, "string", :symbol)
+        @test match(ccap, "abc")[1] == (12, "string", :symbol)
     end
     @testset "throws" begin
         pthrow = P"123" * (P"abc" | T(:noletter))

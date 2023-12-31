@@ -617,6 +617,8 @@ function aftermatch(vm::VMState)::PegMatch
                 else
                     push!(captures, [bcap.s:prevind(vm.subject, cap.s)])
                 end
+            elseif ikey.kind == Cconst
+                push!(captures, key)
             elseif ikey.kind == Caction
                 λ = key::Function
                 # The Action either created the group, or it *is* the group

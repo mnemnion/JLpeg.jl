@@ -111,6 +111,16 @@ function Cp()
 end
 
 """
+    Cc(args...)
+
+Constant capture. Matches the empty string and puts the values of `args` as a
+tuple in that place within the `PegMatch` captures.
+"""
+function Cc(args...)
+    PCapture(P(true), Cconst, AuxDict(:cap => (args...,)))
+end
+
+"""
     Cr(patt::Pattern, sym::Union{CapSym, Nothing})
 
 Captures a UnitRange of matches in `patt`, optionally keyed by `sym`.
