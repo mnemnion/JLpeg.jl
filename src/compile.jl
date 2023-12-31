@@ -577,6 +577,12 @@ function _compile!(patt::PCapture)::Pattern
     return patt
 end
 
+function _compile!(patt::PThrow)::Pattern
+    # Grammars may recode this as ThrowRecInst
+    push!(patt.code, ThrowInst(patt.tag), OpEnd)
+    return patt
+end
+
 function _compile!(patt::PRule)::Pattern
     c = patt.code
     meta = patt.aux

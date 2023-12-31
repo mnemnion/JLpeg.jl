@@ -141,6 +141,18 @@ function Anow(patt::Pattern, fn::Function)
     PCapture(patt, Cruntime, AuxDict(:cap => fn))
 end
 
+"""
+    T(label::Symbol)
+
+Throw a failure labeled with `:label`.  If a rule `:label` exists, this will
+be called to attempt recovery, the success or failure of the recovery rule is
+then used.  Otherwise, `:label` and the position of `T(:label)` will be
+attached to `PegFail` in the event that the whole match fails.
+"""
+function T(label::Symbol)
+    PThrow(label)
+end
+
 # Operators
 
 const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come

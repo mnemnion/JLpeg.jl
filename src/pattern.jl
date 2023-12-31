@@ -230,10 +230,25 @@ struct PCapture <: Pattern
 end
 # TODO the rest of these need to be concrete:
 
+"""
+Global count of throw label tags.
+
+If you ever overflow this, _really_ tell me what you were doing. -Sam
+"""
+global throwcounter::UInt16 = 0
+struct PThrow <: Pattern
+    val::Symbol
+    code::IVector
+    tag::UInt16
+    function PThrow(val::Symbol)
+        global throwcounter += 1
+        new(val, Inst(), throwcounter)
+    end
+end
+
 abstract type PRunTime <:Pattern end
 abstract type PBehind <:Pattern end
 abstract type PTXInfo <:Pattern end
-abstract type PThrow <:Pattern end
 
 const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}
 

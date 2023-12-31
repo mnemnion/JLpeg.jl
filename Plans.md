@@ -65,8 +65,8 @@ So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `i
 
 #### PThrow Checklist
 
-- [ ]  Re-code `PAnd` and `PNot` to use `IPredChoice`
-- [ ]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
+- [X]  Re-code `PAnd` and `PNot` to use `IPredChoice`
+- [X]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
        `onChoice`, `onPredChoice`, and `failinst`.
 - [ ]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
   - [ ]  Good time to re-code the compiler to stop trying to float auxiliaries and just
