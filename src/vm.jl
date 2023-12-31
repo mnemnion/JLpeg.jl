@@ -126,7 +126,7 @@ end
 @inline
 "Length/height of the capture stack."
 function lcap(vm::VMState)
-    return length(vm.cap)
+    return length(vm.cap)  # + 1 if !t.cap_on etc
 end
 
 @inline
@@ -504,7 +504,7 @@ function aftermatch(vm::VMState)::PegMatch
             # Make a synthetic back capture, reusing this Instruction
             # The only distinct value of bcap we use is .s,
             # Which we calculate thus:
-            bcap = CapEntry(Int32(0), cap.s + cap.inst.off, cap.inst)
+            bcap = CapEntry(Int32(0), cap.s + cap.inst.l, cap.inst)
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
         end

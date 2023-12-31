@@ -187,7 +187,11 @@ Base.:!(a::Pattern) = PNot(a)
 ¬(a::Pattern) = PNot(a)
 
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
+Base.:<=(a::Symbol, b::CaptureTuple) = PRule(a, C(b...))
+Base.:<=(a::Symbol, b::Vector) = PRule(a, Cg(b))
 ←(a::Symbol, b::Pattern) = PRule(a,b)
+←(a::Symbol, b::CaptureTuple) = PRule(a, C(b...))
+←(a::Symbol, b::Vector) = PRule(a, Cg(b))
 
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:

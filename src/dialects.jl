@@ -31,15 +31,15 @@ bootstrap of other dialects.
                       | "<" * :name * ">")
 
     :grammar      ←  :definition^1
-    :definition   ←  :name * :S * :arrow * :exp
+    :definition   ←  [(:name,) * :S * :arrow * (:exp,), :definition]
     :class        ←  "[" * "^"^-1 * :item * (!"]" * :item)^0 * "]"
     :item         ←  :defined | :range | P(1)
     :range        ←  [(P(1),) * "-" * (!S"]" * (P(1),)), :range]
 
     :S            ←  (S"\t\n\v\r " | "--" * (!S"\n" * P(1))^0 * "\n")^0
-    :name         ←  ((R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0, :name)
+    :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0
     :arrow        ←  "<-" | "←"
     :num          ←  (R"09"^1, :num)
-    :string       ←  ("\"" * (!S"\"" * P(1))^0 * "\"" | "'" * (!S"'" * P(1))^0 * "'", :string)
-    :defined      ← "%" * :name
+    :string       ←  "\"" * ((!S"\"" * P(1))^0, :string) * "\"" | "'" * ((!S"'" * P(1))^0, :string) * "'"
+    :defined      ← "%" * (:name, :defined)
 end

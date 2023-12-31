@@ -18,10 +18,14 @@ This list could be a lot longer!
 - [#] Multibyte sets and chars
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
+- [ ] Interface stuff
+  - [ ] The grammar munges every possible string into P"string", symbols too.
+        We need to fix that, possibly by rewriting as a prewalk, not postwalk?
+  - [X] `←` needs to take the capture forms on the right hand side
 - [ ] `B(patt)` (prerequisite: determining fixed-length patterns)
-- [ ] `T(:label)` somewhat hefty VM refactor here.
-  - [ ] `PegFail` object with test conversion.
-    - [ ] default label is `:default`.
+- [ ] `T(:label)` somewhat hefty VM refactor here
+  - [ ] `PegFail` object with test conversion
+    - [ ] default label is `:default`
 - [X] Captures
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
@@ -36,6 +40,8 @@ This list could be a lot longer!
 - [ ] fail optimization: only update the register once when returning from calls
 - [ ] Serializing and loading grammars
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
+- [ ] AbstractPattern methods
+  - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
 
 ### Capture closing
 

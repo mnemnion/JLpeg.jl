@@ -14,14 +14,14 @@ abstract type Instruction end
 "A kind of capture"
 @enum CapKind::UInt8 begin
     Cposition   # ✅ Captures the empty string to record an offset
-    Cconst      # ? Action, I think
+    Cconst      # [ ]
     Cbackref    # Might be a different mechanism
     Csimple     # ✅ captures a substring of the region matched
-    Crange      # Captures a UnitRange [first:last] of region
+    Crange      # ✅ captures a UnitRange [first:last] of region
     Cexpr       # [ ] Captures the group and makes an Expr with head :symbol
     Caction     # [ ] an action taken on a successful match.
     Csymbol     # ✅ captures its match as a pair `:symbol => "match"` (:symbol can be a string)
-    Cfold       # ktable[key] is function; next node is pattern
+    Cfold       # [ ] # TODO figure out the definition
     Cruntime    # [ ] a Caction but applied at runtime
     Cgroup      # ✅ groups all its captures into a Vector.
 end
@@ -191,6 +191,7 @@ struct PRule <: Pattern
     aux::AuxDict
     PRule(name::Symbol, val::Pattern) = new([val], Inst(), name, Dict())
 end
+
 
 struct PGrammar <: Pattern
     val::Vector{PRule}

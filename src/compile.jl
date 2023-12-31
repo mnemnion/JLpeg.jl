@@ -149,31 +149,41 @@ abstract type SpanInst end
 abstract type PredChoiceInst end
 abstract type NameCallInst end
 abstract type CloseRunTimeInst end
-abstract type ThrowInst end
-abstract type ThrowRecInst end
 
- struct OpenCaptureInst <: Instruction
-    op::Opcode
-    kind::CapKind
-    tag::UInt16 # Need this for the stack register
-    OpenCaptureInst(kind::CapKind) = new(IOpenCapture, kind, UInt16(0))
- end
+struct OpenCaptureInst <: Instruction
+   op::Opcode
+   kind::CapKind
+   tag::UInt16 # Need this for the stack register
+   OpenCaptureInst(kind::CapKind) = new(IOpenCapture, kind, UInt16(0))
+end
 
- struct CloseCaptureInst <: Instruction
+struct CloseCaptureInst <: Instruction
+   op::Opcode
+   kind::CapKind
+   tag::UInt16
+   CloseCaptureInst(kind::CapKind, tag::UInt16) = new(ICloseCapture, kind, tag)
+end
+
+struct FullCaptureInst <: Instruction
+   op::Opcode
+   kind::CapKind
+   l::Int32
+   tag::UInt16
+   FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = new(IFullCapture, kind, Int32(l), tag)
+end
+
+struct ThrowInst <: Instruction
     op::Opcode
-    kind::CapKind
     tag::UInt16
-    CloseCaptureInst(kind::CapKind, tag::UInt16) = new(ICloseCapture, kind, tag)
- end
+    ThrowInst(tag::UInt16) = new(IThrow, tag)
+end
 
- struct FullCaptureInst <: Instruction
+struct ThrowRecInst <: Instruction
     op::Opcode
-    kind::CapKind
-    off::Int32
     tag::UInt16
-    FullCaptureInst(kind::CapKind, off::Integer, tag::UInt16) = new(IFullCapture, kind, Int32(off), tag)
- end
-
+    l::Int32
+    ThrowRecInst(tag::UInt16, l::Integer) = new(IThrowRec, tag, Int32(l))
+end
 
 """
     Base.merge!(dict::AbstractDict, pairs::Pair...)
