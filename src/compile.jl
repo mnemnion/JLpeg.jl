@@ -266,13 +266,53 @@ function prepare!(patt::PAuxT)::Pattern
     if !isa(patt, PAuxT)
         return patt
     end
+    # TODO this mechanism sucks actually
     for (key, value) in patt.aux
         if value isa Pair
             patt.aux[key] = Dict(value)
         end
     end
+    # We're replacing it with this:
+    prewalkpatt!(patt, patt.aux) do p, aux
+        if p isa PCapture
+            # Do this one next
+        elseif p isa PThrow
+            throws = getordict!(aux, :throws)
+            throws[p.tag] = p.val
+        end
+    end
     patt.aux[:prepared] = true
     return patt
+end
+
+"""
+    getordict!(dict::Dict, key::Symbol)
+
+Retrieves a Dict from `dict[:key]`, or if it doesn't exist, creates it and
+returns it after adding it to dict.
+"""
+function getordict!(dict::Dict, key::Symbol)
+    if haskey(dict, key)
+        dict[key]::Dict
+    else
+        dict[key] = Dict()
+    end
+end
+
+"""
+    prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
+
+Apply `λ(patt, args...)` to `patt`, then recursively to all `patt.val::Vector{Pattern}`
+values.  Returns `nothing`, `λ` is expected to mutate `args`.
+"""
+function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
+    λ(patt, args...)
+    if patt.val isa Vector
+        for p in patt.val
+            prewalkpatt!(λ, p::Pattern, args...)
+        end
+    end
+    return
 end
 
 mergeaux!(::Pattern, ::Pattern) = return
