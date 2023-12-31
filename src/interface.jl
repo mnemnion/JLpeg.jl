@@ -19,6 +19,7 @@ const Patternable = Union{AbstractString,AbstractChar,Integer,Bool,Symbol}
 const Grammar = PGrammar
 const Rule = PRule
 const CapSym = Union{Symbol,AbstractString}
+const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}}
 
 P(s::AbstractString) = PSeq(s)
 P(c::AbstractChar) = PChar(c)
@@ -162,8 +163,6 @@ end
 
 # Operators
 
-const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}} # More to come
-
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
 Base.:*(a::Symbol, b::Pattern)  = PSeq(POpenCall(a), b)
@@ -197,8 +196,10 @@ Base.:-(a::Union{Integer,String}, b::Pattern) = PDiff(P(a), b)
 Base.:-(a::Pattern, b::Symbol)  = PDiff(a, POpenCall(b))
 Base.:-(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
 
+
 Base.:/(a::Pattern, b::Function) = A(a, b)
 Base.://(a::Pattern, b::Function) = Anow(a, b)
+Base.:%(a::Pattern, b::Symbol) = a | T(b)
 
 Base.:^(a::Pattern, b::Integer)  = PStar(a, b)
 Base.:~(a::Pattern) = PAnd(a)
@@ -208,9 +209,11 @@ Base.:!(a::Pattern) = PNot(a)
 Base.:<=(a::Symbol, b::Pattern) = PRule(a, b)
 Base.:<=(a::Symbol, b::CaptureTuple) = PRule(a, C(b...))
 Base.:<=(a::Symbol, b::Vector) = PRule(a, Cg(b))
+
 ←(a::Symbol, b::Pattern) = PRule(a,b)
 ←(a::Symbol, b::CaptureTuple) = PRule(a, C(b...))
 ←(a::Symbol, b::Vector) = PRule(a, Cg(b))
+←(a::Symbol, b::Patternable) = PRule(a, P(b))
 
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:
@@ -221,9 +224,10 @@ Base.inv(a::Pattern) = (a, nothing)
 function Base.:>>(a::Pattern, b::Pattern)
     a * (!b * P(1))^0 * b
 end
-Base.:>>(a::String, b::Pattern) = P(a) >> b
+Base.:>>(a::Patternable, b::Pattern) = P(a) >> b
 Base.:>>(a::Pattern, b::CaptureTuple) = a >> C(b...)
-Base.:>>(a::String, b::CaptureTuple) = P(a) >> C(b...)
+Base.:>>(a::Patternable, b::CaptureTuple) = P(a) >> C(b...)
+Base.:>>(a::Pattern, b::Vector) = a >> Cg(b)
 
 """
     extrasugar()

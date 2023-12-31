@@ -44,8 +44,10 @@ The basic operations are as follows:
 
 | Operator                | Description                                                 |
 | ----------------------- | ----------------------------------------------------------- |
-| `P(s::String)`          | match a literal String `s`                                  |
-| `P(s::Integer)`         | match any `n` characters                                    |
+| `P(string::String)`     | match a literal String `string`                             |
+| `P(n::UInt)`            | match any `n` characters                                    |
+| `P(-n)`                 | match if there are at least `n` characters remaining        |
+| `P(sym::Symbol)`        | match the rule named :sym                                   |
 | `S(s::String)`          | match the set of all characters in `string`                 |
 | `R("xy")`, `R('x','y')` | matches any character between `x` and `y` (Range)           |
 | `B(patt)`               | match `patt` behind the cursor, without advancing           |

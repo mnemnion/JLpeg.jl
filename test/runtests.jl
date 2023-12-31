@@ -227,8 +227,11 @@ using Test
         end
         # Test predicate unwinding
         predthrow = (~P"abc" * T(:nope)) | P"abcd"
-        match(predthrow, "abcd")[1] == "abcd"
-        match(predthrow, "abc").label == :default
+        @test match(predthrow, "abcd")[1] == "abcd"
+        @test match(predthrow, "abc").label == :default
+        notalphanum = (R"az" | R"09")^1 * (!P(1) % :notalphanum)
+        @test match(notalphanum, "abc123abcz")[1] == "abc123abcz"
+        @test match(notalphanum, "abc123abcz!").label == :notalphanum
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[1] == (:string => "string")
