@@ -1,7 +1,5 @@
 # Instruction compiling for Patterns
 
-include("pattern.jl")
-
 "Instruction opcodes for JLpeg VM"
 @enum Opcode::UInt8 begin
     IAny        # if no char, fail

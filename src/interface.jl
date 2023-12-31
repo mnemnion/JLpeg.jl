@@ -1,6 +1,5 @@
 # Interface for JLPeg
 
-include("grammar.jl")
 
 """
     P(p::Union{AbstractString,AbstractChar,Integer,Bool,Symbol})::Pattern

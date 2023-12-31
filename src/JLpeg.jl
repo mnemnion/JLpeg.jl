@@ -1,7 +1,13 @@
 
 module JLpeg
 
+include("pattern.jl")
+include("interface.jl")
+include("compile.jl")
+include("pegmatch.jl")
 include("vm.jl")
+include("printing.jl")
+include("grammar.jl")
 include("dialects.jl")
 
 export P, S, R, B, C, Cg, Cp, Cr, A, Anow, T, ←, ¬, Rule, Grammar, Pattern

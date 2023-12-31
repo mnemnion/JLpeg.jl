@@ -4,25 +4,39 @@ using MacroTools
 
 const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 
+const 🔠 = P  # If you had a name collision here, welp. Dirty hack...
+
+const ops = [:*, :|, :^, :~, :¬, :!, :>>, :/, ://, :(=>), :%]
+
 function wrap_rule(expr::Expr)::Expr
     function for_x(x)
         if x isa String || x isa QuoteNode || x isa Char
-            return :(P($x))
+            return :(🔠($x))
         elseif x isa Expr
-            if @capture(x, (@S_str(P(val_))))
+            if @capture(x, (@S_str(🔠(val_))))
                 :(@S_str($val))
-            elseif @capture(x, (@R_str(P(val_))))
+            elseif @capture(x, (@R_str(🔠(val_))))
                 :(@R_str($val))
-            elseif @capture(x, ((cap_, P(sym1_))))
+            elseif @capture(x, ((cap_, 🔠(sym1_))))
                 :(C($cap, $sym1))
             elseif @capture(x, ([val_, sym_]))
                 if sym isa Expr && sym.head == :call
                     :(Cg([$val, $(sym.args[2])]))
                 else
-                    x
+                    return x
                 end
+            elseif @capture(x, fn_(params__))
+                if fn in ops
+                    return x
+                end
+                for (idx, param) in enumerate(params)
+                    if isexpr(param) && param.head == :call && param.args[1] == :🔠
+                        params[idx] = param.args[2]
+                    end
+                end
+                :($fn($(params...)))
             else
-                x
+                return x
             end
         else
             return x

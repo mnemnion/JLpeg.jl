@@ -306,5 +306,3 @@ end
 # A choice between two sets is just the union of those sets
 optimizePChoice(a::PSet, b::PSet) = [PSet(a.val * b.val)]
 optimizePChoice(a::Pattern, b::Pattern) = [a, b]
-
-include("interface.jl")

@@ -1,7 +1,5 @@
 # JLpeg virtual machine
 
-include("compile.jl")
-include("pegmatch.jl")
 
 struct StackFrame
     i::Int32   # Instruction pointer
@@ -728,4 +726,3 @@ function Base.occursin(needle::Pattern, haystack::AbstractString)
    end
 end
 
-include("printing.jl")

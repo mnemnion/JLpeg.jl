@@ -58,7 +58,7 @@ Adds three new instructions: `IPredChoice`, `IThrow`, and `IThrowRec`.
 
 `IThrow` and `IThrowRec` differ based on whether the grammar has a recovery rule with the label name; the latter has an offset to the recovery instruction (other differences TBD).
 
-`lpeglable` adds two booleans, `labenv` and `predchoice`, to each stack frame, and an `insidepred` de-facto register (local variable inside the dispatch loop, so same thing).
+`lpeglabel` adds two booleans, `labenv` and `predchoice`, to each stack frame, and an `insidepred` de-facto register (local variable inside the dispatch loop, so same thing).
 
 The essential distinction is that `labenv` is `true` anytime we have any sort of PredChoice on the stack, and `predchoice` itself means we're inside an actual predicate choice (and not an ordinary choice, within a predicate choice or not).  These are both `false` in call frames.
 
@@ -72,10 +72,12 @@ So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `i
 - [X]  Re-code `PAnd` and `PNot` to use `IPredChoice`
 - [X]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
        `onChoice`, `onPredChoice`, and `failinst`.
-- [X]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
+- [#]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
   - [X]  Good time to re-code the compiler to stop trying to float auxiliaries and just
          pass in a `:throws` and `:caps` Dict during `prepare!`, good preparation for
          better compiling of Grammars.
+  - [X]  Code ThrowInst
+  - [ ]  Code ThrowRecInst
 
 ### Capture closing
 
@@ -91,18 +93,6 @@ This would also mean not having to synthesize a FullCaptureInst in the following
 although I doubt very much that this would generate different machine code, but
 maybe: the compiler pays a lot of attention to method dispatch.
 
-#### BIG PROBLEM (solvable)
-
-With doing this, is that we use a Dict keyed on the actual CloseInstruction to find
-capture actions.  We can solve this and get something better in the process.
-
-The basic idea is that `prepare` looks through the pattern code for closing captures
-(ICloseCapture and IFullCapture), all capture-type instructions now have a `.tag`
-field which is initialized to `0`.  All such instructions are monotonically replaced
-with the next tag in order, and a Vector is prepared containing the reference values
-from the `:caps` dict, added to `aux`. This simplifies serialization as well because
-we now have a Vector of cap actions instead of a Dict. PCompiled rules are still
-portable provided that hoisting reconstructs the `:caps` dict.
 
 ### CaptureCommitInst
 
