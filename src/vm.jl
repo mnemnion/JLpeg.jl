@@ -34,8 +34,9 @@ Contains the state of a match on `subject` by `program`.
 - s: Subject pointer
 - ti, ts, tc, tp: Stack top registers
 - t_on: flag for nonempty stack
-- sfar: furthest subject pointer we've failed at, for error reporting
 - inpred: Bool is `true` inside predicates (PAnd, PNot)
+- sfar: furthest subject pointer we've failed at, for error reporting
+- failtag: tag for a labeled failure
 - stack: Contains stack frames for calls and backtracks
 - cap: A stack for captures
 - running: a boolean which is true when the VM is executing
@@ -63,6 +64,7 @@ mutable struct VMState
    t_on::Bool       # Is there a frame on the stack?
    inpred::Bool     # Are we inside a predicate?
    sfar::UInt32     # Farthest subject pointer we've failed at
+   failtag::UInt16  # Labeled failure tag
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapEntry}
    running::Bool
@@ -72,7 +74,7 @@ mutable struct VMState
       stack = Vector{StackFrame}(undef, 0)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(subject)
-      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, false, false, 1, stack, cap, false, false)
+      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, false, false, 1, 0, stack, cap, false, false)
    end
 end
 
@@ -92,6 +94,7 @@ function pushframe!(vm::VMState, i::Int32, s::UInt32)
         push!(vm.stack, frame)
     end
 end
+
 
 @inline
 "Push a call onto the stack."
@@ -161,6 +164,21 @@ end
 
 @inline
 """
+    updatesfar!(vm)
+
+Updates the farthest-fail register if greater than before.
+Also sets the fail tag to 0, since throws set sfar directly,
+and this is the condition of all other failures
+"""
+function updatesfar!(vm)
+    vm.failtag = 0
+    if vm.s > vm.sfar
+        vm.sfar = vm.s
+    end
+end
+
+@inline
+"""
     followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
 
 Follow a set of instructions forming a single logical set instruction.
@@ -178,17 +196,15 @@ function followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
     else  # if subject advanced, it happened on match
         vm.i += 1
     end
+    if !match
+        updatesfar!(vm)
+    end
     return match
 end
 
 @inline
 "Unwind the stacks on a match failure"
 function failmatch!(vm::VMState)
-    # TODO this has a variant on IThrow and IThrowRec:
-    # if vm.i.op == IThrow && vm.i.op == IThrowRec vm.sfar = vm.s end
-    if vm.s > vm.sfar
-        vm.sfar = vm.s
-    end
     if !vm.t_on
         vm.running = false
         vm.matched = false
@@ -254,12 +270,14 @@ end
 "onAny"
 function onInst(any::AnyInst, vm::VMState)::Bool
     if vm.s > vm.top
+        updatesfar!(vm)
         return false
     end
     idx = vm.s
     for i in any.n:-1:1
         idx = nextind(vm.subject, idx)
         if idx > vm.top && i > 1
+            updatesfar!(vm)
             return false
         end
     end
@@ -272,6 +290,7 @@ end
 function onInst(inst::CharInst, vm::VMState)::Bool
     this = thischar(vm)
     if this === nothing
+        updatesfar!(vm)
         return false
     end
     if this == inst.c
@@ -279,6 +298,7 @@ function onInst(inst::CharInst, vm::VMState)::Bool
         vm.s = nextind(vm.subject, vm.s)
         return true
     else
+        updatesfar!(vm)
         return false
     end
 end
@@ -384,6 +404,23 @@ function onInst(inst::ChoiceInst, vm::VMState)
     return true
 end
 
+"onThrow"
+function onInst(inst::ThrowInst, vm::VMState)
+    vm.sfar = vm.s
+    if !vm.inpred
+        vm.failtag = inst.tag
+        return false
+    else
+        # Unwind until above predicate
+        # Which we can check with the stack instruction register,
+        # Conveniently enough
+        while vm.program[vm.ti].op ≠ IPredChoice
+            popframe!(vm)
+        end # until we've left the predicate on the stack
+        return false
+    end
+end
+
 function onInst(inst::LabelInst, vm::VMState)
     if inst.op == ICommit            return onCommit(inst, vm)
     elseif inst.op == IJump          return onJump(inst, vm)
@@ -399,7 +436,7 @@ function onInst(inst::MereInst, vm::VMState)
         vm.i += 1; return true
     elseif inst.op == IEnd       return onEnd(vm)
     elseif inst.op == IReturn    return onReturn(vm)
-    elseif inst.op == IFail      return false
+    elseif inst.op == IFail      return onFail(vm)
     elseif inst.op == IFailTwice return onFailTwice(vm)
     end
 end
@@ -457,12 +494,13 @@ end
 
 @inline
 function onBackCommit(inst::LabelInst, vm::VMState)
+    # TODO I think this instruction is overly complex, revisit
     if !vm.t_on
         return false
     end
     i, s, _, p = popframe!(vm)
     while s == 0 # return from calls
-        i, s = popframe!(vm)
+        i, s, _, p = popframe!(vm)
         if i === nothing break end
     end # until we find a choice frame or exhaust the stack
     if i === nothing
@@ -476,8 +514,15 @@ function onBackCommit(inst::LabelInst, vm::VMState)
 end
 
 @inline
+function onFail(vm::VMState)
+    updatesfar!(vm)
+    return false
+end
+
+@inline
 function onFailTwice(vm::VMState)
     popframe!(vm)
+    updatesfar!(vm)
     return false
 end
 

@@ -15,6 +15,7 @@ This list could be a lot longer!
 - [X] Handle the other PStar cases
 - [X] `P(-n)` for n bytes remaining
 - [X] And and Not predicates
+- [ ] Check lpeg code for #P(whatever) inside a call, does it use BackCommit?
 - [#] Multibyte sets and chars
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
