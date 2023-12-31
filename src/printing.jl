@@ -152,6 +152,7 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
             push!(line, " full")
             push!(line, " ($(inst.l + off))")
         end
+        push!(line, " #$(Int(inst.tag))")
         return line
     end
     if hasfield(t, :c)

@@ -510,6 +510,7 @@ function aftermatch(vm::VMState)::PegMatch
             bcap = pop!(capstack)
         end
         ikey = cap.inst
+        key = capvec[cap.inst.tag]
         if bcap.inst.kind == ikey.kind
             # TODO if there are non-capturing captures (possible), we
             # check for those here.
@@ -517,14 +518,8 @@ function aftermatch(vm::VMState)::PegMatch
             if ikey.kind == Csimple
                 push!(captures, _substr(bcap.s, cap.s))
             elseif ikey.kind == Csymbol
-                if haskey(capdict, ikey)
-                    key = capdict[ikey]
-                    sub = _substr(bcap.s, cap.s)
-                    push!(captures, key => sub)
-                else
-                    @warn "missing capture symbol for Instruction: $(ikey) at offset $(length(offsets))"
-                    push!(captures, key)
-                end
+                sub = _substr(bcap.s, cap.s)
+                push!(captures, key => sub)
             elseif ikey.kind == Cgroup
                 #grab the outer captures and offsets
                 caps, offs = pop!(groupstack)
@@ -536,7 +531,6 @@ function aftermatch(vm::VMState)::PegMatch
                     captures, offsets = caps, offs
                     continue
                 end
-                key = capdict[ikey]
                 if key !== nothing
                     push!(caps, key => captures)
                 else
@@ -547,13 +541,13 @@ function aftermatch(vm::VMState)::PegMatch
             elseif ikey.kind == Cposition
                 push!(captures, _substr(bcap.s, cap.s))
             elseif ikey.kind == Crange
-                if haskey(capdict, ikey)
-                    push!(captures, [bcap.s:prevind(vm.subject, cap.s)])
+                if key !== nothing
+                    push!(captures, key => [bcap.s:prevind(vm.subject, cap.s)])
                 else
                     push!(captures, [bcap.s:prevind(vm.subject, cap.s)])
                 end
             elseif ikey.kind == Caction
-                λ = capdict[ikey]::Function
+                λ = key::Function
                 # The Action either created the group, or it *is* the group
                 if ikey.op == IFullCapture || isempty(captures)
                     arg = _substr(bcap.s, cap.s)
