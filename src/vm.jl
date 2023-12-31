@@ -599,22 +599,28 @@ function aftermatch(vm::VMState)::PegMatch
     return PegMatch(vm.subject, last, captures, offsets, patt)
 end
 
+function afterfail(vm::VMState)::PegFail
+    # more to come!
+    return PegFail(vm.subject, vm.sfar, :default)
+end
+
 ## Core Method extensions
 
 
 """
-    match(patt::Pattern, subject::AbstractString)::Union{PegMatch, Nothing}
+    match(patt::Pattern, subject::AbstractString)::Union{PegMatch, PegFail}
 
 Match `patt` to `subject`, returning a `PegMatch` implementing the expected interface
-for its supertype `AbstractMatch`, or `nothing` if the match fails.
+for its supertype `AbstractMatch`, or a `PegFail` with useful information about the
+failure.
 """
-function Base.match(patt::Pattern, subject::AbstractString)::Union{PegMatch, Nothing}
+function Base.match(patt::Pattern, subject::AbstractString)::Union{PegMatch, PegFail}
     vm = VMState(patt, subject)
     runvm!(vm)
     if vm.matched
         return aftermatch(vm)
     else
-        return nothing
+        return afterfail(vm)
     end
 end
 

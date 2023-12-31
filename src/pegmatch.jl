@@ -105,3 +105,21 @@ end
 Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
 Base.length(m::PegMatch) = length(m.captures)
 Base.eltype(::PegMatch) = Pair{PegKey, PegVal}
+
+"""
+    struct PegFail
+        subject:: String
+        errpos::UInt32
+        label::Symbol
+    end
+
+Returned on a failure to `match(patt:Pattern, subject::AbstractString)`. `errpos` is the
+position at which the pattern ultimately failed to match, `label` is info about the failure
+provided by `T(::symbol)`, defaulting to `:default` if the pattern fails but not at a throw
+point, or if no throws are provided.
+"""
+struct PegFail
+    subject:: String
+    errpos::UInt32
+    label::Symbol
+end

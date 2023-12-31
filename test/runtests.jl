@@ -9,7 +9,7 @@ using Test
         ad = a * P("d")
         abc = a | b | c
         @test match(a, "abc")[1] == "abc"
-        @test match(a, "abd") === nothing
+        @test match(a, "abd") isa PegFail
         @test match(a, "abcd")[1] == "abc"
         @test match(ad, "abcd")[1] == "abcd"
         @test match(ad, "abcdef")[1] == "abcd"
@@ -17,7 +17,7 @@ using Test
         @test match(abc, "def")[1] == "def"
         @test match(abc, "defg")[1] == "def"
         @test match(abc, "ghi")[1] == "ghi"
-        @test match(abc, "bcd") === nothing
+        @test match(abc, "bcd") isa PegFail
     end
     @testset "Sets and Ranges" begin
         bcf = S("bcf")
@@ -28,18 +28,18 @@ using Test
         eset = S""
         @test match(bcf, "b")[1] == "b"
         @test match(bcf, "ba")[1] == "b"
-        @test match(bcf, "q") === nothing
+        @test match(bcf, "q") isa PegFail
         @test match(atwords, "bat")[1] == "bat"
         @test match(atwords, "cat")[1] == "cat"
-        @test match(atwords, "mat") === nothing
+        @test match(atwords, "mat") isa PegFail
         @test match(threeL, "foo")[1] == "foo"
-        @test match(threeL, "BAR") === nothing
+        @test match(threeL, "BAR") isa PegFail
         @test match(threeL, "quux")[1] == "quu"
-        @test match(threeL, "123") === nothing
+        @test match(threeL, "123") isa PegFail
         @test match(numeven, "12")[1] == "12"
-        @test match(numeven, "13") === nothing
-        @test match(eset, "something") === nothing
-        @test match(eset, "") === nothing
+        @test match(numeven, "13") isa PegFail
+        @test match(eset, "something") isa PegFail
+        @test match(eset, "") isa PegFail
     end
     @testset "Ordered Choice" begin
         afew = S("123") | P("abc") | S("xyz")
@@ -52,8 +52,8 @@ using Test
         @test match(nofail, "abc")[1] == ""
         @test match(nofail, "")[1] == ""
         nope = P(false)
-        @test match(nope, "") === nothing
-        @test match(nope, "something") === nothing
+        @test match(nope, "") isa PegFail
+        @test match(nope, "something") isa PegFail
         yep = P(true)
         @test match(yep, "")[1] == ""
         @test match(yep, "abc")[1] == ""
@@ -64,7 +64,7 @@ using Test
         @test match(glom, "B")[1] == "B"
         @test match(glom, "q")[1] == "q"
         @test match(glom, "*")[1] == "*"
-        @test match(glom, "!") === nothing
+        @test match(glom, "!") isa PegFail
         # Multibyte sets
         greeks = (R"ΑΩ" | R"αω"| P"Ά" | P"ύ" | P" ")^1
         @test match(greeks, "Το Πνεύμα Άγιοπ")[1] == "Το Πνεύμα Άγιοπ"
@@ -78,11 +78,11 @@ using Test
         @test match(abstar, "bc")[1] == ""
         # Tests Kleene +
         abplus = P("ab")^1
-        @test match(abplus, "") === nothing
+        @test match(abplus, "") isa PegFail
         @test match(abplus, "ab")[1] == "ab"
         @test match(abplus, "abababab")[1] == "abababab"
         @test match(abplus, "abc")[1] == "ab"
-        @test match(abplus, "bc") === nothing
+        @test match(abplus, "bc") isa PegFail
         # Tests ?
         opt = P("ab")^-1
         @test match(opt, "")[1] == ""
@@ -104,7 +104,7 @@ using Test
         @test match(inside, "abab")[1] == "abab"
         @test match(inside, "")[1] == ""
         ab4plus = P"ab"^4
-        @test match(ab4plus, "ababab") === nothing
+        @test match(ab4plus, "ababab") isa PegFail
         @test match(ab4plus, "abababab")[1] == "abababab"
         @test match(ab4plus, "abababababababab")[1] == "abababababababab"
         ab4minus = P"ab"^-4
@@ -117,24 +117,24 @@ using Test
         pand = ~P"abc" * S"abcd"^1
         @test match(pand, "abcd")[1] == "abcd"
         @test match(pand, "abcdddd")[1] == "abcdddd"
-        @test match(pand, "abdcc") === nothing
+        @test match(pand, "abdcc") isa PegFail
         pnot = (!P"a" * R"az")^0 * P"after"
         @test match(pnot, "after")[1] == "after"
         @test match(pnot, "bcxdafter")[1] == "bcxdafter"
-        @test match(pnot, "aafter") === nothing
-        @test match(pnot, "bcadxafter") === nothing
+        @test match(pnot, "aafter") isa PegFail
+        @test match(pnot, "bcadxafter") isa PegFail
         pdiff = (S"abc" - P"a")^1
         @test match(pdiff, "bcbc")[1] == "bcbc"
         @test match(pdiff, "bcbca")[1] == "bcbc"
-        @test match(pdiff, "abcbca") === nothing
+        @test match(pdiff, "abcbca") isa PegFail
         pset = R"az" - S"bcd"
         @test match(pset, "a")[1] == "a"
-        @test match(pset, "c") === nothing
+        @test match(pset, "c") isa PegFail
         # 🎄 🎄 Merry Christmas! 🎄 🎄
         pno_l = (R"az" - P"l")^1
         @test match(pno_l, "abcdefghijkmnopqrstuvwxyz")[1] == "abcdefghijkmnopqrstuvwxyz"
         @test match(pno_l, "abcdefghijklmnopqrstuvwxyz")[1] == "abcdefghijk"
-        @test match(P(-3), "a") === nothing
+        @test match(P(-3), "a") isa PegFail
         @test match(P(-3), "aaaa")[1] == ""
     end
     # Fast Forward
@@ -156,7 +156,7 @@ using Test
         @test match(lisp, "(12 23 bob)")[1] == "(12 23 bob)"
         @test match(lisp, "(12 23 bob (recursive (recursed)))")[1] == "(12 23 bob (recursive (recursed)))"
         @test match(lisp, "(12 23 bob (recursive recursed))")[1] == "(12 23 bob (recursive recursed))"
-        @test match(lisp, "(not ,quote a real lisp)") === nothing
+        @test match(lisp, "(not ,quote a real lisp)") isa PegFail
     end
     @testset "Captures" begin
         cap1 = C("123")
@@ -170,7 +170,7 @@ using Test
         @test match(capff, "12345678").captures == ["56"]
         capsym = "" >> C("end", :the_end)
         @test match(capsym, "it's at the end")[:the_end] == "end"
-        @test match(capsym, "it's in the middle of the string") === nothing
+        @test match(capsym, "it's in the middle of the string") isa PegFail
         capstr = "" >> C("middle", "the middle")
         @test match(capstr, "it's in the middle of the string")["the middle"] == "middle"
         # Captures: Grouped captures
