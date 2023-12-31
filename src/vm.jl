@@ -158,6 +158,8 @@ end
 @inline
 "Unwind the stacks on a match failure"
 function failmatch!(vm::VMState)
+    # TODO this has a variant on IThrow and IThrowRec:
+    # if vm.i.op == IThrow && vm.i.op == IThrowRec vm.sfar = vm.s end
     if vm.s > vm.sfar
         vm.sfar = vm.s
     end
@@ -382,6 +384,7 @@ function onInst(inst::LabelInst, vm::VMState)
     if inst.op == ICommit            return onCommit(inst, vm)
     elseif inst.op == IJump          return onJump(inst, vm)
     elseif inst.op == ICall          return onCall(inst, vm)
+    elseif inst.op == IPredChoice    return onPredChoice(inst, vm)
     elseif inst.op == IPartialCommit return onPartialCommit(inst, vm)
     elseif inst.op == IBackCommit    return onBackCommit(inst, vm)
     end
@@ -414,6 +417,13 @@ end
 function onCall(inst::LabelInst, vm::VMState)
     pushcall!(vm)
     vm.i += inst.l
+    return true
+end
+
+@inline
+function onPredChoice(inst::LabelInst, vm::VMState)
+    pushframe!(vm, vm.i + inst.l, vm.s)
+    vm.i += 1
     return true
 end
 

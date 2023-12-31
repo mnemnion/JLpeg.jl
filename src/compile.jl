@@ -103,8 +103,10 @@ struct ChoiceInst <: Instruction
     l::Int32
     n::Int32
     ChoiceInst(l::Integer) = new(IChoice, l, 0)
+    ChoiceInst(l::Integer, n::Integer) = new(IChoice, Int32(l), Int32(n))
 end
 
+PredChoiceInst(l::Integer) = LabelInst(IPredChoice, Int32(l))
 CommitInst(l::Integer) = LabelInst(ICommit, Int32(l))
 CallInst(l::Integer) = LabelInst(ICall, Int32(l))
 JumpInst(l::Integer) = LabelInst(IJump, Int32(l))
@@ -146,7 +148,6 @@ end
 # To be continued...
 
 abstract type SpanInst end
-abstract type PredChoiceInst end
 abstract type NameCallInst end
 abstract type CloseRunTimeInst end
 
@@ -383,7 +384,7 @@ function _compile!(patt::PAnd)::Pattern
     code = copy(patt.val[1].code)
     trimEnd!(code)
     l = length(code) + 2  # 2 -> Choice, BackCommit
-    push!(c, ChoiceInst(l))
+    push!(c, PredChoiceInst(l))
     append!(c, code)
     push!(c, BackCommitInst(2))
     push!(c, OpFail)  # Choice target
@@ -407,7 +408,7 @@ function _compile!(patt::PNot)::Pattern
     end
     trimEnd!(code)
     l = length(code) + 2  # 3 -> FailTwice, next
-    push!(c, ChoiceInst(l))
+    push!(c, PredChoiceInst(l))
     append!(c, code)
     push!(c, OpFailTwice)
     pushEnd!(c)  # Choice target

@@ -43,6 +43,36 @@ This list could be a lot longer!
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
 
+### Throw notes
+
+Currently adding throws to JLpeg, which are the basic mechanism to build good error reporting
+and recovery. Observations from the code:
+
+Adds three new instructions: `IPredChoice`, `IThrow`, and `IThrowRec`.
+
+`IPredChoice` isn't directly related to throws, it's so error reporting works correctly (?). It's coded by (for us) `PAnd` and `PNot`, and acts just like a choice in ordinary unwinds.
+
+`IThrow` and `IThrowRec` differ based on whether the grammar has a recovery rule with the label name; the latter has an offset to the recovery instruction (other differences TBD).
+
+`lpeglable` adds two booleans, `labenv` and `predchoice`, to each stack frame, and an `insidepred` de-facto register (local variable inside the dispatch loop, so same thing).
+
+The essential distinction is that `labenv` is `true` anytime we have any sort of PredChoice on the stack, and `predchoice` itself means we're inside an actual predicate choice (and not an ordinary choice, within a predicate choice or not).  These are both `false` in call frames.
+
+This is so that throws can unwind through ordinary Choice frames, which I should be able to do
+just by checking the opcode of the frame's instruction pointer, which I like more.
+
+So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `inpred` VM register, and we unwind predicates on throw the (relatively) expensive way, by checking the instruction pointer each time we see an .s.
+
+#### PThrow Checklist
+
+- [ ]  Re-code `PAnd` and `PNot` to use `IPredChoice`
+- [ ]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
+       `onChoice`, `onPredChoice`, and `failinst`.
+- [ ]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
+  - [ ]  Good time to re-code the compiler to stop trying to float auxiliaries and just
+         pass in a `:throws` and `:caps` Dict during `prepare!`, good preparation for
+         better compiling of Grammars.
+
 ### Capture closing
 
 I knew there was a reason I might want to cache the capture stack...

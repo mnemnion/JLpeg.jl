@@ -123,3 +123,5 @@ struct PegFail
     errpos::UInt32
     label::Symbol
 end
+
+# TODO some way to promote this to an Exception
