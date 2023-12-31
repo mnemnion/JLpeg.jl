@@ -54,6 +54,13 @@ OpFailTwice = MereInst(IFailTwice)
 OpReturn = MereInst(IReturn)
 OpNoOp = MereInst(INoOp)
 
+"""
+Global count of capture tags.
+
+If you ever overflow this, please tell me what you were doing. -Sam
+(this is mostly a joke / dirty hack to break the refactor into parts)
+"""
+capcount::UInt16 = UInt16(0)
 
 struct AnyInst <: Instruction
     op::Opcode
@@ -156,20 +163,23 @@ abstract type ThrowRecInst end
  struct OpenCaptureInst <: Instruction
     op::Opcode
     kind::CapKind
-    OpenCaptureInst(kind::CapKind) = new(IOpenCapture, kind)
+    tag::UInt16 # Need this for the stack register
+    OpenCaptureInst(kind::CapKind) = new(IOpenCapture, kind, UInt16(0))
  end
 
  struct CloseCaptureInst <: Instruction
     op::Opcode
     kind::CapKind
-    CloseCaptureInst(kind::CapKind) = new(ICloseCapture, kind)
+    tag::UInt16
+    CloseCaptureInst(kind::CapKind, tag::UInt16) = new(ICloseCapture, kind, tag)
  end
 
  struct FullCaptureInst <: Instruction
     op::Opcode
     kind::CapKind
     off::Int32
-    FullCaptureInst(kind::CapKind, off::Integer) = new(IFullCapture, kind, Int32(off))
+    tag::UInt16
+    FullCaptureInst(kind::CapKind, off::Integer, tag::UInt16) = new(IFullCapture, kind, Int32(off), tag)
  end
 
 
@@ -542,7 +552,8 @@ end
 function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
     if patt.kind == Cposition
-        push!(patt.code, FullCaptureInst(Cposition, 0), OpEnd)
+        global capcount += 1
+        push!(patt.code, FullCaptureInst(Cposition, 0, capcount), OpEnd)
         return patt
     end
     c = patt.code
@@ -551,7 +562,8 @@ function _compile!(patt::PCapture)::Pattern
     trimEnd!(ccode)
     push!(c, OpenCaptureInst(patt.kind))
     append!(c, ccode)
-    close = CloseCaptureInst(patt.kind)
+    global capcount += 1
+    close = CloseCaptureInst(patt.kind, capcount)
     if patt.aux[:cap] !== nothing
         patt.aux[:caps] = close => patt.aux[:cap]
     end
