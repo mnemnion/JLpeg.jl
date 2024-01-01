@@ -19,8 +19,8 @@ This list could be a lot longer!
 - [#] Multibyte sets and chars
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
-- [ ] Interface stuff
-  - [ ] The grammar munges every possible string into P"string", symbols too.
+- [X] Interface stuff
+  - [X] The grammar munges every possible string into P"string", symbols too.
         We need to fix that, possibly by rewriting as a prewalk, not postwalk?
   - [X] `←` needs to take the capture forms on the right hand side
 - [X] `B(patt)` (prerequisite: determining fixed-length patterns)
@@ -42,6 +42,7 @@ This list could be a lot longer!
   - [ ] Capture-closing optimization (vm)
 - [ ] fail optimization: only update the register once when returning from calls
 - [ ] Serializing and loading grammars
+  - [ ] Deserializing constructors for PRule and PGrammar, `@rule!` and `@grammar!` macros
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
