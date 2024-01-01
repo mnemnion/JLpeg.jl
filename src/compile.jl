@@ -223,7 +223,7 @@ the return value to the variable bound to the original for the general case.
 function compile!(patt::Pattern)::Pattern
     if isempty(patt.code)
         t = typeof(patt.val)
-        if t == Vector{Pattern} || t == Vector{PRule}
+        if t == PVector
             for (idx, val) in enumerate(patt.val)
                 patt.val[idx] = compile!(val)
             end
@@ -294,7 +294,7 @@ end
 """
     prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
 
-Apply `λ(patt, args...)` to `patt`, then recursively to all `patt.val::Vector{Pattern}`
+Apply `λ(patt, args...)` to `patt`, then recursively to all `patt.val::PVector`
 values.  Returns `nothing`, `λ` is expected to mutate `args`.
 """
 function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
@@ -648,6 +648,7 @@ function __compile!(patt::PGrammar)::Pattern
         return p
     end
     recursecompile!(patt)
+
     aux[:prepared] = true
     return patt
 end

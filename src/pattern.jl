@@ -2,7 +2,7 @@
 
 """
 Container for various patterns and grammars.
-Always has `val`, which may be primitive or a Vector{Pattern},
+Always has `val`, which may be primitive or a PVector,
 and `code`, an IVector. Some patterns have a field
 unique to that pattern type.
 """
@@ -35,8 +35,12 @@ abstract type Instruction end
     Cgroup      # ✅ groups all its captures into a Vector.
 end
 
-"A Vector of `Instructions` representing a complete pattern."
+"A Vector of `Instruction`s representing a complete pattern."
 const IVector = Vector{Instruction}
+
+"A Vector of `Pattern`s."
+
+const PVector = Vector{Pattern}
 
 """
     AuxDict = Dict{Symbol, Any}
@@ -91,7 +95,7 @@ struct PRange <: Pattern
 end
 
 struct PBehind <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
     PBehind(val::Pattern) = new([val], Inst(), Dict())
@@ -104,21 +108,21 @@ struct PAny <: Pattern
 end
 
 struct PAnd <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
     PAnd(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PNot <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
     PNot(val::Pattern) = new([val], Inst(), Dict())
 end
 
 struct PDiff <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
     PDiff(a::Pattern, b::Pattern) = new([a, b], Inst(), Dict())
@@ -126,7 +130,7 @@ end
 
 "Includes n, dictating the sort of repetition"
 struct PStar <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
     n::Int
@@ -134,13 +138,13 @@ struct PStar <: Pattern
 end
 
 struct PSeq <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
 end
 
 struct PChoice <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     aux::AuxDict
 end
@@ -184,7 +188,7 @@ struct PCall <: Pattern
 end
 
 struct PRule <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     name::Symbol
     aux::AuxDict
@@ -193,7 +197,7 @@ end
 
 
 struct PGrammar <: Pattern
-    val::Vector{PRule}
+    val::PVector
     code::IVector
     start::Symbol
     aux::AuxDict
@@ -213,7 +217,7 @@ If you ever overflow this, please tell me what you were doing. -Sam
 capcounter::UInt16 = 0
 
 struct PCapture <: Pattern
-    val::Vector{Pattern}
+    val::PVector
     code::IVector
     kind::CapKind
     aux::AuxDict
@@ -250,10 +254,24 @@ const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCap
 "Patterns which don't contain other patterns"
 const PPrimitive = Union{PChar,PSet,PRange,PRange,PAny,PTrue,PFalse,PThrow}
 
-# TODO add PCompiled for string-dumped rules and grammars
+function Base.getindex(patt::Pattern, i::Integer)
+    if !isa(patt.val, PVector)
+        error("Can't index primitive Patterns")
+    else
+        return patt.val[i]
+    end
+end
+
+function Base.iterate(patt::Pattern, args...)
+    if !isa(patt.val, PVector)
+        error("Can't iterate primitive Patterns")
+    else
+        return iterate(patt.val, args...)
+    end
+end
 
 function PSeq(str::AbstractString)
-    val = Vector{Pattern}(undef, 0)
+    val = PVector(undef, 0)
     code = Inst()
     if length(str) == 0
         push!(val, PTrue())
