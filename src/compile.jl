@@ -210,7 +210,7 @@ end
 """
     prepare!(patt::Pattern)::Pattern
 
-Prepare a pattern for compiling.
+Prepare a pattern for matching.
 """
 function prepare!(patt::Pattern)::Pattern
     compile!(patt)
@@ -380,7 +380,7 @@ function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
     c = patt.code
     code = copy(patt.val[1].code)
-    # We must remove captures from PNot patterns,
+    # We can remove captures from PNot patterns,
     # which never succeed (except match-time captures)I
     for (idx, inst) in enumerate(code)
         if ( ( inst.op == IOpenCapture

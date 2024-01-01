@@ -239,7 +239,7 @@ using Test
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[1] == (:string => "string")
-        @test_broken match(re, "[a-z]")[1] == (:range => ["a", "z"])
+        @test match(re, "[a-z]")[1] == (:range => ["a", "z"])
         @test match(re, "sym")[1] == "sym"
         @test match(re, "a <- b c*")[1] == (:definition => ["a", " b c*"])
     end
