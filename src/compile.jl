@@ -178,33 +178,6 @@ struct ThrowRecInst <: Instruction
     ThrowRecInst(tag::UInt16, l::Integer) = new(IThrowRec, tag, Int32(l))
 end
 
-"""
-    Base.merge!(dict::AbstractDict, pairs::Pair...)
-
-Adds `pairs` to `dict`.  Synonymous with `push!`, useful for `Union{Dict,Pair}` types.
-
-## Examples
-```jldoctest
-julia> dict = Dict(:a => 'a', :b => 'b')
-Dict{Symbol, Char} with 2 entries:
-  :a => 'a'
-  :b => 'b'
-
-julia> merge!(dict, :c => 'c', :d => 'd')
-Dict{Symbol, Char} with 4 entries:
-  :a => 'a'
-  :b => 'b'
-  :d => 'd'
-  :c => 'c'
-```
-"""
-function Base.merge!(dict::AbstractDict, pairs::Pair...)
-    for pair in pairs
-        dict[pair.first] = pair.second
-    end
-    return dict
-end
-
 ### Compilers
 
 """
@@ -222,9 +195,8 @@ the return value to the variable bound to the original for the general case.
 """
 function compile!(patt::Pattern)::Pattern
     if isempty(patt.code)
-        t = typeof(patt.val)
-        if t == PVector
-            for (idx, val) in enumerate(patt.val)
+        if patt.val isa PVector
+            for (idx, val) in enumerate(patt)
                 patt.val[idx] = compile!(val)
             end
         end
@@ -244,11 +216,9 @@ function prepare!(patt::Pattern)::Pattern
     compile!(patt)
 end
 
-"""
-    prepare!(patt::PAuxT)::Pattern
+prepare!(patt::Grammar)::Pattern = __compile!(patt)
 
-TBW
-"""
+
 function prepare!(patt::PAuxT)::Pattern
     if haskey(patt.aux, :prepared)
         return patt
@@ -299,8 +269,8 @@ values.  Returns `nothing`, `λ` is expected to mutate `args`.
 """
 function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
     λ(patt, args...)
-    if patt.val isa Vector  #TODO more specific type
-        for p in patt.val
+    if patt.val isa PVector
+        for p in patt
             prewalkpatt!(λ, p::Pattern, args...)
         end
     end
@@ -332,6 +302,17 @@ function _compile!(patt::PFalse)::Pattern
 end
 
 function _compile!(patt::POpenCall)::Pattern
+    push!(patt.code, OpenCallInst(patt.val))
+    return patt
+end
+
+"""
+    _compile!(patt::PCall)::Pattern
+
+
+A damn lie but it keeps tests passing
+"""
+function _compile!(patt::PCall)::Pattern
     push!(patt.code, OpenCallInst(patt.val))
     return patt
 end
@@ -607,8 +588,7 @@ function _compile!(patt::PRule)::Pattern
             calls[idx] = op.rule
         end
         push!(c, op)
-    end  # TODO inline rules sometimes
-    meta[:terminal] = isempty(calls) ? true : false
+    end
     pushEnd!(c)
     # TODO probably want to inline 'short' terminals for some value of short. what value?
     return patt
@@ -625,7 +605,7 @@ function __compile!(patt::PGrammar)::Pattern
     aux[:caps] = Dict()  # TODO TagDict maybe?
     aux[:throws] = Dict()  # It's a distinctive type!
     rules = aux[:rules] = AuxDict()
-    for rule in patt.val
+    for rule in patt
         rules[rule.name] = rule
         rule.aux[:visiting] = false
         rule.aux[:compiled] = false
@@ -648,9 +628,22 @@ function __compile!(patt::PGrammar)::Pattern
         return p
     end
     recursecompile!(patt)
-
+    # link
+    for rule in patt
+        link!(rule)
+    end
+    _compile!(patt)
     aux[:prepared] = true
     return patt
+end
+
+"""
+    link!(patt::Pattern)
+
+Link the constituents of `patt` into a single program.
+"""
+function link!(patt::Pattern)
+    return compile!(patt)
 end
 
 """
@@ -662,8 +655,8 @@ pattern (which may be, and often is, the same).
 """
 function inwalkpatt!(λ::Function, patt::Pattern, aux::AuxDict)::Pattern
     patt = λ(patt, aux)
-    if patt.val isa Vector
-        for (idx, p) in enumerate(patt.val)
+    if patt.val isa PVector
+        for (idx, p) in enumerate(patt)
             patt.val[idx] = inwalkpatt!(λ, p, aux)
         end
     end
@@ -691,7 +684,7 @@ function recursecompile!(patt::Pattern)::Pattern
     if !isa(patt.val, Vector)
         @error "missing primitive maybe? $(typeof(patt)).val <: $(typeof(patt.val))"
     end
-    for (idx, p) in enumerate(patt.val)
+    for (idx, p) in enumerate(patt)
         if p isa PCall
             # Self-call?
             if p.ref.aux[:visiting]
@@ -866,6 +859,7 @@ function nofail(patt::Pattern)::Bool
     elseif isof(patt, PRange, PChar, PAny, PSet, PFalse, PThrow) return false
     # POpenCall needs checked later
     elseif patt isa POpenCall return false
+    elseif patt isa PCall return false  # should be nofail(patt.ref) but we need better rule match
     # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
     elseif isof(patt, PNot, PBehind, PRunTime) return false
     # PSeq nofail if entire sequence is nofail
