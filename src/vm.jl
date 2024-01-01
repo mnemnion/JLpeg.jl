@@ -1,6 +1,6 @@
 # JLpeg virtual machine
 
-
+"A frame of the instruction stack."
 struct StackFrame
     i::Int32   # Instruction pointer
     s::UInt32  # String index
@@ -10,12 +10,10 @@ end
 
 "An entry in the capture stack"
 struct CapEntry
-    i::Int32       # Instruction pointer
     s::UInt32      # String index
     inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}
-    CapEntry(i::Int32,
-             s::UInt32,
-             inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}) = new(i, s, inst)
+    CapEntry(s::UInt32,
+             inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}) = new(s, inst)
 end
 
 """
@@ -109,9 +107,9 @@ end
 
 @inline
 "Pop a stack frame. Returns a tuple (i, s, c, p)"
-function popframe!(vm::VMState)
+function popframe!(vm::VMState)::Tuple{Union{Int32,Nothing},UInt32,UInt32,Bool}
     if !vm.t_on
-        return (nothing, nothing, nothing, false)
+        return nothing, UInt32(0), UInt32(0), false
     end
     if isempty(vm.stack)
         vm.t_on = false
@@ -133,11 +131,11 @@ end
 @inline
 "Length/height of the capture stack."
 function lcap(vm::VMState)
-    return length(vm.cap)  # + 1 if !t.cap_on etc
+    return length(vm.cap)
 end
 
 @inline
-"Trim the capture stack height to `c``."
+"Trim the capture stack height to `c`."
 function trimcap!(vm::VMState, c::UInt32)
     while lcap(vm) > c
         pop!(vm.cap)
@@ -148,7 +146,7 @@ end
 @inline
 "Push a CapEntry."
 function pushcap!(vm::VMState, inst::Instruction)
-   push!(vm.cap, CapEntry(vm.i, vm.s, inst))
+   push!(vm.cap, CapEntry(vm.s, inst))
 end
 
 @inline
@@ -577,7 +575,7 @@ function aftermatch(vm::VMState)::PegMatch
             # Make a synthetic back capture, reusing this Instruction
             # The only distinct value of bcap we use is .s,
             # Which we calculate thus:
-            bcap = CapEntry(Int32(0), cap.s + cap.inst.l, cap.inst)
+            bcap = CapEntry(cap.s + cap.inst.l, cap.inst)
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
         end

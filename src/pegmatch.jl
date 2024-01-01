@@ -124,4 +124,23 @@ struct PegFail
     label::Symbol
 end
 
-# TODO some way to promote this to an Exception
+# TODO some way to promote this to an Exception?
+
+function Base.show(io::IO, pfail::PegFail)
+    print(io, "PegFail(")
+    subject, errpos, label = pfail.subject, pfail.errpos, pfail.label
+    # we'll need more for long strings, but as a start
+    if errpos > sizeof(subject)
+        print(io, '"' * subject * "⟪⟫" * '"')
+    else
+        e1 = prevind(subject, errpos)
+        e2 = nextind(subject, errpos)
+        sub1, err, sub2 = subject[1:e1], subject[errpos:errpos], subject[e2:end]
+        print(io, '"' * sub1 * '⟪' * err * '⟫' * sub2 * '"')
+    end
+    print(io, ", $(Int(errpos))")
+    if label != :default
+        print(io, ", $label")
+    end
+    print(io, ")")
+end
