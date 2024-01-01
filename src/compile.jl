@@ -628,6 +628,7 @@ function __compile!(patt::PGrammar)::Pattern
     for rule in patt.val
         rules[rule.name] = rule
         rule.aux[:visiting] = false
+        rule.aux[:compiled] = false
         rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
     end
     patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
@@ -697,15 +698,20 @@ function recursecompile!(patt::Pattern)::Pattern
                 # no further action needed, we're compiling the body of p.ref
             else
             # visiting p.ref, compiling p.ref.val[1] (rule body)
-                p.ref.aux[:visiting] = true
-                p.ref.val[1] = recursecompile!(p.ref.val[1])
-                p.ref.aux[:visiting] = false
+                if p.ref.aux[:compiled]
+                    continue
+                else
+                    p.ref.aux[:visiting] = true
+                    p.ref.val[1] = recursecompile!(p.ref.val[1])
+                    p.ref.aux[:visiting] = false
+                end
             end
         else
             patt.val[idx] = recursecompile!(p)
         end
     end
     patt.aux[:visiting] = false
+    patt.aux[:compiled] = true
     return patt
 end
 
