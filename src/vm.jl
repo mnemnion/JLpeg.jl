@@ -229,14 +229,14 @@ end
 # The core execution loop and all dispatched instructions.
 
 """
-    runvm!(vm::VMState)::Nothing
+    runvm!(vm::VMState)::Bool
 
 Run a vm. A classic instruction-dispatch loop, relying on Julia's excellent
 method specialization to provide speed.  Once I have some representative patterns
 and sufficiently weighty test data, I may try swapping in a Vector of function
 pointers to see if the code generated from this approach is, in fact, optimal.
 """
-function runvm!(vm::VMState)::Nothing
+function runvm!(vm::VMState)::Bool
     vm.running = true
     while vm.running
         # print(vm_to_str(vm))
@@ -250,6 +250,7 @@ function runvm!(vm::VMState)::Nothing
             failmatch!(vm)
         end
     end
+    vm.matched
 end
 
 
@@ -688,12 +689,7 @@ failure.
 """
 function Base.match(patt::Pattern, subject::AbstractString)::Union{PegMatch, PegFail}
     vm = VMState(patt, subject)
-    runvm!(vm)
-    if vm.matched
-        return aftermatch(vm)
-    else
-        return afterfail(vm)
-    end
+    runvm!(vm) ? aftermatch(vm) : afterfail(vm)
 end
 
 
@@ -705,12 +701,7 @@ such that string[1:findfirst(patt)] will show the substring.
 """
 function Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
     vm = VMState(patt, string)
-    runvm!(vm)
-    if vm.matched
-        return vm.s - 1
-    else
-        return nothing
-    end
+    runvm!(vm) ? vm.s - 1 : nothing
 end
 
 """
@@ -721,10 +712,6 @@ from the first character in the string; to convert a pattern `p` to match anywhe
 use `psearch = "" >> p`.
 """
 function Base.occursin(needle::Pattern, haystack::AbstractString)
-    if findfirst(needle, haystack) !== nothing
-        return true
-    else
-        return false
-   end
+    findfirst(needle, haystack) !== nothing ? true : false
 end
 
