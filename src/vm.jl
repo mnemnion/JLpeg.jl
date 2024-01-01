@@ -11,9 +11,9 @@ end
 "An entry in the capture stack"
 struct CapEntry
     s::UInt32      # String index
-    inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}
+    inst::CaptureInst
     CapEntry(s::UInt32,
-             inst::Union{OpenCaptureInst,CloseCaptureInst,FullCaptureInst}) = new(s, inst)
+             inst::CaptureInst) = new(s, inst)
 end
 
 """
@@ -391,22 +391,8 @@ function onInst(inst::TestSetInst, vm::VMState)::Bool
     end
 end
 
-"onOpenCapture"
-function onInst(inst::OpenCaptureInst, vm::VMState)::Bool
-    pushcap!(vm, inst)
-    vm.i += 1
-    return true
-end
-
-"onCloseCapture"
-function onInst(inst::CloseCaptureInst, vm::VMState)::Bool
-    pushcap!(vm, inst)
-    vm.i +=1
-    return true
-end
-
-"onFullCapture"
-function onInst(inst::FullCaptureInst, vm::VMState)::Bool
+"onCapture"
+function onInst(inst::CaptureInst, vm::VMState)::Bool
     pushcap!(vm, inst)
     vm.i += 1
     return true

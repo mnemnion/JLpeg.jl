@@ -149,27 +149,20 @@ abstract type SpanInst end
 abstract type NameCallInst end
 abstract type CloseRunTimeInst end
 
-struct OpenCaptureInst <: Instruction
-   op::Opcode
-   kind::CapKind
-   tag::UInt16 # Need this for the stack register
-   OpenCaptureInst(kind::CapKind) = new(IOpenCapture, kind, UInt16(0))
+struct CaptureInst <: Instruction
+    op::Opcode
+    kind::CapKind
+    l::Int16
+    tag::UInt16
+    CaptureInst(op::Opcode, kind::CapKind) = new(op, kind, Int16(0), UInt16(0))
+    CaptureInst(op::Opcode, kind::CapKind, tag::UInt16) = new(op, kind, Int16(0), tag)
+    CaptureInst(op::Opcode, kind::CapKind, l::Int16, tag::UInt16) = new(op, kind, l, tag)
 end
 
-struct CloseCaptureInst <: Instruction
-   op::Opcode
-   kind::CapKind
-   tag::UInt16
-   CloseCaptureInst(kind::CapKind, tag::UInt16) = new(ICloseCapture, kind, tag)
-end
+OpenCaptureInst(kind::CapKind) = CaptureInst(IOpenCapture, kind, UInt16(0))
+CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseCapture, kind, Int16(0), tag)
+FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(l), tag)
 
-struct FullCaptureInst <: Instruction
-   op::Opcode
-   kind::CapKind
-   l::Int32
-   tag::UInt16
-   FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = new(IFullCapture, kind, Int32(l), tag)
-end
 
 struct ThrowInst <: Instruction
     op::Opcode

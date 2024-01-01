@@ -40,6 +40,7 @@ This list could be a lot longer!
   - [ ] full-capture optimization (bytecode)
   - [ ] disjoint-PChoice optimization
   - [ ] Capture-closing optimization (vm)
+- [ ] All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ] fail optimization: only update the register once when returning from calls
 - [ ] Serializing and loading grammars
   - [ ] Deserializing constructors for PRule and PGrammar, `@rule!` and `@grammar!` macros
