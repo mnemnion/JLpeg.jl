@@ -42,24 +42,7 @@ const IVector = Vector{Instruction}
     AuxDict = Dict{Symbol, Any}
 
 The `.aux` field of any compound `Pattern`, contains the auxiliary data
-needed to correctly compile the pattern.  Everything in any `patt.val[n].aux`
-is merged with `patt.aux`, through a non-trivial algorithm aka the shape is
-somtimes transformed. Like all pattern data, `patt.aux` is treated as immutable
-after `compile!` returns.
-
-Possible fields include:
-
-- `:cap`:  The supplemental information of a PCapture. This is promoted within the
-           PCapture to `:caps`, see below. Type of the value is based on `CapKind`:
-    - `CSimple`: `:cap isa Nothing`
-    - `CSymbol`: `:cap isa Symbol`
-    - To Be continued...
-
-- `:caps`:  A mapping of capture closing `Instruction`s to the value of `:cap` for
-            the originating capture. Will be either a Pair or a Dict, depending.
-
-**To Be Continued**
-
+needed to correctly compile the pattern.
 """
 const AuxDict = Dict{Symbol, Any}
 
@@ -196,7 +179,7 @@ struct PCall <: Pattern
     Create a PCall from a POpenCall once the reference is established.
     """
     function PCall(patt::POpenCall, ref::Pattern)
-        new(patt.sym, patt.code, Dict(), ref)
+        new(patt.val, patt.code, AuxDict(), ref)
     end
 end
 
@@ -263,6 +246,9 @@ abstract type PRunTime <:Pattern end
 abstract type PTXInfo <:Pattern end
 
 const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}
+
+"Patterns which don't contain other patterns"
+const PPrimitive = Union{PChar,PSet,PRange,PRange,PAny,PTrue,PFalse,PThrow}
 
 # TODO add PCompiled for string-dumped rules and grammars
 

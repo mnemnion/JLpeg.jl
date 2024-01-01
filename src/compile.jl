@@ -299,7 +299,7 @@ values.  Returns `nothing`, `λ` is expected to mutate `args`.
 """
 function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
     λ(patt, args...)
-    if patt.val isa Vector
+    if patt.val isa Vector  #TODO more specific type
         for p in patt.val
             prewalkpatt!(λ, p::Pattern, args...)
         end
@@ -622,8 +622,91 @@ Compiles _and prepares_ a Grammar, which deserves its own approach.
 """
 function __compile!(patt::PGrammar)::Pattern
     aux = patt.aux
+    aux[:caps] = Dict()  # TODO TagDict maybe?
+    aux[:throws] = Dict()  # It's a distinctive type!
     rules = aux[:rules] = AuxDict()
+    for rule in patt.val
+        rules[rule.name] = rule
+        rule.aux[:visiting] = false
+        rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
+    end
+    patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
+        if p isa PCapture
+            a[:caps][p.tag] = p.cap
+        elseif p isa PThrow
+            a[:throws][p.tag] = p.val
+        elseif p isa POpenCall
+            if haskey(a[:rules], p.val)
+                # Replace it with a call having the ref
+                return PCall(p, a[:rules][p.val])
+            else
+                error(PegError("$(patt.start) has no rule $(p.val)"))
+            end
+        end
 
+        return p
+    end
+    recursecompile!(patt)
+    aux[:prepared] = true
+    return patt
+end
+
+"""
+    inwalkpatt!(λ::Function, patt::Pattern, aux::AuxDict)::Pattern
+
+Applies `λ`, which must return a Pattern, to `patt, aux`, then recursively
+inwalks any sub-patterns of `patt` in `.val`, replacing them with the returned
+pattern (which may be, and often is, the same).
+"""
+function inwalkpatt!(λ::Function, patt::Pattern, aux::AuxDict)::Pattern
+    patt = λ(patt, aux)
+    if patt.val isa Vector
+        for (idx, p) in enumerate(patt.val)
+            patt.val[idx] = inwalkpatt!(λ, p, aux)
+        end
+    end
+    return patt
+end
+
+"""
+    recursecompile!(patt::Pattern)::Pattern
+
+Recursively compile (but not link) a rule
+"""
+function recursecompile!(patt::Pattern)::Pattern
+    if patt isa PPrimitive
+        patt = _compile!(patt)
+        return patt
+    end
+    if patt isa PRule
+        if patt.aux[:visiting]
+            patt.aux[:recursive] = true
+            return patt
+        else
+            patt.aux[:visiting] = true
+        end
+    end
+    if !isa(patt.val, Vector)
+        @error "missing primitive maybe? $(typeof(patt)).val <: $(typeof(patt.val))"
+    end
+    for (idx, p) in enumerate(patt.val)
+        if p isa PCall
+            # Self-call?
+            if p.ref.aux[:visiting]
+                p.ref.aux[:recursive] = true
+                # no further action needed, we're compiling the body of p.ref
+            else
+            # visiting p.ref, compiling p.ref.val[1] (rule body)
+                p.ref.aux[:visiting] = true
+                p.ref.val[1] = recursecompile!(p.ref.val[1])
+                p.ref.aux[:visiting] = false
+            end
+        else
+            patt.val[idx] = recursecompile!(p)
+        end
+    end
+    patt.aux[:visiting] = false
+    return patt
 end
 
 function _compile!(patt::PGrammar)::Pattern

@@ -209,6 +209,8 @@ Base.:-(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
 Base.:/(a::Pattern, b::Function) = A(a, b)
 Base.://(a::Pattern, b::Function) = Anow(a, b)
 Base.:%(a::Pattern, b::Symbol) = a | T(b)
+# Hack that should probably be in the @grammar macro
+Base.:%(a::Pattern, b::POpenCall) = a | T(b.val)
 
 Base.:^(a::Pattern, b::Integer)  = PStar(a, b)
 Base.:~(a::Pattern) = PAnd(a)
