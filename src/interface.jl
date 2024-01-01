@@ -62,8 +62,8 @@ B(p::Pattern) = PBehind(p)
 
 Create a capture. Matching `patt` with return the matched substring.
 """
-C(patt::Pattern) = PCapture(patt, Csimple, AuxDict(:cap => nothing))
-C(p::Patternable) = PCapture(P(p), Csimple, AuxDict(:cap => nothing))
+C(patt::Pattern) = PCapture(patt, Csimple, nothing)
+C(p::Patternable) = PCapture(P(p), Csimple, nothing)
 
 """
     C(patt::Pattern, sym::Union{Symbol,AbstractString})
@@ -71,8 +71,7 @@ C(p::Patternable) = PCapture(P(p), Csimple, AuxDict(:cap => nothing))
 Create a named capture with key :sym or "sym".
 """
 function C(patt::Pattern, sym::CapSym)
-    aux = AuxDict(:cap => sym)
-    PCapture(patt, Csymbol, aux)
+    PCapture(patt, Csymbol, sym)
 end
 C(p::Patternable, sym::CapSym) = C(P(p), sym)
 C(p::Vector) = Cg(p)
@@ -86,7 +85,7 @@ the `PegMatch` object.  If `sym` is provided, the group will be found at that
 key.
 """
 function Cg(patt::Pattern, sym::Union{CapSym,Nothing})
-    PCapture(patt, Cgroup, AuxDict(:cap => sym))
+    PCapture(patt, Cgroup, sym)
 end
 Cg(p::Patternable, sym::Union{CapSym, Nothing}) = Cg(P(p), sym)
 Cg(p::Union{Patternable, Pattern}) = Cg(p, nothing)
@@ -107,7 +106,7 @@ Captures the empty string in `.captures`, consuming no input.  Useful for the
 side effect, of storing the corresponding offset.
 """
 function Cp()
-    PCapture(P(true), Cposition, AuxDict(:cap => nothing))
+    PCapture(P(true), Cposition, nothing)
 end
 
 """
@@ -117,7 +116,7 @@ Constant capture. Matches the empty string and puts the values of `args` as a
 tuple in that place within the `PegMatch` captures.
 """
 function Cc(args...)
-    PCapture(P(true), Cconst, AuxDict(:cap => (args...,)))
+    PCapture(P(true), Cconst, (args...,))
 end
 
 """
@@ -127,7 +126,7 @@ Captures a UnitRange of matches in `patt`, optionally keyed by `sym`.
 Convenient for substitutions and annotations.
 """
 function Cr(patt::Pattern, sym::Union{CapSym, Nothing})
-    PCapture(patt, Crange, AuxDict(:cap => sym))
+    PCapture(patt, Crange, sym)
 end
 
 Cr(p::Patternable, sym::Union{CapSym, Nothing}) = Cr(P(p), sym)
@@ -142,7 +141,7 @@ no captures, the capture is the SubString.  The return value of `fn` becomes
 the capture; if `nothing` is returned, the capture (and its offset) are deleted.
 """
 function A(patt::Pattern, fn::Function)
-    PCapture(patt, Caction, AuxDict(:cap => fn))
+    PCapture(patt, Caction, fn)
 end
 
 A(p::Patternable, fn::Function) = A(P(p), fn)
@@ -156,7 +155,7 @@ within it.  The return value of `fn` becomes the capture, but if `nothing` is
 returned, the entire pattern fails.
 """
 function Anow(patt::Pattern, fn::Function)
-    PCapture(patt, Cruntime, AuxDict(:cap => fn))
+    PCapture(patt, Cruntime, fn)
 end
 
 """

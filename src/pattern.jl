@@ -234,14 +234,11 @@ struct PCapture <: Pattern
     code::IVector
     kind::CapKind
     aux::AuxDict
+    cap::Any
     tag::UInt16
-    function PCapture(a::Pattern, k::CapKind)
+    function PCapture(a::Pattern, k::CapKind, cap::Any)
         global capcounter += 1
-        new([a], Inst(), k, AuxDict(), capcounter)
-    end
-    function PCapture(a::Pattern, k::CapKind, aux::AuxDict)
-        global capcounter += 1
-        new([a], Inst(), k, aux, capcounter)
+        new([a], Inst(), k, AuxDict(), cap)
     end
 end
 # TODO the rest of these need to be concrete:

@@ -81,6 +81,31 @@ So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `i
   - [X]  Code ThrowInst
   - [ ]  Code ThrowRecInst
 
+### Grammar Compile Rewrite
+
+Time to tackle codegen in an order which lets us determine what's going on with rules
+at a time when it's useful to the calling rule.
+
+#### [ ] Rule Traversal
+
+This should begin by replacing all POpenCall with PCall, only then generating code.
+What this means is we pass along the rulemap to the first rule, then go visiting
+subrules: if it's terminal, we compile it, if we see it twice, it's recursive: if
+that's left recursion, bail out, otherwise we tag as such (and therefore variable
+length by definition).
+
+Whenever we reach the end of a visited rule, we know if it's recursive, and all
+ultimately-terminal calls (at whatever degree of remove) are compiled / we know
+what we need to know, so we can compile that rule, and when we reach the end of the
+start rule, we're done, and ready to hoist and link.
+
+We use `:aux` to store everything we determine about rules, nullable, nofail,
+fixedlen, terminal, visited, anything else we really need to know.
+
+
+ [ ] Inlining? Should we? What circumstances?
+ [ ] Tail-call elimination
+
 ### Capture closing
 
 I knew there was a reason I might want to cache the capture stack...

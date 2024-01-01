@@ -160,6 +160,7 @@ struct CaptureInst <: Instruction
 end
 
 OpenCaptureInst(kind::CapKind) = CaptureInst(IOpenCapture, kind, UInt16(0))
+OpenCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(IOpenCapture, kind, tag)
 CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseCapture, kind, Int16(0), tag)
 FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(l), tag)
 
@@ -266,7 +267,7 @@ function prepare!(patt::PAuxT)::Pattern
     prewalkpatt!(patt, patt.aux) do p, aux
         if p isa PCapture
             caps = getordict!(aux, :caps)
-            caps[p.tag] = p.aux[:cap]
+            caps[p.tag] = p.cap
         elseif p isa PThrow
             throws = getordict!(aux, :throws)
             throws[p.tag] = p.val
@@ -571,10 +572,10 @@ end
 
 function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
-    patt.aux[:caps] = caps = get(patt.aux, :caps, Dict())
+    patt.aux[:caps] = caps = get(patt.aux, :caps, Dict())  # TODO remove
     if patt.kind == Cposition
         full = FullCaptureInst(Cposition, 0, patt.tag)
-        caps[patt.tag] = patt.aux[:cap]
+        caps[patt.tag] = patt.cap  # TODO remove
         push!(patt.code, full, OpEnd)
         return patt
     end
@@ -582,10 +583,10 @@ function _compile!(patt::PCapture)::Pattern
     ccode = copy(patt.val[1].code)
     # TODO full capture optimization
     trimEnd!(ccode)
-    push!(c, OpenCaptureInst(patt.kind))
+    push!(c, OpenCaptureInst(patt.kind, patt.tag))
     append!(c, ccode)
     close = CloseCaptureInst(patt.kind, patt.tag)
-    caps[patt.tag] = patt.aux[:cap]
+    caps[patt.tag] = patt.cap # TODO remove
     push!(c, close)
     pushEnd!(c)
     return patt
@@ -613,21 +614,17 @@ function _compile!(patt::PRule)::Pattern
     return patt
 end
 
-# TODO: Grammar
-# [ ] Grammar should have its own compile! so we normally don't have to do weird surgery/copying
-# [ ] This should begin by replacing all POpenCall with PCall,
-#     only then generating code.  What this means is we pass along the rulemap to
-#     the first rule, then go visiting subrules: if it's terminal, we compile it,
-#     if we see it twice, it's recursive: if that's left recursion, bail out, otherwise
-#     we tag as such (and therefore variable length by definition).
-#
-#     Whenever we reach the end of a visited rule, we know if it's recursive, and all
-#     ultimately-terminal calls (at whatever degree of remove) are compiled / we know
-#     what we need to know, so we can compile that rule, and when we reach the end of the
-#     start rule, we're done, and ready to hoist and link.
-#
-# [ ] Inlining? Should we? What circumstances?
-# [ ] Tail-call elimination
+
+"""
+    compile!(patt::PGrammar)::Pattern
+
+Compiles _and prepares_ a Grammar, which deserves its own approach.
+"""
+function __compile!(patt::PGrammar)::Pattern
+    aux = patt.aux
+    rules = aux[:rules] = AuxDict()
+
+end
 
 function _compile!(patt::PGrammar)::Pattern
     rules = Dict{Symbol, PRule}()
