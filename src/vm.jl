@@ -217,10 +217,10 @@ function failmatch!(vm::VMState)
         vm.running = false
         vm.matched = false
     else
-        vm.s = s
+        vm.s = s::UInt32
         vm.i = i
         vm.inpred = p
-        trimcap!(vm, c)
+        trimcap!(vm, c::UInt32)
     end
 end
 
@@ -245,8 +245,8 @@ function runvm!(vm::VMState)::Nothing
             continue
         end
         inst = vm.program[vm.i]
-        @debug vm_head_color(vm)
-        if !onInst(inst, vm)
+        # @debug vm_head_color(vm)
+        if !onInst(inst, vm)::Bool
             failmatch!(vm)
         end
     end
