@@ -252,11 +252,11 @@ abstract type PTXInfo <:Pattern end
 const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}
 
 "Patterns which don't contain other patterns"
-const PPrimitive = Union{PChar,PSet,PRange,PRange,PAny,PTrue,PFalse,PThrow}
+const PPrimitive = Union{PChar,PSet,PRange,PRange,PAny,PTrue,PFalse,PThrow,PCall,POpenCall}
 
 function Base.getindex(patt::Pattern, i::Integer)
     if !isa(patt.val, PVector)
-        error("Can't index primitive Patterns")
+        error("Can't index primitive Pattern $(typeof(patt))")
     else
         return patt.val[i]
     end
@@ -264,7 +264,7 @@ end
 
 function Base.iterate(patt::Pattern, args...)
     if !isa(patt.val, PVector)
-        error("Can't iterate primitive Patterns")
+        error("Can't iterate primitive Pattern $(typeof(patt))")
     else
         return iterate(patt.val, args...)
     end

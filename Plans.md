@@ -86,7 +86,7 @@ So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `i
 Time to tackle codegen in an order which lets us determine what's going on with rules
 at a time when it's useful to the calling rule.
 
-#### [ ] Rule Traversal
+#### [X] Rule Traversal
 
 This should begin by replacing all POpenCall with PCall, only then generating code.
 What this means is we pass along the rulemap to the first rule, then go visiting
@@ -102,6 +102,20 @@ start rule, we're done, and ready to hoist and link.
 We use `:aux` to store everything we determine about rules, nullable, nofail,
 fixedlen, terminal, visited, anything else we really need to know.
 
+#### [ ] Compiling
+
+I'm trying to figure out here what the operations for compiling even are.
+
+My basic annoyance with the current compiler is that it prewalks the code. Advantage: didn't have to sprinkle "compile!" everywhere.  Disadvantages: numerous.
+
+What I want is to dump that, and pass through a `link` Dict.
+
+Things to determine/do on recursive walk:
+
+- [X] Sight order: which rules are seen first, the code will be laid out accordingly
+- [X] Which rules are recursive
+- [ ] `:hascaps` (need for FullCapture optimization)
+- [ ] Compile everything which doesn't have a rule call.
 
  [ ] Inlining? Should we? What circumstances?
  [ ] Tail-call elimination

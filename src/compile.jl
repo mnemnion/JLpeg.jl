@@ -216,9 +216,6 @@ function prepare!(patt::Pattern)::Pattern
     compile!(patt)
 end
 
-prepare!(patt::Grammar)::Pattern = __compile!(patt)
-
-
 function prepare!(patt::PAuxT)::Pattern
     if haskey(patt.aux, :prepared)
         return patt
@@ -227,11 +224,8 @@ function prepare!(patt::PAuxT)::Pattern
     if !isa(patt, PAuxT)
         return patt
     end
-    # TODO this mechanism sucks actually
-    for (key, value) in patt.aux
-        if value isa Pair
-            patt.aux[key] = Dict(value)
-        end
+    if haskey(patt.aux, :prepared)
+        return patt
     end
     # We're replacing it with this:
     prewalkpatt!(patt, patt.aux) do p, aux
@@ -306,12 +300,6 @@ function _compile!(patt::POpenCall)::Pattern
     return patt
 end
 
-"""
-    _compile!(patt::PCall)::Pattern
-
-
-A damn lie but it keeps tests passing
-"""
 function _compile!(patt::PCall)::Pattern
     push!(patt.code, OpenCallInst(patt.val))
     return patt
@@ -581,16 +569,8 @@ end
 
 function _compile!(patt::PRule)::Pattern
     c = patt.code
-    meta = patt.aux
-    calls = meta[:call] = Dict{Int, Symbol}()
-    for (idx, op) in enumerate(patt.val[1].code)
-        if op.op == IOpenCall
-            calls[idx] = op.rule
-        end
-        push!(c, op)
-    end
+    append!(c, patt[1].code)
     pushEnd!(c)
-    # TODO probably want to inline 'short' terminals for some value of short. what value?
     return patt
 end
 
@@ -600,15 +580,20 @@ end
 
 Compiles _and prepares_ a Grammar, which deserves its own approach.
 """
-function __compile!(patt::PGrammar)::Pattern
+function _compile!(patt::PGrammar)::Pattern
+    # TODO we want to cache this eventually but the code is... in flux
+    empty!(patt.code)
     aux = patt.aux
     aux[:caps] = Dict()  # TODO TagDict maybe?
     aux[:throws] = Dict()  # It's a distinctive type!
+    aux[:callsite] = Dict()
+    aux[:start] = patt[1].name
     rules = aux[:rules] = AuxDict()
     for rule in patt
         rules[rule.name] = rule
+        # Defaults
         rule.aux[:visiting] = false
-        rule.aux[:compiled] = false
+        rule.aux[:walked] = false
         rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
     end
     patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
@@ -624,26 +609,24 @@ function __compile!(patt::PGrammar)::Pattern
                 error(PegError("$(patt.start) has no rule $(p.val)"))
             end
         end
-
         return p
     end
-    recursecompile!(patt)
-    # link
-    for rule in patt
-        link!(rule)
+    aux[:seen] = Symbol[]
+    recursepattern!(patt, aux)
+    c = patt.code
+    push!(c, CallInst(2))
+    push!(c, OpEnd)  # TODO hold this an jump to actual end
+    for rulename in aux[:seen]
+        rule = compile!(aux[:rules][rulename])
+        aux[:callsite][rulename] = length(c) + 1
+        append!(c, rule.code)
+        trimEnd!(c)
+        push!(c, OpReturn)
     end
-    _compile!(patt)
+    push!(c, OpEnd)
+    link!(c, aux)
     aux[:prepared] = true
     return patt
-end
-
-"""
-    link!(patt::Pattern)
-
-Link the constituents of `patt` into a single program.
-"""
-function link!(patt::Pattern)
-    return compile!(patt)
 end
 
 """
@@ -664,116 +647,73 @@ function inwalkpatt!(λ::Function, patt::Pattern, aux::AuxDict)::Pattern
 end
 
 """
-    recursecompile!(patt::Pattern)::Pattern
+    recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
 
-Recursively compile (but not link) a rule
+Recursively walk the pattern.
 """
-function recursecompile!(patt::Pattern)::Pattern
+function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
     if patt isa PPrimitive
-        patt = _compile!(patt)
-        return patt
+        return _compile!(patt)
     end
     if patt isa PRule
         if patt.aux[:visiting]
-            patt.aux[:recursive] = true
+            @error "shouldn't see a rule while visiting it ($(patt.name))"
+            patt.aux[:recursive] = true  # May as well avoid overflowing the stack if this changes
+            return patt
+        elseif patt.aux[:walked]
             return patt
         else
+            push!(gaux[:seen], patt.name)
             patt.aux[:visiting] = true
         end
     end
     if !isa(patt.val, Vector)
         @error "missing primitive maybe? $(typeof(patt)).val <: $(typeof(patt.val))"
     end
+    hascap = false
+    hascall = false
     for (idx, p) in enumerate(patt)
         if p isa PCall
+            hascall = true
             # Self-call?
             if p.ref.aux[:visiting]
+                # we're somewhere inside the walk of this expression
                 p.ref.aux[:recursive] = true
-                # no further action needed, we're compiling the body of p.ref
+                continue
             else
-            # visiting p.ref, compiling p.ref.val[1] (rule body)
-                if p.ref.aux[:compiled]
-                    continue
-                else
+                if !p.ref.aux[:walked]
+                     # visiting p.ref, compiling p.ref.val[1] (rule body)
+                    push!(gaux[:seen], p.ref.name)
                     p.ref.aux[:visiting] = true
-                    p.ref.val[1] = recursecompile!(p.ref.val[1])
+                    p.ref.val[1] = recursepattern!(p.ref[1], gaux)
                     p.ref.aux[:visiting] = false
+                    p.ref.aux[:walked] = true
+                    p.ref.aux[:hascall] = p.ref[1].aux[:hascall]
                 end
             end
-        else
-            patt.val[idx] = recursecompile!(p)
+        elseif p isa PCapture
+            hascap = true
         end
+        p = patt.val[idx] = recursepattern!(p, gaux)
     end
     patt.aux[:visiting] = false
-    patt.aux[:compiled] = true
+    patt.aux[:walked] = true
+    if !haskey(patt.aux, :hascall)
+        patt.aux[:hascall] = hascall
+        patt.aux[:hascap] = hascap
+    end
     return patt
 end
 
-function _compile!(patt::PGrammar)::Pattern
-    rules = Dict{Symbol, PRule}()
-    meta = patt.aux
-    for rule in patt.val
-        rules[rule.name] = rule
-    end
-    meta[:rules] = copy(rules)
-    c = patt.code
-    start = rules[patt.start]
-    meta[:start] = start.name
-    fixup = []
-    meta[:callsite] = callMap = Dict{Symbol, Int}()
-    # TODO we could be fancy and jump to the actual end
-    push!(c, CallInst(2))
-    push!(c, OpEnd)
-    next = coderule!(c, start, rules, fixup, callMap)
-    while !isempty(next)
-        after = []
-        for rule in next
-            append!(after, coderule!(c, rule, rules, fixup, callMap))
-        end
-        next = after
-    end
-    # fix up missed calls
-    for (rulename, i) in fixup
-        inst = c[i]
-        # println("fixup $rulename call at $i with l→$(meta[:callsite][rulename])")
-        @assert (inst.op == IOpenCall && inst.rule == rulename) "bad fixup"
-        if haskey(callMap, rulename)
-            l =  callMap[rulename] - i
-            c[i] = CallInst(l)
-        else
-            @warn lazy"missing rule $rulename in grammar"
-        end
-    end
-    pushEnd!(c)
-    return patt
-end
-
-function coderule!(c::IVector, rule::PRule, rules::Dict, fixup::Vector, callMap::Dict)::Vector{PRule}
-    next = []
-    # Add the instruction pointer to the callMap
-    callMap[rule.name] = length(c) + 1
-    for inst in rule.code
+function link!(code::IVector, aux::AuxDict)
+    callsite = aux[:callsite]
+    for (idx, inst) in enumerate(code)
         if inst.op == IOpenCall
-            if haskey(callMap, inst.rule)
-                # We need this to be a relative jump
-                l = callMap[inst.rule] - length(c) - 1
-                push!(c, CallInst(l))
-            elseif haskey(rules, inst.rule)
-                push!(next, rules[inst.rule])
-                pop!(rules, inst.rule)
-                push!(c, inst)
-                push!(fixup, (inst.rule, length(c)))
-            else  # Probably in the queue, if not, we detect that later
-                push!(c, inst)
-                push!(fixup, (inst.rule, length(c)))
-            end
-        else
-            push!(c, inst)
+            site = callsite[inst.rule]
+            l = site - idx
+            code[idx] = CallInst(l)
         end
     end
-    trimEnd!(c)
-    push!(c, OpReturn)
-    return next
 end
 
 """

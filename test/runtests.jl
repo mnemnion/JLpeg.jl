@@ -241,6 +241,6 @@ using Test
         @test match(re, "'string'")[1] == (:string => "string")
         @test_broken match(re, "[a-z]")[1] == (:range => ["a", "z"])
         @test match(re, "sym")[1] == "sym"
-        @test_broken match(re, "a <- b c*")[1] == (:definition => ["a", " b c*"])
+        @test match(re, "a <- b c*")[1] == (:definition => ["a", " b c*"])
     end
 end
