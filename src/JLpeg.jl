@@ -9,6 +9,7 @@ include("vm.jl")
 include("printing.jl")
 include("grammar.jl")
 include("dialects.jl")
+include("serialize.jl")
 
 export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Anow, T, ←, ¬, Rule, Grammar, Pattern
 export PegMatch, PegFail, PegError

@@ -7,13 +7,12 @@ const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 const 🔠 = P  # If you had a name collision here, welp. Dirty hack...
 
 const ops = [:*, :|, :^, :~, :¬, :!, :>>, :/, ://, :(=>), :%]
+const macs = [Symbol("@S_str"), Symbol("@R_str"), :C, :Cg, :P]
 
 function wrap_rule(expr::Expr)::Expr
     function for_x(x)
         if x isa String || x isa QuoteNode || x isa Char
             return :(🔠($x))
-        elseif x isa Symbol && !(x in ops)
-            return esc(x)
         elseif x isa Expr
             if @capture(x, (@S_str(🔠(val_))))
                 :(@S_str($val))
@@ -52,11 +51,11 @@ end
 """
     @grammar(name, rules)
 
-Syntax sugar for defining a set of rules as a single grammar. Expects a block `rules`,
-each of which is a rule-pair as can be created with `<=` or `←`.  `"string"` will be
-interpolated as `P("string")`, and `:symbol` as `P(:symbol)`.  Be sure to use the
-macro forms `S"123"` and `R"az"` for sets and ranges, which will otherwise be
-transformed into `S(P("123"))`, which is invalid.
+Syntax sugar for defining a set of rules as a single grammar. Expects a block
+`rules`, each of which is a rule-pair as can be created with `←`, or, if you must,
+`<=`.  `"string"` will be interpolated as `P("string")`, and `:symbol` as
+`P(:symbol)`.  Be sure to use the macro forms `S"123"` and `R"az"` for sets and
+ranges, which will otherwise be transformed into `S(P("123"))`, which is invalid.
 
 ## Example use
 
