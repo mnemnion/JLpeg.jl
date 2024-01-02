@@ -12,6 +12,8 @@ function wrap_rule(expr::Expr)::Expr
     function for_x(x)
         if x isa String || x isa QuoteNode || x isa Char
             return :(🔠($x))
+        elseif x isa Symbol && !(x in ops)
+            return esc(x)
         elseif x isa Expr
             if @capture(x, (@S_str(🔠(val_))))
                 :(@S_str($val))
