@@ -17,7 +17,21 @@ struct PegError <: Exception
     msg::String
 end
 
-"A bytecode instruction"
+"""
+    Instruction
+
+Abstract type of JLPeg VM instructions.
+
+|  Field | meaning |
+-    op:  The Opcode
+-     l:  An instruction offset
+-     n:  A subject offset
+-   tag:  Key in a capture/throw Dict, or mark identity
+-     c:  An AbstractChar to match
+-   vec:  A set's test BitVector
+-  lead:
+- final:
+"""
 abstract type Instruction end
 
 "A kind of capture"

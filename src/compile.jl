@@ -55,41 +55,41 @@ OpNoOp = MereInst(INoOp)
 struct AnyInst <: Instruction
     op::Opcode
     n::UInt32
-    AnyInst(n::Integer) = n ≥ 0 ? new(IAny, n) : error("n must be a natural number")
 end
+AnyInst(n::Integer) = n ≥ 0 ? AnyInst(IAny, UInt32(n)) : error("n must be a natural number")
 
 struct CharInst <: Instruction
     op::Opcode
     c::AbstractChar
-    CharInst(c::AbstractChar) = new(IChar, c)
 end
+CharInst(c::AbstractChar) = CharInst(IChar, c)
 
 struct SetInst <: Instruction
     op::Opcode
     vec::BitVector
     final::Bool
-    SetInst(vec::BitVector) = new(ISet, vec, true)
-    SetInst(vec::BitVector, final::Bool) = new(ISet, vec, final)
 end
+SetInst(vec::BitVector) = SetInst(ISet, vec, true)
+SetInst(vec::BitVector, final::Bool) = SetInst(ISet, vec, final)
 
 struct MultiSetInst <: Instruction
     op::Opcode
     lead::Vector{UInt8}
     vec::BitVector
     final::Bool
-    function MultiSetInst(lead::Vector{UInt8}, vec::BitVector, final::Bool)
-        new(IMultiSet, lead, vec, final)
-    end
-    function MultiSetInst(multi::MultiSetInst, final::Bool)
-        new(IMultiSet, multi.lead, multi.vec, final)
-    end
+end
+function MultiSetInst(lead::Vector{UInt8}, vec::BitVector, final::Bool)
+    MultiSetInst(IMultiSet, lead, vec, final)
+end
+function MultiSetInst(multi::MultiSetInst, final::Bool)
+    MultiSetInst(IMultiSet, multi.lead, multi.vec, final)
 end
 
 struct BehindInst <: Instruction
     op::Opcode
-    n::UInt32  # Should be an l, surely
-    BehindInst(n::Integer) = n ≥ 0 ? new(IBehind, n) : error("n must be a natural number")
+    n::UInt32
 end
+BehindInst(n::Integer) = n ≥ 0 ? BehindInst(IBehind, n) : error("n must be a natural number")
 
 struct LabelInst <: Instruction
     op::Opcode
@@ -100,9 +100,9 @@ struct ChoiceInst <: Instruction
     op::Opcode
     l::Int32
     n::Int32
-    ChoiceInst(l::Integer) = new(IChoice, l, 0)
-    ChoiceInst(l::Integer, n::Integer) = new(IChoice, Int32(l), Int32(n))
 end
+ChoiceInst(l::Integer) = ChoiceInst(IChoice, Int32(l), 0)
+ChoiceInst(l::Integer, n::Integer) = ChoiceInst(IChoice, Int32(l), Int32(n))
 
 PredChoiceInst(l::Integer) = LabelInst(IPredChoice, Int32(l))
 CommitInst(l::Integer) = LabelInst(ICommit, Int32(l))
@@ -115,28 +115,27 @@ struct TestAnyInst <: Instruction
     op::Opcode
     n::UInt32
     l::Int32
-    TestAnyInst(n::UInt32, l::Int32) = new(ITestAny, n, Int32(l))
 end
+TestAnyInst(n::UInt32, l::Int32) = TestAnyInst(ITestAny, n, Int32(l))
 
 struct TestCharInst <: Instruction
     op::Opcode
     c::AbstractChar
     l::Int32
-    TestCharInst(c::AbstractChar, l::Int32) = new(ITestChar, c, Int32(l))
 end
+TestCharInst(c::AbstractChar, l::Int32) = TestCharInst(ITestChar, c, Int32(l))
 
 struct TestSetInst <: Instruction
     op::Opcode
     vec::BitVector
     l::Int32
-    TestSetInst(vec::BitVector, l::Int32) = new(ITestSet, vec, Int32(l))
 end
-
+TestSetInst(vec::BitVector, l::Int32) = TestSetInst(ITestSet, vec, Int32(l))
 struct OpenCallInst <: Instruction
     op::Opcode
     rule::Symbol # Symbol?
-    OpenCallInst(r::Symbol) = new(IOpenCall, r)
 end
+OpenCallInst(r::Symbol) = OpenCallInst(IOpenCall, r)
 
 "A placeholder for a (usually labeled) Instruction"
 struct HoldInst <: Instruction
@@ -154,10 +153,9 @@ struct CaptureInst <: Instruction
     kind::CapKind
     l::Int16
     tag::UInt16
-    CaptureInst(op::Opcode, kind::CapKind) = new(op, kind, Int16(0), UInt16(0))
-    CaptureInst(op::Opcode, kind::CapKind, tag::UInt16) = new(op, kind, Int16(0), tag)
-    CaptureInst(op::Opcode, kind::CapKind, l::Int16, tag::UInt16) = new(op, kind, l, tag)
 end
+CaptureInst(op::Opcode, kind::CapKind) = CaptureInst(op, kind, Int16(0), UInt16(0))
+CaptureInst(op::Opcode, kind::CapKind, tag::UInt16) = CaptureInst(op, kind, Int16(0), tag)
 
 OpenCaptureInst(kind::CapKind) = CaptureInst(IOpenCapture, kind, UInt16(0))
 OpenCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(IOpenCapture, kind, tag)
@@ -168,16 +166,14 @@ FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = CaptureInst(IFullCaptu
 struct ThrowInst <: Instruction
     op::Opcode
     tag::UInt16
-    ThrowInst(tag::UInt16) = new(IThrow, tag)
 end
-
+ThrowInst(tag::UInt16) = ThrowInst(IThrow, tag)
 struct ThrowRecInst <: Instruction
     op::Opcode
     tag::UInt16
     l::Int32
-    ThrowRecInst(tag::UInt16, l::Integer) = new(IThrowRec, tag, Int32(l))
 end
-
+ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrow, tag, Int32(l))
 ### Compilers
 
 """
