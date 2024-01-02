@@ -2,6 +2,8 @@
 
 # Intended for compile-time macros and interchange formats
 
+using InteractiveUtils
+
 hexit(i::Integer) = string(i, base=16)
 
 encode(io::IO, op::JLpeg.Opcode) = write(io, Char(UInt8(op)+65))
@@ -35,4 +37,27 @@ function encode_instruction(inst::JLpeg.Instruction)
     yo = IOBuffer()
     encode(yo, inst)
     String(take!(yo))
+end
+
+function Inst_2_expr(T::DataType)
+    local params = []
+    for field in fieldnames(T)
+        push!(params, :(inst.$field))
+    end
+    return :(inst_2_expr(inst::$(T)) = :($$(T)($$(params...),)))
+end
+
+begin
+    for I in subtypes(JLpeg.Instruction)
+        eval(Inst_2_expr(I))
+    end
+end
+
+function Pattern_2_expr(patt::Pattern)
+    patt = compile!(patt)
+    local vexpr = Expr[]
+    for inst in patt.code
+        push!(vexpr, inst_2_expr(inst))
+    end
+    return :([$(vexpr...)])
 end

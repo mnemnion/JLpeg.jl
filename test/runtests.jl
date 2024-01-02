@@ -25,6 +25,7 @@ using Test
     @testset "Any" begin
         @test match(P(3), "abcd")[1] == "abc"
         @test match(P(5), "abcd") isa PegFail
+        @test match(P(0), "")[1] == ""
     end
     @testset "Sets and Ranges" begin
         bcf = S("bcf")

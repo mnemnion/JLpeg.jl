@@ -276,6 +276,11 @@ function _compile!(patt::Pattern)::Pattern
 end
 
 function _compile!(patt::PAny)::Pattern
+    # Optimize away P(0) to P(true) to avoid
+    # inefficent VM instruction
+    if patt.val == 0
+        return compile!(PTrue())
+    end
     push!(patt.code, AnyInst(patt.val), OpEnd)
     return patt
 end
