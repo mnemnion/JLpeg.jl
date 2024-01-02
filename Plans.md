@@ -42,8 +42,9 @@ This list could be a lot longer!
   - [ ] Capture-closing optimization (vm)
 - [ ] All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ] fail optimization: only update the register once when returning from calls
-- [ ] Serializing and loading grammars
-  - [ ] Deserializing constructors for PRule and PGrammar, `@rule!` and `@grammar!` macros
+- [#] Serializing and loading grammars
+  - [#] Serializer for PRule, PGrammar
+  - [ ]  `@rule!` and `@grammar!` macros
 - [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
@@ -189,7 +190,7 @@ And we make no use of the Pattern at all, except the top one as a container for
 `aux`, after we create it. So I want to add a serialize-to-string function which is
 as fast to load as computerly possible, some ideas: Capital letters are enums (Opcode
 and CapKind), lowercase letters are short labels, - means what it always does, `n`
-comes before `l`, jumps further than +-26 are hex as `0ff`, always lowercase because
+comes before `l`, jumps further than +-26 are hex as `:ff`, always lowercase because
 we expect an opcode next, always at least two, if an n is encoded as hex, the label
 is always encoded as hex.  I believe that's unambiguous and forward-only, and only
 leaves out sets, which we already know how to serialize with show in a basically

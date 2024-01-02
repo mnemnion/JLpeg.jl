@@ -67,5 +67,7 @@ function Pattern_2_expr(patt::Pattern)
     elseif patt isa PGrammar
         local sym = QuoteNode(patt.start)
         return :(JLpeg.PGrammar($sym, $code, $aux))
+    else
+        error("can only serialize Rules and Grammars")
     end
 end

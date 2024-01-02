@@ -157,7 +157,7 @@ using Test
         bvar = B(P"a"^1)
         @test_throws PegError match(bvar, "aaaaa")
         bfalse = P"12" * B(P(false))
-        match(bfalse, "12") isa PegFail
+        @test match(bfalse, "12") isa PegFail
     end
     @testset "Fast Forward" begin
         ff = "" >> P"end"
@@ -180,6 +180,26 @@ using Test
         @test match(lisp, "(12 23 bob (recursive (recursed)))")[1] == "(12 23 bob (recursive (recursed)))"
         @test match(lisp, "(12 23 bob (recursive recursed))")[1] == "(12 23 bob (recursive recursed))"
         @test match(lisp, "(not ,quote a real lisp)") isa PegFail
+    end
+    @testset "Macro tests" begin
+        upper = uppercase
+        @rule (upper,) :upcase  ←  "abc" / upper
+        @test match(upcase, "abc")[1] == "ABC"
+        @test_throws LoadError @eval @rule [:a, :b, :c] :a ← :b
+        @test_throws ArgumentError begin
+            try
+                @eval @rule (a, b, 1) :a ← :b
+            catch e
+                if isa(e, LoadError)
+                    throw(e.error)
+                else
+                    throw(e)
+                end
+            end
+        end
+        @test_throws "a must be a tuple" @eval @rule 12 :a  ←  :b
+        @test_throws "tuple must be Symbols" @eval @rule (a, b, 12) :a  ←  :b
+        @test_throws "malformed rule" @eval @rule :a != :b
     end
     @testset "Captures" begin
         cap1 = C("123")

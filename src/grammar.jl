@@ -7,7 +7,6 @@ const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 const 🔠 = P  # If you had a name collision here, welp. Dirty hack...
 
 const ops = [:*, :|, :^, :~, :¬, :!, :>>, :/, ://, :(=>), :%]
-const macs = [Symbol("@S_str"), Symbol("@R_str"), :C, :Cg, :P]
 
 function wrap_rule(expr::Expr, rules::Expr)::Expr
     escapes = rules.args
@@ -103,7 +102,9 @@ end
 
 macro grammar(name, syms, expr)
     if !(syms.head == :tuple)
-        error("expression b in `@grammar a (b,) begin ... end` must be a tuple")
+        throw(ArgumentError("expression b in `@grammar a (b,) begin ... end` must be a tuple"))
+    elseif !(all(s -> s isa Symbol, syms.args))
+        throw(ArgumentError("all elements of @grammar tuple must be symbols"))
     end
     @capture(expr, begin rules__ end)
     local rs = [wrap_rule(rule, syms) for rule in rules]
@@ -143,8 +144,10 @@ PegMatch(["FOO"])
 ```
 """
 macro rule(syms, expr)
-    if !(syms.head == :tuple)
-        error("in `@rule a b`, a must be a tuple")
+    if !(syms isa Expr) || !(syms.head == :tuple)
+        throw(ArgumentError("in `@rule (a,) b`, a must be a tuple, got $(typeof(syms))"))
+    elseif !(all(s -> s isa Symbol, syms.args))
+        throw(ArgumentError("all elements of `@rule (a,) b` tuple must be Symbols"))
     end
     @capture(expr, (sym_ ← rulebody_) | (sym_ <= rulebody_)) || error("malformed rule in $(expr)")
     local r = wrap_rule(expr, syms)
