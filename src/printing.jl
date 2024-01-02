@@ -156,7 +156,7 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
         return line
     end
     if hasfield(t, :c)
-        push!(line, " '$(inst.c)'" )
+        push!(line, " $(repr(inst.c))" )
     end
     if hasfield(t, :n)
         push!(line, " $(inst.n)")
