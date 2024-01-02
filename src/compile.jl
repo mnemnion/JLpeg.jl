@@ -626,6 +626,7 @@ function _compile!(patt::PGrammar)::Pattern
     end
     push!(c, OpEnd)
     link!(c, aux)
+    delete!(aux, :rules)
     aux[:prepared] = true
     return patt
 end

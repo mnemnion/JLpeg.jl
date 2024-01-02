@@ -200,27 +200,38 @@ struct PCall <: Pattern
     end
 end
 
+"Singleton PWasCompiled for pre-compiled PRule and PGrammar"
+struct PWasCompiled <: Pattern
+end
+
 struct PRule <: Pattern
     val::PVector
     code::IVector
     name::Symbol
     aux::AuxDict
-    PRule(name::Symbol, val::Pattern) = new([val], Inst(), name, Dict())
 end
+PRule(name::Symbol, val::Pattern) = PRule([val], Inst(), name, AuxDict())
 
+"For pre-compiled rules."
+PRule(name::Symbol, code::IVector, aux::AuxDict) = PRule([PWasCompiled()], code, name, aux)
 
 struct PGrammar <: Pattern
     val::PVector
     code::IVector
     start::Symbol
     aux::AuxDict
-    function PGrammar(start::PRule, rest::Vararg{PRule})
-        start_sym = start.name
-        val = [start]
-        append!(val, rest)
-        new(val, Inst(), start_sym, Dict())
-    end
 end
+
+function PGrammar(start::PRule, rest::Vararg{PRule})
+    start_sym = start.name
+    val = [start]
+    append!(val, rest)
+    PGrammar(val, Inst(), start_sym, Dict())
+end
+
+"For pre-compiled grammars."
+PGrammar(start::Symbol, code::IVector, aux::AuxDict) = PGrammar([PWasCompiled()], code, start, aux)
+
 
 """
 Global count of capture pattern tags.

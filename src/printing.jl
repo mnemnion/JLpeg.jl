@@ -58,6 +58,10 @@ function Base.show(io::IO, ::MIME"text/plain", patt::Pattern)
     print(io, patt_str(patt))
 end
 
+function Base.show(io::IO, ::MIME"text/plain", patt::PWasCompiled)
+    print(io, "PWasCompiled()")
+end
+
 "Show a Grammar."
 function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
     if !haskey(patt.aux, :start) # Not yet compiled

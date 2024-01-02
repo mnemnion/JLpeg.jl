@@ -54,10 +54,18 @@ begin
 end
 
 function Pattern_2_expr(patt::Pattern)
-    patt = compile!(patt)
+    patt = prepare!(patt)
     local vexpr = Expr[]
     for inst in patt.code
         push!(vexpr, inst_2_expr(inst))
     end
-    return :([$(vexpr...)])
+    local code = :([$(vexpr...)])
+    local aux = Meta.parse(repr(patt.aux))
+    if patt isa PRule
+        local sym = QuoteNode(patt.rule)
+        return :(JLpeg.PRule(:($sym), $code, $aux))
+    elseif patt isa PGrammar
+        local sym = QuoteNode(patt.start)
+        return :(JLpeg.PGrammar($sym, $code, $aux))
+    end
 end
