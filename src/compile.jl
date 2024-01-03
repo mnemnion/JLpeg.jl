@@ -271,6 +271,16 @@ function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
     return
 end
 
+"""
+    hoist!(parent::Pattern, child::Pattern)::IVector
+
+The generic `hoist!` returns the code of `child`, this is specialized for
+some parent/child contexts where the code must be copied or rewritten.
+"""
+function hoist!(parent::Pattern, child::Pattern)::IVector
+    child.code
+end
+
 function _compile!(patt::Pattern)::Pattern
     error("Not Yet Implemented for $(typeof(patt))")
 end
@@ -296,17 +306,17 @@ function _compile!(patt::PTrue)::Pattern
 end
 
 function _compile!(patt::PFalse)::Pattern
-    push!(patt.code, OpFail)
+    push!(patt.code, OpFail, OpEnd)
     return patt
 end
 
 function _compile!(patt::POpenCall)::Pattern
-    push!(patt.code, OpenCallInst(patt.val))
+    push!(patt.code, OpenCallInst(patt.val), OpEnd)
     return patt
 end
 
 function _compile!(patt::PCall)::Pattern
-    push!(patt.code, OpenCallInst(patt.val))
+    push!(patt.code, OpenCallInst(patt.val), OpEnd)
     return patt
 end
 
@@ -319,7 +329,8 @@ function _compile!(patt::PBehind)::Pattern
         return return patt.val[1]
     end
     push!(patt.code, BehindInst(len))
-    append!(patt.code, patt.val[1].code)
+    pcode = hoist!(patt, patt[1])
+    append!(patt.code, pcode)
     @assert patt.code[end] == OpEnd
     return patt
 end

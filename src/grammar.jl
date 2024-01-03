@@ -88,7 +88,7 @@ uppercase (generic function with 2 methods)
 julia> @grammar uppernums (upper,) begin
            :nums  ←  (:num,) | :abc * :nums
            :num   ←  S"123"^1
-           :abc   ←  R"az"^1 / upper
+           :abc   ←  R"az"^1 |> upper
        end
 JLpeg.PGrammar(val→[JLpeg.PRule,JLpeg.PRule,JLpeg.PRule], IVec[]))
 
@@ -160,7 +160,7 @@ end
 Variable-escaping version of @rule.
 
 ```jldoctest
-julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") / uppercase
+julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") |> uppercase
 JLpeg.PRule(val→[JLpeg.PCapture], IVec[]))
 
 julia> match(upfoobar, "foo")

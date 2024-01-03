@@ -12,25 +12,17 @@ Wherein I note how I'm building the thing.
 
 This list could be a lot longer!
 
-- [#] Multibyte sets and chars
-  - [X] Implement multibyte sets
-  - [ ] Fix bug with emoji 🫠
-- [X] Interface stuff
-  - [X] The grammar munges every possible string into P"string", symbols too.
-        We need to fix that, possibly by rewriting as a prewalk, not postwalk?
-  - [X] `←` needs to take the capture forms on the right hand side
-- [X] `B(patt)` (prerequisite: determining fixed-length patterns)
-- [#] `T(:label)` somewhat hefty VM refactor here
-  - [X] `ThrowInst`
-  - [X] `ThrowRecInst`
-- [X] `PegFail` object with test conversion
-  - [X] default label is `:default`
-- [#] Captures
+- [ ]  [Compiler Rewrite](#compiler-rewrite)
+  - [ ]  Hoisting
+- [#]  Multibyte sets and chars
+  - [X]  Implement multibyte sets
+  - [ ]  Fix bug with emoji 🫠
+- [#]  Captures
   - [X] Cc
   - [ ] Ce, =>
-- [ ] Mark / Check
-- [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
-- [ ] Optimizations from The Book (paper and/or lpeg C code):
+- [ ]  [Mark / Check](#mark-and-check-back-references)
+- [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
+- [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ] TestPatt / headfail optimizations
   - [ ] Tail-call elimination
   - [ ] Set ISpan optimization
@@ -38,21 +30,18 @@ This list could be a lot longer!
   - [ ] full-capture optimization (bytecode)
   - [ ] disjoint-PChoice optimization
   - [ ] Capture-closing optimization (vm)
-- [X] All `CaptureInst`s same struct w. distinct Pattern subtype
-- [ ] fail optimization: only update the register once when returning from calls.
-      this one should be deferred until we have real profiling on the hot loop.
-- [#] Serializing and loading grammars
-  - [#] Serializer for PRule, PGrammar
-  - [ ]  `@rule!` and `@grammar!` macros
-    - [X]  `@rule!`
-    - [ ]  `@grammar!`
+- [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
+- [ ]  Fail optimization: only update the register once when returning from calls.
+       this one should be deferred until we have real profiling on the hot loop.
 - [ ]  "deferred action" form `patt / :func`.  This one will be rather complex to get
        right, but we get one critical and one nice thing out of it: assigning several
        actions to a single grammar, and compile-time compiling grammars then load-time
        providing the Actions.
 - [ ]  Proposed optimizations not found in LPeg
+  - [ ]  Inlining: short rules with no captures, "short" is like, 5 instructions? 10?
   - [ ]  CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
-  - [ ]  ReturnCommit: Yep. It's a Return which makes a capture.
+         Very nice for capture-heavy workflows, like parsing full grammars (where we very often
+         want a full rule).
   - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common patterns
          like whitespace, where the {\t\n } is very frequent and the comment part is not, lets
          use use ISpan for a leading set.
@@ -67,11 +56,26 @@ This list could be a lot longer!
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
-- [ ] Done:
+- [X] Done:
   - [X] Handle the other PStar cases
   - [X] `P(-n)` for n bytes remaining
   - [X] And and Not predicates
   - [X] Check lpeg code for #P(whatever) inside a call, does it use BackCommit?
+  - [X] Interface stuff
+    - [X] The grammar munges every possible string into P"string", symbols too.
+          We need to fix that, possibly by rewriting as a prewalk, not postwalk?
+    - [X] `←` needs to take the capture forms on the right hand side
+  - [X] `B(patt)` (prerequisite: determining fixed-length patterns)
+  - [X] `T(:label)` somewhat hefty VM refactor here
+    - [X] `ThrowInst`
+    - [X] `ThrowRecInst`
+  - [X] `PegFail` object with test conversion
+    - [X] default label is `:default`
+  - [X] Serializing and loading grammars
+    - [X] Serializer for PRule, PGrammar
+    - [X]  `@rule!` and `@grammar!` macros
+      - [X]  `@rule!`
+      - [X]  `@grammar!`
 
 ### Throw notes
 
@@ -93,7 +97,7 @@ just by checking the opcode of the frame's instruction pointer, which I like mor
 
 So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `inpred` VM register, and we unwind predicates on throw the (relatively) expensive way, by checking the instruction pointer each time we see an .s.
 
-#### PThrow Checklist
+#### [X] PThrow Checklist
 
 - [X]  Re-code `PAnd` and `PNot` to use `IPredChoice`
 - [X]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
@@ -103,7 +107,7 @@ So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `i
          pass in a `:throws` and `:caps` Dict during `prepare!`, good preparation for
          better compiling of Grammars.
   - [X]  Code ThrowInst
-  - [ ]  Code ThrowRecInst
+  - [X]  Code ThrowRecInst
 
 ### Grammar Compile Rewrite
 
@@ -125,24 +129,6 @@ start rule, we're done, and ready to hoist and link.
 
 We use `:aux` to store everything we determine about rules, nullable, nofail,
 fixedlen, terminal, visited, anything else we really need to know.
-
-#### [ ] Compiling
-
-I'm trying to figure out here what the operations for compiling even are.
-
-My basic annoyance with the current compiler is that it prewalks the code. Advantage: didn't have to sprinkle "compile!" everywhere.  Disadvantages: numerous.
-
-What I want is to dump that, and pass through a `link` Dict.
-
-Things to determine/do on recursive walk:
-
-- [X] Sight order: which rules are seen first, the code will be laid out accordingly
-- [X] Which rules are recursive
-- [ ] `:hascaps` (need for FullCapture optimization)
-- [ ] Compile everything which doesn't have a rule call.
-
- [ ] Inlining? Should we? What circumstances?
- [ ] Tail-call elimination
 
 ### Capture closing
 
@@ -226,7 +212,7 @@ This gives us a fragment parser: something which (in Lua terms) tries to make a
 `:program`, then a `:shebang`, then a `:block`, a `:statement`, etc, all the way down
 to making an `:add` out of `+`.  Very cheap!
 
-### Back references: Mark and Check
+### Mark and Check: Back References
 
 This is the separate mechanism I want to add based on the code I hacked together for
 bridge.  A Mark wraps the sequence in Choice/Commit, but this one is MarkCommit: we
@@ -242,6 +228,28 @@ Action on both captures, the result of which succeeds or fails the pattern.
 I _could_ implement this as captures but there are good reasons not to, this decomplects
 what is after all a pattern-matching operation from capturing, Mark/Check can cross rule
 and capture boundaries freely, which is the important thing from my perspective.
+
+### Compiler Rewrite
+
+I'm not satisfied with the flow of the current compiler, and I don't entirely understand
+why.  It might not even be about that, might just need to be more willing to lift the
+sub-codes of, particularly, `PChoice`, to rewrite them under some circumstances.
+
+Two things and I might not need both:
+
+- [?]  Pass in the parent in `compile` to `_compile`, to condition compiling on parental
+       context.
+- [?]  Add a `hoist!(parent::Pattern, child::Pattern)` method, which by default returns
+       the `.code`, but which can contextually rewrite it or copy it based on expectation
+       of the parental unit.  I like this better actually, full dispatch is one of the
+       gems of Julia and it is rather distinct behavior from compiling itself.  The
+       contract is that the parent (by being what it is) informs the child if a copy
+       or copy-and-rewrite is needed.
+
+I like `hoist!` better.  A pattern doesn't need its parent to compile, this makes
+"rewrite in context" its own operation, which I expect will be easier to follow.  It
+lets us have specialization in both directions, such as an enclosing rule which
+always needs a copy, if such exist.
 
 ## Dialects
 
