@@ -261,6 +261,12 @@ using Test
         notalphanum = (R"az" | R"09")^1 * (!P(1) % :notalphanum)
         @test match(notalphanum, "abc123abcz")[1] == "abc123abcz"
         @test match(notalphanum, "abc123abcz!").label == :notalphanum
+        @grammar throwrec begin
+            :foo  ←  "foo" * (!P(1) % :bar)
+            :bar  ←  "bar" % :nobar
+        end
+        @test match(throwrec, "foobar")[1] == "foobar"
+        @test match(throwrec, "fooba").label == :nobar
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[1] == (:string => "string")

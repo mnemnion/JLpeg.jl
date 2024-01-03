@@ -1,6 +1,7 @@
 
 module JLpeg
 
+include("types.jl")
 include("pattern.jl")
 include("interface.jl")
 include("compile.jl")

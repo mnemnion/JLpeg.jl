@@ -12,10 +12,6 @@ Wherein I note how I'm building the thing.
 
 This list could be a lot longer!
 
-- [X] Handle the other PStar cases
-- [X] `P(-n)` for n bytes remaining
-- [X] And and Not predicates
-- [X] Check lpeg code for #P(whatever) inside a call, does it use BackCommit?
 - [#] Multibyte sets and chars
   - [X] Implement multibyte sets
   - [ ] Fix bug with emoji 🫠
@@ -24,9 +20,11 @@ This list could be a lot longer!
         We need to fix that, possibly by rewriting as a prewalk, not postwalk?
   - [X] `←` needs to take the capture forms on the right hand side
 - [X] `B(patt)` (prerequisite: determining fixed-length patterns)
-- [X] `T(:label)` somewhat hefty VM refactor here
-  - [X] `PegFail` object with test conversion
-    - [X] default label is `:default`
+- [#] `T(:label)` somewhat hefty VM refactor here
+  - [X] `ThrowInst`
+  - [X] `ThrowRecInst`
+- [X] `PegFail` object with test conversion
+  - [X] default label is `:default`
 - [#] Captures
   - [X] Cc
   - [ ] Ce, =>
@@ -65,9 +63,15 @@ This list could be a lot longer!
          we can compress the head (lead) bytes into a single ASCII-style lead test set, by
          masking the high bit off.  This lets us single-test fail out of some very large
          ranges indeed, such as Chinese.
+- [ ]  Multigrammars (see [section](#multigrammar))
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
+- [ ] Done:
+  - [X] Handle the other PStar cases
+  - [X] `P(-n)` for n bytes remaining
+  - [X] And and Not predicates
+  - [X] Check lpeg code for #P(whatever) inside a call, does it use BackCommit?
 
 ### Throw notes
 
@@ -202,24 +206,25 @@ Easy test is to generate a random number and take a program we have nice tests f
 (such as `re`, soon), scatter a bunch of OpNoOps in it, correct, remove a bunch,
 correct, and so on, testing each time.
 
-### Serializing
+### Multigrammar
 
-Compiling is expensive, potentially very expensive once we start doing cool stuff.
-And we make no use of the Pattern at all, except the top one as a container for
-`aux`, after we create it. So I want to add a serialize-to-string function which is
-as fast to load as computerly possible, some ideas: Capital letters are enums (Opcode
-and CapKind), lowercase letters are short labels, - means what it always does, `n`
-comes before `l`, jumps further than +-26 are hex as `:ff`, always lowercase because
-we expect an opcode next, always at least two, if an n is encoded as hex, the label
-is always encoded as hex.  I believe that's unambiguous and forward-only, and only
-leaves out sets, which we already know how to serialize with show in a basically
-optimal way, although we'll  make some minor changes in the interest of forward-only
-unambigious optimality: starts with `{`, characters are in order and concatenated,
-ranges start with `|` and cover the next two characters.  That leaves finality, which
-comes before the `vec` and is `!` for false and `+` for true. The program section
-ends with `.`, followed by a Julia serialization of the Dict.  We'll need to figure
-out how to handle functions, the answer is **not** using eval on live Julia code, in
-the Dict we encode them as `missing` and there's some technique to reload them at runtime.
+This is something I was working on doing at the code-generation level with LPeg,
+which was/is the wrong way to go.  Note that this name probably belongs to embedding a
+grammar in another grammar, but let's leave that aside for now.
+
+I'm referring to a grammar which will first try to match the start rule, then if that
+fails, try to match any of the subrules, in "sight order", which is the order
+subrules are encountered from the start rule.
+
+This is *very easily done* in bytecode!  We're currently doing the standard thing of
+starting with a call at [1] to the program body at [3], with [2] an [End].  But we
+can replace that with [Choice, Call, Commit, Program], where Choice jumps beyond the
+"end" of the program and Commit goes home.  The 'post program' is just a big ol'
+choice statement trying all the rest of the rules in sight order.
+
+This gives us a fragment parser: something which (in Lua terms) tries to make a
+`:program`, then a `:shebang`, then a `:block`, a `:statement`, etc, all the way down
+to making an `:add` out of `+`.  Very cheap!
 
 ### Back references: Mark and Check
 

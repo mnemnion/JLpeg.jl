@@ -335,7 +335,7 @@ function frame_to_str(vm::VMState, i, s, c)::String
 end
 
 function vm_to_str(vm::VMState)::String
-    lines = [vm_head(vm)]
+    lines = [vm_head_color(vm)]
     if !vm.t_on
         push!(lines, "Frame: []")
     else

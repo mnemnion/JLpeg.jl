@@ -238,6 +238,7 @@ function runvm!(vm::VMState)::Bool
     vm.running = true
     vtop = length(vm.program)
     while vm.running
+        # print(vm_to_str(vm))
         if vm.i > vtop
             vm.running = false
             continue
@@ -408,19 +409,39 @@ end
 
 "onThrow"
 function onInst(inst::ThrowInst, vm::VMState)
-    vm.sfar = vm.s
     if !vm.inpred
         vm.failtag = inst.tag
+        vm.sfar = vm.s
         return false
     else
-        # Unwind until above predicate
-        # Which we can check with the stack instruction register,
-        # Conveniently enough
-        while vm.program[vm.ti].op ≠ IPredChoice
-            popframe!(vm)
-        end # until we've left the predicate on the stack
-        return false
+        return unwindpred!(vm)
     end
+end
+
+"onThrowRec"
+function onInst(inst::ThrowRecInst, vm::VMState)
+    if !vm.inpred
+        vm.failtag = inst.tag
+        pushcall!(vm)
+        vm.i += inst.l
+        return true
+    else
+        return unwindpred!(vm)
+    end
+end
+
+@inline
+"Unwind a throw inside a predicate"
+function unwindpred!(vm::VMState)
+    # Unwind until above predicate
+    # Which we can check with the stack instruction register,
+    # Conveniently enough
+    while vm.program[vm.ti].op ≠ IPredChoice
+        popframe!(vm)
+    end # until we've left the predicate on the stack
+    vm.failtag = 0
+    vm.sfar = vm.s
+    return false
 end
 
 function onInst(inst::LabelInst, vm::VMState)

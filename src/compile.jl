@@ -169,13 +169,16 @@ struct ThrowInst <: Instruction
     tag::UInt16
 end
 ThrowInst(tag::UInt16) = ThrowInst(IThrow, tag)
+
 struct ThrowRecInst <: Instruction
     op::Opcode
     tag::UInt16
     l::Int32
 end
-ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrow, tag, Int32(l))
-### Compilers
+ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrowRec, tag, Int32(l))
+
+
+# ## Compilers
 
 """
     compile!(patt::Pattern)::Pattern
@@ -710,11 +713,20 @@ end
 
 function link!(code::IVector, aux::AuxDict)
     callsite = aux[:callsite]
+    rules = aux[:rules]
+    throws = aux[:throws]
     for (idx, inst) in enumerate(code)
         if inst.op == IOpenCall
             site = callsite[inst.rule]
             l = site - idx
             code[idx] = CallInst(l)
+        elseif inst.op == IThrow
+            if haskey(rules, throws[inst.tag])
+                println("found a recovery rule for $(throws[inst.tag])")
+                site = callsite[throws[inst.tag]]
+                l = site - idx
+                code[idx] = ThrowRecInst(inst.tag, l)
+            end
         end
     end
 end
