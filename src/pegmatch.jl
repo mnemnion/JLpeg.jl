@@ -108,7 +108,7 @@ Base.eltype(::PegMatch) = Pair{PegKey, PegVal}
 
 """
     struct PegFail
-        subject:: String
+        subject::String
         errpos::UInt32
         label::Symbol
     end

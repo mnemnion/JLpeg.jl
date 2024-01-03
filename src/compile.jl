@@ -145,8 +145,9 @@ end
 # To be continued...
 
 abstract type SpanInst end
-abstract type NameCallInst end
 abstract type CloseRunTimeInst end
+abstract type MarkInstruction end
+abstract type CheckInstruction end
 
 struct CaptureInst <: Instruction
     op::Opcode
@@ -179,7 +180,7 @@ ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrow, tag, Int32(l))
 """
     compile!(patt::Pattern)::Pattern
 
-Compile a Pattern.
+Compile a [`Pattern`](@ref).
 
 Translate the Pattern to Instruction codes, appending them to
 the `code` field and returning same.  Performs various optimizations

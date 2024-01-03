@@ -58,8 +58,9 @@ The basic operations are as follows:
 | `patt1 - patt2`         | match `patt1` if `patt2` does not match                     |
 | `!patt`, `¬patt`        | negative lookahead, succeeds if `patt` fails                |
 | `~patt`                 | lookahead, match `patt` without advancing                   |
-| `patt1` >> `patt2`      | match `patt1`, then search the string for the next `patt2`. |
-| `P(true)`, `P(false)`   | always succeed or always fail, respectively                 |
+| `patt1 >> patt2`        | match `patt1`, then search the string for the next `patt2`. |
+| `P(true)` or `ϵ`        | always succeed                                              |
+| `P(false)` or `∅`       | always fail                                                 |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
 this is true for `S` and `R` as well.  These basic operations are not recursive, and
@@ -143,9 +144,10 @@ that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
 
 ## Actions
 
-A pattern may be modified with an action to be taken, either at runtime or more commonly
-once the match has completed.  These actions are supplied with all captures in `patt`, or
-the substring matched by `patt` itself if `patt` contains no captures of its own.
+A pattern may be modified with an action to be taken, either at runtime, or, more
+commonly, once the match has completed.  These actions are supplied with all captures
+in `patt`, or the substring matched by `patt` itself if `patt` contains no captures
+of its own.
 
 `T(:label)` doesn't capture, but rather, fails the match, records the position
 of that failure, and throws `:label`.  If there is a rule by that name, it is
@@ -156,11 +158,12 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | [ ] | Action           | Consequence                                             |
 | --- | ---------------- | ------------------------------------------------------- |
 | [X] | `A(patt, λ)`,    | the returns of function applied to the captures of patt |
-| [X] | `patt / λ`       |                                                         |
+| [X] | `patt \|> λ`     |
 | [ ] | `Anow(patt, λ)`, | captures `λ(C(patt)...)` at match time, return          |
-| [ ] | `patt // λ`      | `nothing` to fail the match                             |
-| [ ] | `patt % λ`       | fold/reduces captures with `λ`, captures last return    |
-| [X] | `T(:label)`      | fail the match and throw `:label`                       |
+| [ ] | `patt > λ`       | `nothing` to fail the match                             |
+| [ ] | `patt ./ λ`      | fold/reduces captures with `λ`, captures last return    |
+| [X] | `T(:label)`,     | fail the match and throw `:label`                       |
+| [X] | `patt % :label`  |                                                         |
 
 ### Rules
 

@@ -23,22 +23,22 @@ Contains the state of a match on `subject` by `program`.
 
 # Fields
 
-    Other than the `subject` and `program`, we have:
+Other than the `subject` and `program`, we have:
 
-- top: the byte length of `subject`
-- i: Instruction counter
-- s: Subject pointer
-- ti, ts, tc, tp: Stack top registers
-- t_on: flag for nonempty stack
-- inpred: Bool is `true` inside predicates (PAnd, PNot)
-- sfar: furthest subject pointer we've failed at, for error reporting
-- failtag: tag for a labeled failure
-- stack: Contains stack frames for calls and backtracks
-- cap: A stack for captures
-- running: a boolean which is true when the VM is executing
-- matched: true if we matched the program on the subject.
+- `top`: the byte length of `subject`
+- `i`: Instruction counter
+- `s`: Subject pointer
+- `ti`, `ts`, `tc`, `tp`: Stack top registers
+- `t_on`: flag for nonempty stack
+- `inpred`: `Bool` is `true` inside predicates (`PAnd`, `PNot`)
+- `sfar`: furthest subject pointer we've failed at, for error reporting
+- `failtag`: tag for a labeled failure
+- `stack`: Contains stack frames for calls and backtracks
+- `cap`: A stack for captures
+- `running`: `Bool` which is `true` when the VM is executing
+- `matched`: true if we matched the program on the subject
 
-# Implementation
+## Implementation
 
 Classic dispatch-driven VM with a program counter, opcodes, stack
 frames.  I borrowed a page from Forth and made the top of the
@@ -186,7 +186,7 @@ function followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
         inst = vm.program[vm.i]
         if match
             return followSet!(inst, match, vm)
-        elseif onInst(inst, vm)
+        elseif onInst(inst, vm)  # will be the next Set and thus return to followSet!
             match = true
         end
     else  # if subject advanced, it happened on match
@@ -236,13 +236,13 @@ pointers to see if the code generated from this approach is, in fact, optimal.
 """
 function runvm!(vm::VMState)::Bool
     vm.running = true
+    vtop = length(vm.program)
     while vm.running
-        # print(vm_to_str(vm))
-        if vm.i > length(vm.program)
+        if vm.i > vtop
             vm.running = false
             continue
         end
-        inst = vm.program[vm.i]
+        inst = @inbounds vm.program[vm.i]
         # @debug vm_head_color(vm)
         if !onInst(inst, vm)::Bool
             failmatch!(vm)

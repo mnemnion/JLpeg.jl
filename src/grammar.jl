@@ -4,16 +4,16 @@ using MacroTools
 
 const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 
-const 🔠 = P  # If you had a name collision here, welp. Dirty hack...
+const 🔠 = P  # Won't interfere with user uses of P
 
-const ops = [:*, :|, :^, :~, :¬, :!, :>>, :/, ://, :(=>), :%]
+const ops = [:*, :|, :^, :~, :¬, :!, :>>, :|>, :>, :(=>), :%, :./,]
 
 function wrap_rule(expr::Expr, rules::Expr)::Expr
     escapes = rules.args
     function for_x(x)
         if x isa String || x isa QuoteNode || x isa Char
             return :(🔠($x))
-        elseif x isa Symbol && x in escapes
+        elseif x isa Symbol && x ∈ escapes
             return esc(x)
         elseif x isa Expr
             if @capture(x, (@S_str(🔠(val_))))
@@ -29,15 +29,15 @@ function wrap_rule(expr::Expr, rules::Expr)::Expr
                     return x
                 end
             elseif @capture(x, fn_(params__))
-                if fn in ops
+                if fn ∈ ops
                     return x
                 end
-                for (idx, param) in enumerate(params)
+                for (idx, param) ∈ enumerate(params)
                     if isexpr(param) && param.head == :call && param.args[1] == :🔠
                         params[idx] = param.args[2]
                     end
                 end
-                :($(esc(fn))($(params...)))
+                :($(fn)($(params...)))
             else
                 return x
             end
@@ -68,10 +68,11 @@ This simple grammar captures the first string of numbers it finds:
 
 ```jldoctest
 julia> @grammar capnums begin
-    :nums  ←  (:num,) | 1 * :nums
-    :num   ←  S"123"^1
-end
-[...]
+            :nums  ←  (:num,) | 1 * :nums
+            :num   ←  S"123"^1
+        end
+JLpeg.PGrammar(val→[JLpeg.PRule,JLpeg.PRule], IVec[]))
+
 julia> match(capnums, "abc123abc123")
 PegMatch(["123"])
 ```
@@ -81,12 +82,15 @@ This one also captures the lowercase letters, converting them to uppercase. Beca
 `:abc` rule would use `JLpeg.uppercase`, which is seldom what you would want.
 
 ```jldoctest
-julia> @grammar uppernums (uppercase,) begin
+julia> upper = uppercase  # Creating a synonym with no definition within JLpeg
+uppercase (generic function with 2 methods)
+
+julia> @grammar uppernums (upper,) begin
            :nums  ←  (:num,) | :abc * :nums
            :num   ←  S"123"^1
-           :abc   ←  R"az"^1 / uppercase
+           :abc   ←  R"az"^1 / upper
        end
-[...]
+JLpeg.PGrammar(val→[JLpeg.PRule,JLpeg.PRule,JLpeg.PRule], IVec[]))
 
 julia> match(uppernums, "abc123abc123")
 PegMatch(["ABC", "123"])
@@ -96,7 +100,7 @@ More extensive examples may be found in the documentation.
 """
 macro grammar(name, expr)
     @capture(expr, begin rules__ end)
-    local rs = [wrap_rule(rule, :(())) for rule in rules]
+    local rs = [wrap_rule(rule, :(())) for rule ∈ rules]
     :($(esc(name)) = Grammar($(rs...)))
 end
 
@@ -107,9 +111,29 @@ macro grammar(name, syms, expr)
         throw(ArgumentError("all elements of @grammar tuple must be symbols"))
     end
     @capture(expr, begin rules__ end)
-    local rs = [wrap_rule(rule, syms) for rule in rules]
+    local rs = [wrap_rule(rule, syms) for rule ∈ rules]
     :($(esc(name)) = Grammar($(rs...)))
 end
+
+"""
+    @grammar! name begin
+        # rules...
+    end
+
+Compile-time version of `@grammar`.  This macro creates and compiles the `Grammar`
+during (Julia) compiling, setting `name` directly to the resulting grammar.
+
+Doesn't have a variable-escaping variant, because those variables don't exist at
+the time the grammar is compiled to bytecode.
+"""
+macro grammar!(name, expr)
+    @capture(expr, begin rules__ end)
+    local rs = [wrap_rule(rule, :(())) for rule ∈ rules]
+    local gexpr = :(Grammar($(rs...)))
+    local g_now = prepare!(eval(gexpr))
+    :($(esc(name)) = :($$g_now))
+end
+
 
 """
     @rule :name ← pattern...
@@ -137,7 +161,7 @@ Variable-escaping version of @rule.
 
 ```jldoctest
 julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") / uppercase
-[...]
+JLpeg.PRule(val→[JLpeg.PCapture], IVec[]))
 
 julia> match(upfoobar, "foo")
 PegMatch(["FOO"])
@@ -153,4 +177,20 @@ macro rule(syms, expr)
     local r = wrap_rule(expr, syms)
     local name = sym.value
     :($(esc(name)) = $r)
+end
+
+
+"""
+    @rule! :name ← patt...
+
+Compile-time version of `@rule`, assigns `name` directly to the fully-compiled
+`Rule(:name, patt)`.  Doesn't have a symbol-escaping form, because the values of
+those symbols aren't known at the time the rule is compiled.
+"""
+macro rule!(expr)
+    @capture(expr, (sym_ ← rulebody_) | (sym_ <= rulebody_)) || error("malformed rule in $(expr)")
+    local r = wrap_rule(expr, :(()))
+    local name = sym.value
+    local r_now = prepare!(eval(r))
+    :($(esc(name)) = :($$r_now))
 end

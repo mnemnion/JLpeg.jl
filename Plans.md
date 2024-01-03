@@ -28,7 +28,7 @@ This list could be a lot longer!
   - [X] `PegFail` object with test conversion
     - [X] default label is `:default`
 - [#] Captures
-  - [ ] Cc
+  - [X] Cc
   - [ ] Ce, =>
 - [ ] Mark / Check
 - [ ] detect "loop may accept empty string" such as `a = (!S"'")^0`
@@ -40,12 +40,31 @@ This list could be a lot longer!
   - [ ] full-capture optimization (bytecode)
   - [ ] disjoint-PChoice optimization
   - [ ] Capture-closing optimization (vm)
-- [ ] All `CaptureInst`s same struct w. distinct Pattern subtype
-- [ ] fail optimization: only update the register once when returning from calls
+- [X] All `CaptureInst`s same struct w. distinct Pattern subtype
+- [ ] fail optimization: only update the register once when returning from calls.
+      this one should be deferred until we have real profiling on the hot loop.
 - [#] Serializing and loading grammars
   - [#] Serializer for PRule, PGrammar
   - [ ]  `@rule!` and `@grammar!` macros
-- [ ] CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
+    - [X]  `@rule!`
+    - [ ]  `@grammar!`
+- [ ]  "deferred action" form `patt / :func`.  This one will be rather complex to get
+       right, but we get one critical and one nice thing out of it: assigning several
+       actions to a single grammar, and compile-time compiling grammars then load-time
+       providing the Actions.
+- [ ]  Proposed optimizations not found in LPeg
+  - [ ]  CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
+  - [ ]  ReturnCommit: Yep. It's a Return which makes a capture.
+  - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common patterns
+         like whitespace, where the {\t\n } is very frequent and the comment part is not, lets
+         use use ISpan for a leading set.
+  - [ ]  Follow sets for TestSet and Span.  These have the additional advantage that they can
+         jump immediately if they fail (for TestSet) or recurse to the start instruction after
+         a match (for a SpanSet).
+  - [ ]  Headfailing TestSet groups: If we have a group of multibyte sets we want to test,
+         we can compress the head (lead) bytes into a single ASCII-style lead test set, by
+         masking the high bit off.  This lets us single-test fail out of some very large
+         ranges indeed, such as Chinese.
 - [ ] AbstractPattern methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match

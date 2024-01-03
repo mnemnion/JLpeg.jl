@@ -71,7 +71,8 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
     bold(s::Union{String,Symbol}) = "\x1b[1m$s\x1b[0m"
     orange(s::Union{String,Symbol}) ="\x1B[38;5;208m$s\x1B[0m"
     meta = patt.aux
-    pad = length(patt.code) > 99 ? 3 : 2
+    cl = length(patt.code)
+    pad = cl > 9999 ? 5 : cl > 999 ? 4 : cl > 99 ? 3 : 2
     lines = [":$(meta[:start])", '-'^(length(string(meta[:start]))+1)]
     mapsite = Dict()
     for (sym, location) in meta[:callsite]
@@ -87,6 +88,12 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
         end
         line = ["  $ipad: "]
         frags = inst_pieces(inst, idx)
+        if inst isa CaptureInst
+            pop!(frags)
+            if meta[:caps][inst.tag] !== nothing
+                push!(frags, orange(" $(meta[:caps][inst.tag])"))
+            end
+        end
         append!(line, frags)
         push!(line, label)
         if inst.op == ICall
@@ -145,12 +152,12 @@ end
 function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     line = ["$(inst.op)"]
     t = typeof(inst)
-    if t == OpenCaptureInst || t == CloseCaptureInst || t == FullCaptureInst
+    if t == CaptureInst
         pop!(line)
         push!(line, "$(inst.kind)")
-        if t == OpenCaptureInst
+        if inst.op == IOpenCapture
             push!(line, " open")
-        elseif t == CloseCaptureInst
+        elseif inst.op == ICloseCapture
             push!(line, " close")
         else
             push!(line, " full")

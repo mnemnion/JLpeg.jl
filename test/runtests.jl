@@ -183,7 +183,7 @@ using Test
     end
     @testset "Macro tests" begin
         upper = uppercase
-        @rule (upper,) :upcase  ←  "abc" / upper
+        @rule (upper,) :upcase  ←  "abc" |> upper
         @test match(upcase, "abc")[1] == "ABC"
         @test_throws LoadError @eval @rule [:a, :b, :c] :a ← :b
         @test_throws ArgumentError begin
@@ -200,6 +200,10 @@ using Test
         @test_throws "a must be a tuple" @eval @rule 12 :a  ←  :b
         @test_throws "tuple must be Symbols" @eval @rule (a, b, 12) :a  ←  :b
         @test_throws "malformed rule" @eval @rule :a != :b
+        @rule :loadtime  ←  "123" | "456" | ("789")^1
+        @rule! :comptime  ←  "123" | "456" | ("789")^1
+        JLpeg.prepare!(loadtime)
+        @test comptime.code == loadtime.code
     end
     @testset "Captures" begin
         cap1 = C("123")
@@ -227,7 +231,7 @@ using Test
         @test match(poscap, "123abc").offsets[1] == 4
         func = A("" >> P"func", uppercase)
         @test match(func, "Make my func the Pfunc")[1] == "MAKE MY FUNC"
-        funky = "" >> C("func") / uppercase
+        funky = "" >> C("func") |> uppercase
         @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
         caprange = (Cr("123") | P(1))^1
         @test match(caprange, "abc123abc123abc").captures == [[4:6], [10:12]]
