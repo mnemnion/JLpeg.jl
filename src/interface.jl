@@ -291,12 +291,13 @@ function compile_raw_string(str::String)::String
 
     str = replace(str, c_escapes...)
 
-    str = replace(str, r"\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\u[0-9a-fA-F]{1:6}" =>
+    str = replace(str, r"\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\u[0-9a-fA-F]{1,4}|\\U[0-9a-fA-F]{1,8}" =>
     s -> begin
         esc = s[2]
-        base = (esc == 'u' || esc == 'x') ? 16 : 8
+        base = (esc == 'u' || esc == 'U' || esc == 'x') ? 16 : 8
         Char(parse(UInt32, s[3:end], base=base))
     end)
+
 
     return str
 end

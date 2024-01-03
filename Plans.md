@@ -12,9 +12,9 @@ Wherein I note how I'm building the thing.
 
 The hitlist:
 
-- [#]  Multibyte sets and chars
+- [X]  Multibyte sets and chars
   - [X]  Implement multibyte sets
-  - [ ]  Fix bug with emoji 🫠
+  - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
 - [#]  Captures
   - [X] Cc
   - [ ] `Ce`, `=>`
@@ -168,7 +168,6 @@ will only be FullCaptures, if we find a not-FullCapture there's a mistake somewh
 This would also mean not having to synthesize a FullCaptureInst in the following,
 although I doubt very much that this would generate different machine code, but
 maybe: the compiler pays a lot of attention to method dispatch.
-
 
 ### CaptureCommitInst
 
