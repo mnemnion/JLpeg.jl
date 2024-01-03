@@ -167,10 +167,6 @@ struct PCall <: Pattern
     end
 end
 
-"Singleton PWasCompiled for pre-compiled PRule and PGrammar"
-struct PWasCompiled <: Pattern
-end
-
 struct PRule <: Pattern
     val::PVector
     code::IVector
@@ -178,9 +174,6 @@ struct PRule <: Pattern
     aux::AuxDict
 end
 PRule(name::Symbol, val::Pattern) = PRule([val], Inst(), name, AuxDict())
-
-"For pre-compiled rules."
-PRule(name::Symbol, code::IVector, aux::AuxDict) = PRule([PWasCompiled()], code, name, aux)
 
 struct PGrammar <: Pattern
     val::PVector
@@ -195,9 +188,6 @@ function PGrammar(start::PRule, rest::Vararg{PRule})
     append!(val, rest)
     PGrammar(val, Inst(), start_sym, Dict())
 end
-
-"For pre-compiled grammars."
-PGrammar(start::Symbol, code::IVector, aux::AuxDict) = PGrammar([PWasCompiled()], code, start, aux)
 
 
 """

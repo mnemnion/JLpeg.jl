@@ -381,21 +381,20 @@ end
 function _compile!(patt::PAnd)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PAnd has more than one child"
     c = patt.code
-    code = copy(patt.val[1].code)
-    trimEnd!(code)
-    l = length(code) + 2  # 2 -> Choice, BackCommit
+    code = hoist!(patt, patt.val[1])
+    l = length(code) + 1  # 2 -> Choice, BackCommit
     push!(c, PredChoiceInst(l))
     append!(c, code)
-    push!(c, BackCommitInst(2))
-    push!(c, OpFail)  # Choice target
-    pushEnd!(c)
+    c[end] = BackCommitInst(2)
+    push!(c, OpFail, OpEnd)  # Choice target
     return patt
 end
 
 function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
+    # TODO PSet optimization: complement
     c = patt.code
-    code = copy(patt.val[1].code)
+    code = hoist!(patt, patt[1])
     # We can remove captures from PNot patterns,
     # which never succeed (except match-time captures)I
     for (idx, inst) in enumerate(code)
@@ -414,6 +413,8 @@ function _compile!(patt::PNot)::Pattern
     pushEnd!(c)  # Choice target
     return patt
 end
+
+hoist!(::PNot, child::Pattern) = copy(child.code)
 
 function _compile!(patt::PDiff)::Pattern
     v = patt.val
@@ -436,13 +437,14 @@ function _compile!(patt::PSeq)::Pattern
     if length(patt.val) == 1
         return patt.val[1]
     end
+    c = patt.code
     for p in patt.val
-        code = copy(p.code)
-        trimEnd!(code)
-        append!(patt.code, code)
+        code = hoist!(patt, p)
+        append!(c, code)
+        trimEnd!(c)
         # optimizations?
     end
-    pushEnd!(patt.code)
+    pushEnd!(c)
     return patt
 end
 
@@ -452,7 +454,7 @@ function _compile!(patt::PStar)::Pattern
     # bad things happen when val is  a PStar, specifically
     # when the inner is optional, e.g. ("ab"?)*, so we check for this
     # and fix it when we need to.
-    p = patt.val[1]
+    p = patt[1]
     if typeof(p) == PStar && p.n ≤ 0
         if p.n ≤ -1 && (patt.n == 0 || patt.n == 1)
             # "As many optionals as you want, as long as you match one" aka P^0
@@ -472,7 +474,7 @@ function _compile!(patt::PStar)::Pattern
         error("repetition on $(typeof(p)) is not allowed")
     end
     c = patt.code
-    code = copy(p.code)
+    code = hoist!(patt, p)
     trimEnd!(code)
     # TODO TestPattern optimization goes here, pass a flag to `addstar!`
     if patt.n == 0
@@ -502,6 +504,8 @@ function _compile!(patt::PStar)::Pattern
     return patt
 end
 
+hoist!(::PStar, child::Pattern) = copy(child.code)
+
 function addstar!(c::IVector, code::Vector{})
     l = length(code)
     push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
@@ -509,7 +513,6 @@ function addstar!(c::IVector, code::Vector{})
     push!(c, PartialCommitInst(-l))
     # Choice Target
 end
-
 
 function _compile!(patt::PChoice)::Pattern
     changed, mcode, start_idx = setoptimize!(patt)
@@ -555,6 +558,8 @@ function _compile!(patt::PChoice)::Pattern
     return patt
 end
 
+# TODO Change PChoice to use Ends, write hoist! for child::PChoice which makes them CommitInst
+
 function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
     patt.aux[:caps] = caps = get(patt.aux, :caps, Dict())  # TODO remove
@@ -565,7 +570,7 @@ function _compile!(patt::PCapture)::Pattern
         return patt
     end
     c = patt.code
-    ccode = copy(patt.val[1].code)
+    ccode = hoist!(patt, patt[1])
     # TODO full capture optimization
     trimEnd!(ccode)
     push!(c, OpenCaptureInst(patt.kind, patt.tag))
@@ -577,6 +582,8 @@ function _compile!(patt::PCapture)::Pattern
     return patt
 end
 
+hoist!(::PCapture, child::Pattern) = copy(child.code)
+
 function _compile!(patt::PThrow)::Pattern
     # Grammars may recode this as ThrowRecInst
     push!(patt.code, ThrowInst(patt.tag), OpEnd)
@@ -585,7 +592,7 @@ end
 
 function _compile!(patt::PRule)::Pattern
     c = patt.code
-    append!(c, patt[1].code)
+    append!(c, hoist!(patt, patt[1]))
     pushEnd!(c)
     return patt
 end
