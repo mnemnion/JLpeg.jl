@@ -10,16 +10,20 @@ Wherein I note how I'm building the thing.
 
 ### Remaining
 
-This list could be a lot longer!
+The hitlist:
 
-- [ ]  [Compiler Rewrite](#compiler-rewrite)
-  - [ ]  Hoisting
 - [#]  Multibyte sets and chars
   - [X]  Implement multibyte sets
   - [ ]  Fix bug with emoji 🫠
 - [#]  Captures
   - [X] Cc
-  - [ ] Ce, =>
+  - [ ] `Ce`, `=>`
+  - [ ] `Anow`, `>`
+  - [ ] `Cf`, `./`
+  - [ ]  "deferred action" form `patt |> :func` || `patt > :func`.  This one will be rather
+         complex to get right, but we get one critical and one nice thing out of it: assigning
+         several actions to a single grammar, and compile-time compiling grammars then load-time
+         providing the Actions.
 - [ ]  [Mark / Check](#mark-and-check-back-references)
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
@@ -31,13 +35,10 @@ This list could be a lot longer!
   - [ ] disjoint-PChoice optimization
   - [ ] Capture-closing optimization (vm)
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
-- [ ]  Fail optimization: only update the register once when returning from calls.
-       this one should be deferred until we have real profiling on the hot loop.
-- [ ]  "deferred action" form `patt / :func`.  This one will be rather complex to get
-       right, but we get one critical and one nice thing out of it: assigning several
-       actions to a single grammar, and compile-time compiling grammars then load-time
-       providing the Actions.
 - [ ]  Proposed optimizations not found in LPeg
+  - [ ]  Fail optimization: only update the register once when returning from calls.
+         this one should be deferred until we have real profiling on the hot loop.
+         Technically this _is_ found in LPeg...
   - [ ]  Inlining: short rules with no captures, "short" is like, 5 instructions? 10?
   - [ ]  CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
          Very nice for capture-heavy workflows, like parsing full grammars (where we very often
@@ -53,7 +54,7 @@ This list could be a lot longer!
          masking the high bit off.  This lets us single-test fail out of some very large
          ranges indeed, such as Chinese.
 - [ ]  Multigrammars (see [section](#multigrammar))
-- [ ] AbstractPattern methods
+- [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
 - [X] Done:
@@ -76,6 +77,8 @@ This list could be a lot longer!
     - [X]  `@rule!` and `@grammar!` macros
       - [X]  `@rule!`
       - [X]  `@grammar!`
+  - [X]  [Compiler Rewrite](#compiler-rewrite)
+    - [X]  Hoisting
 
 ### Throw notes
 
@@ -129,6 +132,28 @@ start rule, we're done, and ready to hoist and link.
 
 We use `:aux` to store everything we determine about rules, nullable, nofail,
 fixedlen, terminal, visited, anything else we really need to know.
+
+#### Compiler Rewrite
+
+I'm not satisfied with the flow of the current compiler, and I don't entirely understand
+why.  It might not even be about that, might just need to be more willing to lift the
+sub-codes of, particularly, `PChoice`, to rewrite them under some circumstances.
+
+Two things and I might not need both:
+
+- [?]  Pass in the parent in `compile` to `_compile`, to condition compiling on parental
+       context.
+- [?]  Add a `hoist!(parent::Pattern, child::Pattern)` method, which by default returns
+       the `.code`, but which can contextually rewrite it or copy it based on expectation
+       of the parental unit.  I like this better actually, full dispatch is one of the
+       gems of Julia and it is rather distinct behavior from compiling itself.  The
+       contract is that the parent (by being what it is) informs the child if a copy
+       or copy-and-rewrite is needed.
+
+I like `hoist!` better.  A pattern doesn't need its parent to compile, this makes
+"rewrite in context" its own operation, which I expect will be easier to follow.  It
+lets us have specialization in both directions, such as an enclosing rule which
+always needs a copy, if such exist.
 
 ### Capture closing
 
@@ -228,28 +253,6 @@ Action on both captures, the result of which succeeds or fails the pattern.
 I _could_ implement this as captures but there are good reasons not to, this decomplects
 what is after all a pattern-matching operation from capturing, Mark/Check can cross rule
 and capture boundaries freely, which is the important thing from my perspective.
-
-### Compiler Rewrite
-
-I'm not satisfied with the flow of the current compiler, and I don't entirely understand
-why.  It might not even be about that, might just need to be more willing to lift the
-sub-codes of, particularly, `PChoice`, to rewrite them under some circumstances.
-
-Two things and I might not need both:
-
-- [?]  Pass in the parent in `compile` to `_compile`, to condition compiling on parental
-       context.
-- [?]  Add a `hoist!(parent::Pattern, child::Pattern)` method, which by default returns
-       the `.code`, but which can contextually rewrite it or copy it based on expectation
-       of the parental unit.  I like this better actually, full dispatch is one of the
-       gems of Julia and it is rather distinct behavior from compiling itself.  The
-       contract is that the parent (by being what it is) informs the child if a copy
-       or copy-and-rewrite is needed.
-
-I like `hoist!` better.  A pattern doesn't need its parent to compile, this makes
-"rewrite in context" its own operation, which I expect will be easier to follow.  It
-lets us have specialization in both directions, such as an enclosing rule which
-always needs a copy, if such exist.
 
 ## Dialects
 
