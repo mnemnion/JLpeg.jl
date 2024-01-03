@@ -271,6 +271,8 @@ function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
     return
 end
 
+const PCopyChild = Union{PNot,PStar,PCapture}
+
 """
     hoist!(parent::Pattern, child::Pattern)::IVector
 
@@ -278,7 +280,11 @@ The generic `hoist!` returns the code of `child`, this is specialized for
 some parent/child contexts where the code must be copied or rewritten.
 """
 function hoist!(parent::Pattern, child::Pattern)::IVector
-    child.code
+    if parent isa PCopyChild
+        copy(child.code)
+    else
+        child.code
+    end
 end
 
 function _compile!(patt::Pattern)::Pattern
@@ -414,8 +420,6 @@ function _compile!(patt::PNot)::Pattern
     return patt
 end
 
-hoist!(::PNot, child::Pattern) = copy(child.code)
-
 function _compile!(patt::PDiff)::Pattern
     v = patt.val
     # Optimization: difference of sets can be done with Boolean logic
@@ -504,8 +508,6 @@ function _compile!(patt::PStar)::Pattern
     return patt
 end
 
-hoist!(::PStar, child::Pattern) = copy(child.code)
-
 function addstar!(c::IVector, code::Vector{})
     l = length(code)
     push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
@@ -581,8 +583,6 @@ function _compile!(patt::PCapture)::Pattern
     pushEnd!(c)
     return patt
 end
-
-hoist!(::PCapture, child::Pattern) = copy(child.code)
 
 function _compile!(patt::PThrow)::Pattern
     # Grammars may recode this as ThrowRecInst
