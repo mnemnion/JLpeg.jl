@@ -5,6 +5,7 @@
     IAny        # if no char, fail
     IChar       # if char != aux, fail
     ISet        # if char not in buff, fail
+    ILeadSet    # ASCII lead of MultiSet
     IMultiSet   # Multibyte vectored sets
     ITestAny    # in no char, jump to 'offset'
     ITestChar   # if char != aux, jump to 'offset'
@@ -72,6 +73,8 @@ end
 SetInst(vec::BitVector) = SetInst(ISet, vec, Int32(1))
 SetInst(vec::BitVector, l::Integer) = SetInst(ISet, vec, Int32(l))
 SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
+
+LeadSetInst(vec::BitVector, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
 
 struct MultiSetInst <: Instruction
     op::Opcode
@@ -988,7 +991,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
     coll = collect(pre)
     len = length(coll) + 2
     if bvec !== nothing
-        push!(c, SetInst(bvec, len))  # -> end of MultiSet, after OpFail
+        push!(c, LeadSetInst(bvec, len))  # -> end of MultiSet, after OpFail
     end
     for (idx, pair) in enumerate(coll)
         bytes, vec = pair

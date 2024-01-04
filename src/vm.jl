@@ -219,9 +219,7 @@ function runvm!(vm::VMState)::Bool
         end
         inst = @inbounds vm.program[vm.i]
         # print(vm_to_str(vm))
-        match = onInst(inst, vm)::Bool
-        # println(match)
-        if !match
+        if !onInst(inst, vm)::Bool
             failmatch!(vm)
         end
     end
@@ -309,7 +307,8 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     end
     if !match
         updatesfar!(vm)
-        return false
+        vm.i += 1    # NOTE this depends on only two kinds of SetInst!
+        return inst.op == ISet ? false : true
     else
         vm.i += inst.l
         return true
