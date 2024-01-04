@@ -279,5 +279,9 @@ using Test
         @test match(emojiascii, "😀a😆bbb😂🥲ccc😀") isa PegMatch
         allrange = (R"az" | R"αω" | R"ሀሏ" | R"👆👏")^1 * !P(1)
         @test match(allrange, "abθqηζzሆሊηሊt👊ሊ👋η👎z") isa PegMatch
+        not123 = compile!(!S"123")
+        @test match(not123, "4") isa PegMatch
+        @test match(not123, "3") isa PegFail
+        @test match(not123, "🤡") isa PegMatch
     end
 end

@@ -123,7 +123,7 @@ struct TestAnyInst <: Instruction
     n::UInt32
     l::Int32
 end
-TestAnyInst(n::UInt32, l::Int32) = TestAnyInst(ITestAny, n, Int32(l))
+TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(ITestAny, n, Int32(l))
 
 "Not yet in use"
 struct TestCharInst <: Instruction
@@ -131,7 +131,7 @@ struct TestCharInst <: Instruction
     c::AbstractChar
     l::Int32
 end
-TestCharInst(c::AbstractChar, l::Int32) = TestCharInst(ITestChar, c, Int32(l))
+TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(ITestChar, c, Int32(l))
 
 "Not yet in use"
 struct TestSetInst <: Instruction
@@ -139,7 +139,7 @@ struct TestSetInst <: Instruction
     vec::BitVector
     l::Int32
 end
-TestSetInst(vec::BitVector, l::Int32) = TestSetInst(ITestSet, vec, Int32(l))
+TestSetInst(vec::BitVector, l::Integer) = TestSetInst(ITestSet, vec, Int32(l))
 
 struct OpenCallInst <: Instruction
     op::Opcode
@@ -403,7 +403,6 @@ end
 
 function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
-    # TODO PSet optimization: complement
     c = patt.code
     code = hoist!(patt, patt[1])
     # We can remove captures from PNot patterns,
