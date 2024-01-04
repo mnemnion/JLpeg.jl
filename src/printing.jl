@@ -316,23 +316,27 @@ function vm_head(vm::VMState)::String
     "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_subject(vm.subject, vm.s))"
 end
 
-function vm_head_color(vm::VMState)::String
+function vm_head_color1(vm::VMState)::String
     o = vm.t_on ? 1 : 0
     b = vm.t_on ? "yes" : "no"
-    "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))\n"
+    "State: [i:$(vm.i)] {$(lcap(vm))} $(inst_str(vm.program[vm.i], vm.i)) $b ⟨$(length(vm.stack) + o)⟩ s:$(in_red(vm.subject, vm.s))"
+end
+
+function vm_head_color(vm::VMState)::String
+    vm_head_color1(vm) * "\n"
 end
 
 function frame_to_str(vm::VMState, i, s, c)::String
     inst = vm.program[i]
     if s == 0
-        "[i:$(i)] {$c} $(inst_str(inst,i))"
+        "[i:$(i)] {$c} $(inst_str(inst, i))"
     else
         "[i:$(i)] {$c} $(inst_str(inst, i)) s:$(in_subject(vm.subject, s))"
     end
 end
 
 function vm_to_str(vm::VMState)::String
-    lines = [vm_head_color(vm)]
+    lines = [vm_head_color1(vm)]
     if !vm.t_on
         push!(lines, "Frame: []")
     else
@@ -342,16 +346,14 @@ function vm_to_str(vm::VMState)::String
     for frame in Iterators.reverse(vm.stack)
         push!(lines, frame_to_str(vm, frame.i, frame.s, frame.c))
     end
-    push!(lines, "---")
-    if isempty(vm.cap)
-        push!(lines, "Caps:[]")
-    else
+    if !isempty(vm.cap)
+        push!(lines, "---")
         push!(lines, "Caps:")
         for entry in Iterators.reverse(vm.cap)
             push!(lines, repr(entry))
         end
     end
-    push!(lines, "---\n")
+    push!(lines, "---\n\n")
     return join(lines, "\n")
 end
 
@@ -374,13 +376,13 @@ end
 function red_i(str::String, i::UInt32)
     red_start = "\x1B[31m"
     red_end = "\x1B[0m"
-    s_end = "⟫"
     sstr = sizeof(str)
-    i1 = clamp(i, 1, sstr)
-    i2 = clamp(i+1, 1, sstr)
-    highlighted_str = str[1:i1-1] * red_start * str[i1:i1] * red_end
-    if i2 ≠ i1
-        highlighted_str *= str[i2:end]
+    hichar = str[i]
+    iprev = prevind(str, i)
+    inext = nextind(str, i)
+    highlighted_str = str[1:iprev] * red_start * hichar * red_end
+    if inext ≤ sstr
+        highlighted_str *= str[inext:end]
     end
 
     return highlighted_str
@@ -406,17 +408,22 @@ function subject_i(str::String, i::UInt32)
     s_start = "⟪"
     s_end = "⟫"
     sstr = sizeof(str)
-    i1 = clamp(i, 1, sstr)
-    i2 = clamp(i+1, 1, sstr)
-    highlighted_str = str[1:i1-1] * s_start * str[i1:i1] * s_end
-    if i2 ≠ i1
-        highlighted_str *= str[i2:end]
+    hichar = str[i]
+    iprev = prevind(str, i)
+    inext = nextind(str, i)
+    highlighted_str = str[1:iprev] * s_start * hichar * s_end
+    if inext ≤ sstr
+        highlighted_str *= str[inext:end]
     end
 
     return highlighted_str
 end
 
 function substr_at_i(str::String, i::UInt32)
+    return str, i
+end
+
+function broken_substr_at_i(str::String, i::UInt32)
     # Determine the start index
     start_index = i
     for _ = 1:10

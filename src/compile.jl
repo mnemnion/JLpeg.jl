@@ -67,22 +67,23 @@ CharInst(c::AbstractChar) = CharInst(IChar, c)
 struct SetInst <: Instruction
     op::Opcode
     vec::BitVector
-    final::Bool
+    l::Int32
 end
-SetInst(vec::BitVector) = SetInst(ISet, vec, true)
-SetInst(vec::BitVector, final::Bool) = SetInst(ISet, vec, final)
+SetInst(vec::BitVector) = SetInst(ISet, vec, Int32(1))
+SetInst(vec::BitVector, l::Integer) = SetInst(ISet, vec, Int32(l))
+SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
 
 struct MultiSetInst <: Instruction
     op::Opcode
     lead::Vector{UInt8}
     vec::BitVector
-    final::Bool
+    l::Int32
 end
-function MultiSetInst(lead::Vector{UInt8}, vec::BitVector, final::Bool)
-    MultiSetInst(IMultiSet, lead, vec, final)
+function MultiSetInst(lead::Vector{UInt8}, vec::BitVector, l::Integer)
+    MultiSetInst(IMultiSet, lead, vec, Int32(l))
 end
-function MultiSetInst(multi::MultiSetInst, final::Bool)
-    MultiSetInst(IMultiSet, multi.lead, multi.vec, final)
+function MultiSetInst(multi::MultiSetInst, l::Integer)
+    MultiSetInst(IMultiSet, multi.lead, multi.vec, Int32(l))
 end
 
 struct BehindInst <: Instruction
@@ -111,6 +112,7 @@ JumpInst(l::Integer) = LabelInst(IJump, Int32(l))
 PartialCommitInst(l::Integer) = LabelInst(IPartialCommit, Int32(l))
 BackCommitInst(l::Integer) = LabelInst(IBackCommit, Int32(l))
 
+"Not yet in use"
 struct TestAnyInst <: Instruction
     op::Opcode
     n::UInt32
@@ -118,6 +120,7 @@ struct TestAnyInst <: Instruction
 end
 TestAnyInst(n::UInt32, l::Int32) = TestAnyInst(ITestAny, n, Int32(l))
 
+"Not yet in use"
 struct TestCharInst <: Instruction
     op::Opcode
     c::AbstractChar
@@ -125,12 +128,14 @@ struct TestCharInst <: Instruction
 end
 TestCharInst(c::AbstractChar, l::Int32) = TestCharInst(ITestChar, c, Int32(l))
 
+"Not yet in use"
 struct TestSetInst <: Instruction
     op::Opcode
     vec::BitVector
     l::Int32
 end
 TestSetInst(vec::BitVector, l::Int32) = TestSetInst(ITestSet, vec, Int32(l))
+
 struct OpenCallInst <: Instruction
     op::Opcode
     rule::Symbol # Symbol?
@@ -352,14 +357,11 @@ function _compile!(patt::PSet)::Pattern
         return compile!(PChar(first(patt.val)))
     end
     bvec, prefix_map = vecsforstring(patt.val)
-
-    is_final = prefix_map === nothing ? true : false
-    if bvec !== nothing
-        push!(patt.code, SetInst(bvec, is_final))
-    end
-    if prefix_map !== nothing
-        encode_multibyte_set!(patt.code, prefix_map)
-    end
+    if bvec !== nothing && prefix_map === nothing
+        push!(patt.code, SetInst(bvec))
+     else
+         encode_multibyte_set!(patt.code, bvec, prefix_map)
+     end
     pushEnd!(patt.code)
     return patt
 end
@@ -373,12 +375,10 @@ function _compile!(patt::PRange)::Pattern
         i += 1
     end
     bvec, prefix_map = vecsforstring(Vector{AbstractChar}(vec))
-    is_final = prefix_map === nothing ? true : false
-    if bvec !== nothing
-       push!(patt.code, SetInst(bvec, is_final))
-    end
-    if prefix_map !== nothing
-        encode_multibyte_set!(patt.code, prefix_map)
+    if bvec !== nothing && prefix_map === nothing
+       push!(patt.code, SetInst(bvec))
+    else
+        encode_multibyte_set!(patt.code, bvec, prefix_map)
     end
     pushEnd!(patt.code)
     return patt
@@ -978,19 +978,23 @@ function compact_bytevec!(prefixes)
     end
 end
 
-function encode_multibyte_set!(c::IVector, pre::Dict)
+
+"""
+    encode_multibyte_set!(c::IVector, pre::Dict)
+
+TBW
+"""
+function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::Dict)
     coll = collect(pre)
-    len = length(coll)
-    count = 0
-    for pair in coll
-        count += 1
-        bytes, vec = pair
-        if count < len
-            push!(c, MultiSetInst(bytes, vec, false))
-        else
-            push!(c, MultiSetInst(bytes, vec, true))
-        end
+    len = length(coll) + 2
+    if bvec !== nothing
+        push!(c, SetInst(bvec, len))  # -> end of MultiSet, after OpFail
     end
+    for (idx, pair) in enumerate(coll)
+        bytes, vec = pair
+        push!(c, MultiSetInst(bytes, vec, len - idx))
+    end
+    push!(c, OpFail)
 end
 
 function encode_utf8(char::Char)::Tuple{Int, Vector{UInt8}}

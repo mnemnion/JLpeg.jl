@@ -174,31 +174,6 @@ function updatesfar!(vm)
 end
 
 @inline
-"""
-    followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
-
-Follow a set of instructions forming a single logical set instruction.
-Return the success of any of these instructions, or `false`.
-"""
-function followSet!(inst::Instruction, match::Bool, vm::VMState)::Bool
-    if !inst.final
-        vm.i += 1
-        inst = vm.program[vm.i]
-        if match
-            return followSet!(inst, match, vm)
-        elseif onInst(inst, vm)  # will be the next Set and thus return to followSet!
-            match = true
-        end
-    else  # if subject advanced, it happened on match
-        vm.i += 1
-    end
-    if !match
-        updatesfar!(vm)
-    end
-    return match
-end
-
-@inline
 "Unwind the stacks on a match failure"
 function failmatch!(vm::VMState)
     if !vm.t_on
@@ -238,14 +213,15 @@ function runvm!(vm::VMState)::Bool
     vm.running = true
     vtop = length(vm.program)
     while vm.running
-        # print(vm_to_str(vm))
         if vm.i > vtop
             vm.running = false
             continue
         end
         inst = @inbounds vm.program[vm.i]
-        # @debug vm_head_color(vm)
-        if !onInst(inst, vm)::Bool
+        # print(vm_to_str(vm))
+        match = onInst(inst, vm)::Bool
+        # println(match)
+        if !match
             failmatch!(vm)
         end
     end
@@ -331,7 +307,13 @@ function onInst(inst::SetInst, vm::VMState)::Bool
             match = true
         end
     end
-    followSet!(inst, match, vm)
+    if !match
+        updatesfar!(vm)
+        return false
+    else
+        vm.i += inst.l
+        return true
+    end
 end
 
 "onMultiSet"
@@ -359,9 +341,15 @@ function onInst(inst::MultiSetInst, vm::VMState)::Bool
         end
         if match
             vm.s += width
+            vm.i += inst.l
+            return true
+        else
+            vm.i += 1
+            return true # OpFail at end of MultiSets
         end
+    else
+        return false
     end
-    followSet!(inst, match, vm)
 end
 
 "onTestChar"

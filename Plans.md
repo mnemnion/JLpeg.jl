@@ -176,9 +176,10 @@ Algorithm then:
 
 This calls for a certain order of operations!
 
-- [ ] Add a bunch more MultiSet tests (emoji in particular)
-- [ ] Refactor `.final` field into `.l` labeled jump
-- [ ] Add `IByteInst`, refactor `IMultiSet` for new bytecode
+- [#]  Add a bunch more MultiSet tests (emoji in particular)
+  - [ ]  Add **moar** Set tests!
+- [ ]  Refactor `.final` field into `.l` labeled jump
+- [ ]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
 
 ### Throw notes
 
