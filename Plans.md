@@ -196,23 +196,27 @@ This calls for a certain order of operations!
 - [X]  Refactor `.final` field into `.l` labeled jump
 - [X]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
 - [ ]  Handle PChoice consolidation
-  - [ ]  Make PRange and PSet store in consistent format (Vector[AbstractChar]), although
-         the hard fact is that there's nothing "abstract" about the chars in JLpeg and I
-         may as well make that official.  These Vectors should be created at the time
-         that the Pattern is created, so that:
-  - [ ]  PChoice should have the option to be a PSet container, if it sees PRange,
-         PSet, PChar, it just adds these.  For that matter, we can specialize these
-         to automagically consolidate using `|`, that's better actually.
-  - [ ]  PNot can make a complement of a simple PSet, but a MultiSet needs to use
-         FailTwice.
+  - [ ]  Make PRange and PSet both PSet
   - [ ]  Compile time doesn't matter nearly so much as VM time, but it's still nice
          to avoid extra allocation, especially for something like ".val" fields which
          stick around forever.  So we could make PSet store a
          `Vector{Option{Char,Pair{Char,Char}}}`, get rid of separate PRange which
          only complicates the code, and JIT the bitvector in prefix!, apply the byte,
          and call it golden.
-
-
+  - [ ]  PChoice should have the option to be a PSet container, if it sees PRange,
+         PSet, PChar, it just adds these.  For that matter, we can specialize these
+         to automagically consolidate using `|`, that's better actually.
+  - [ ]  PNot can make a complement of a simple PSet, but a MultiSet needs to use
+         FailTwice.
+  - [ ]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
+    - [ ]  Count the keys in the prefix map, if there are more than say five:
+    - [ ]  Calculate a TestMultiVec, which fail-jumps without unwinding the stack
+    - [ ]  Turn the LeadSet into a TestSet, if applicable (complement)
+  - [ ]  We do not, in fact, need the LeadSet, which can be replaced with a
+         complemented `.~` BitVector TestSet. A LeadSet jumps if it succeeds and
+         advances if it fails, a TestSet jumps if it fails and advances if it leads,
+         both return `true` on both conditions, so a LeadSet can just be a TestSet
+         of the complement of the original ASCII set.
 
 #### Consolidating PChoice
 

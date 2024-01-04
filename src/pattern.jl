@@ -42,16 +42,15 @@ struct PChar <: Pattern
 end
 
 struct PSet <: Pattern
-    val::AbstractString
+    val::Vector{AbstractChar}
     code::IVector
-    PSet(val::AbstractString) = new(val, Inst())
-    PSet(a, b) = new(a, b)
+    PSet(val::AbstractString) = new(collect(val), Inst())
+    PSet(val::Vector{AbstractChar}) = new(val, Inst())
+    PSet(inst::IVector) = new([], inst)
 end
 
-"special PSet constructor direct from BitVec opcode"
-function PSet(val::IVector)
-    PSet("", val)
-end
+
+
 
 struct PRange <: Pattern
     val::Tuple{AbstractChar, AbstractChar}
@@ -286,5 +285,5 @@ function optimizePChoice(a::PChoice, b::Pattern)
 end
 
 # A choice between two sets is just the union of those sets
-optimizePChoice(a::PSet, b::PSet) = [PSet(a.val * b.val)]
+optimizePChoice(a::PSet, b::PSet) = [PSet(vcat(a.val, b.val))]
 optimizePChoice(a::Pattern, b::Pattern) = [a, b]

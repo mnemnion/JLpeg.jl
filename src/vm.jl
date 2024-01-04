@@ -339,13 +339,19 @@ end
 
 "onMultiVec"
 function onInst(inst::MultiVecInst, vm::VMState)::Bool
-    # Mask high bit + 1 for Julia indexing
+    if vm.s > vm.top
+        vm.s = prevind(vm.subject, vm.s)
+        updatesfar!(vm)
+        return false
+    end
+    # Mask high bit, + 1 for Julia indexing
     byte = (codeunit(vm.subject, vm.s) & 0b01111111) + UInt8(1)
     if inst.vec[byte]
         vm.i += inst.l
         vm.s += 1
         return true
-    else
+    else  # Unwind the subject pointer for an accurate sfar
+        vm.s = prevind(vm.subject, vm.s)
         updatesfar!(vm)
         return false
     end

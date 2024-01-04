@@ -354,11 +354,11 @@ end
 function _compile!(patt::PSet)::Pattern
     # Specialize the empty set
     # We'll turn into a Jump when we have the requisite info
-    if patt.val == ""  # A valid way of saying "fail"
+    if isempty(patt.val)  # A valid way of saying "fail"
         return compile!(PFalse())
     end
     # Specialize one-char sets into PChar
-    if sizeof(patt.val) ≤ 4 && length(patt.val) == 1
+    if length(patt.val) == 1
         return compile!(PChar(first(patt.val)))
     end
     bvec, prefix_map = vecsforstring(patt.val)
@@ -726,7 +726,6 @@ function link!(code::IVector, aux::AuxDict)
             code[idx] = CallInst(l)
         elseif inst.op == IThrow
             if haskey(rules, throws[inst.tag])
-                println("found a recovery rule for $(throws[inst.tag])")
                 site = callsite[throws[inst.tag]]
                 l = site - idx
                 code[idx] = ThrowRecInst(inst.tag, l)
