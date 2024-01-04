@@ -91,9 +91,9 @@ The first thing is to replace "final" with an instruction label, so that any mat
 can skip the rest of the MultiSet in a single jump, this lets us do a simple loop for
 the rest of the tests.
 
-Next, we need a ExtCharHeatTest instruction, or something like that; this fails if
-the high bit is zero, if not, we mask it off and test the byte against a BitVec,
-telling us whether our extended char is by definition not in our set.
+Next, we need a `ExtTestSetInst` instruction.  This fails if the high bit is zero, if
+not, we mask it off and test the byte against a BitVec, telling us whether our
+extended char is by definition not in our set.
 
 Test instructions all have a label, when this is done *all* SetInst will have a label
 (and no `.final` field).
@@ -171,6 +171,14 @@ Algorithm then:
 - Compute the new headfail for the 1bytes
 - Append all 1bytes, then 2bytes, then 3bytes, then the IMultisets, and OpEnd
 - Fixup pass to replace all instructions with their relabeled version.
+
+#### MultiSet Checklist
+
+This calls for a certain order of operations!
+
+- [ ] Add a bunch more MultiSet tests (emoji in particular)
+- [ ] Refactor `.final` field into `.l` labeled jump
+- [ ] Add `IByteInst`, refactor `IMultiSet` for new bytecode
 
 ### Throw notes
 

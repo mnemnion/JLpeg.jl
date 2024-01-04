@@ -274,4 +274,10 @@ using Test
         @test match(re, "sym")[1] == "sym"
         @test match(re, "a <- b c*")[1] == (:definition => ["a", " b c*"])
     end
+    @testset "MultiSet refactor tests" begin
+        emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)
+        @test match(emojiascii, "😀a😆bbb😂🥲ccc😀") isa PegMatch
+        allrange = (R"az" | R"αω" | R"ሀሏ" | R"👆👏")^1 * !P(1)
+        @test match(allrange, "abθqηζzሆሊηሊt👊ሊ👋η👎z") isa PegMatch
+    end
 end
