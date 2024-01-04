@@ -883,13 +883,12 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
 end
 
 function prefix!(map::Dict, b1::UInt8, b2::UInt8)
-    # mask off the top two bytes to save space later‡
     b2 &= 0b00111111
     if haskey(map, b1)
-        push!(map[b1], b2)
+        map[b1][b2 + 1] = true
     else
-        map[b1] = UInt8[]
-        push!(map[b1], b2)
+        map[b1] = falses(64)
+        map[b1][b2 + 1] = true
     end
 end
 
@@ -907,14 +906,6 @@ function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8, b4::UInt8)
     prefix!(map[b1], b2, b3, b4)
 end
 
-#  ‡later being here
-function compact_bytevec!(vec::Vector{UInt8})::BitVector
-    bvec = falses(64)
-    for byte in vec
-        bvec[byte+1] = true
-    end
-    return bvec
-end
 
 """
     encode_multibyte_set!(c::IVector, pre::Dict)
@@ -930,17 +921,15 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
     # Store offsets as we find them
     sites = IdDict{Any,Integer}()
     # Vectors go last
-    vecs = Vector{UInt8}[]
+    vecs = BitVector[]
     # next set of Dicts, if any
     seconds = []
     for pair in pre
         push!(prevec, pair)
         if pair.second isa Dict
             push!(seconds, pair.second)
-        elseif pair.second isa Vector{UInt8}
-            push!(vecs, pair.second)
         else
-            error("type problem in encoder")
+            push!(vecs, pair.second)
         end
     end
     push!(prevec, OpFail)
@@ -963,7 +952,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
     for dict in thirds
         sites[dict] = length(prevec) + 1
         for pair in dict
-            @assert pair.second isa Vector "not-a-vector in thirds pair"
+            @assert pair.second isa BitVector "not-a-bitvector in thirds pair"
             push!(prevec, pair)
             push!(vecs, pair.second)
         end
@@ -983,8 +972,8 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
             end
         elseif elem == OpFail
             push!(c, OpFail)
-        elseif elem isa Vector{UInt8}
-            push!(c, MultiVecInst(compact_bytevec!(elem), length(prevec) - idx + 1))
+        elseif elem isa BitVector
+            push!(c, MultiVecInst(elem, length(prevec) - idx + 1))
         end
     end
     if bvec !== nothing
@@ -992,11 +981,6 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
         c[1] = LeadSetInst(bvec, length(prevec) + 1)
     end
     push!(c, OpEnd)
-end
-
-function encode_utf8(char::Char)::Tuple{Int, Vector{UInt8}}
-    vec = Vector{UInt8}(string(char))
-    return length(vec), vec
 end
 
 """

@@ -15,7 +15,8 @@ The hitlist:
 - [X]  Multibyte sets and chars
   - [X]  Implement multibyte sets
   - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
-  - [ ]  [Multiset Rewrite](#multiset-rewrite)
+  - [X]  [Multiset Rewrite](#multiset-rewrite)
+  - [ ]  [Clean Up](#multiset-checklist)
 - [#]  Captures
   - [X] Cc
   - [ ] `Ce`, `=>`
@@ -180,7 +181,37 @@ We vectorize it with Pairs:
 
 While we do this, we make an `IdDict` of each value's index in our Vector.
 
-Now we have the information we need to provide labels, so we go through and append all the relevant opcodes to the `.code` `IVector` we're building.
+Now we have the information we need to provide labels, so we go through and append all the relevant instructions to the `.code` `IVector` we're building.
+
+#### It worked
+
+Got a bit of cleaning up to do and then we're golden.
+
+#### MultiSet Checklist
+
+This calls for a certain order of operations!
+
+- [#]  Add a bunch more MultiSet tests (emoji in particular)
+  - [ ]  Add **moar** Set tests!
+- [X]  Refactor `.final` field into `.l` labeled jump
+- [X]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
+- [ ]  Handle PChoice consolidation
+  - [ ]  Make PRange and PSet store in consistent format (Vector[AbstractChar]), although
+         the hard fact is that there's nothing "abstract" about the chars in JLpeg and I
+         may as well make that official.  These Vectors should be created at the time
+         that the Pattern is created, so that:
+  - [ ]  PChoice should have the option to be a PSet container, if it sees PRange,
+         PSet, PChar, it just adds these.  For that matter, we can specialize these
+         to automagically consolidate using `|`, that's better actually.
+  - [ ]  PNot can make a complement of a simple PSet, but a MultiSet needs to use
+         FailTwice.
+  - [ ]  Compile time doesn't matter nearly so much as VM time, but it's still nice
+         to avoid extra allocation, especially for something like ".val" fields which
+         stick around forever.  So we could make PSet store a
+         `Vector{Option{Char,Pair{Char,Char}}}`, get rid of separate PRange which
+         only complicates the code, and JIT the bitvector in prefix!, apply the byte,
+         and call it golden.
+
 
 
 #### Consolidating PChoice
@@ -211,15 +242,6 @@ Algorithm then:
 - Append all 1bytes, then 2bytes, then 3bytes, then the IMultisets, and OpEnd
 - Fixup pass to replace all instructions with their relabeled version.
 
-#### MultiSet Checklist
-
-This calls for a certain order of operations!
-
-- [#]  Add a bunch more MultiSet tests (emoji in particular)
-  - [ ]  Add **moar** Set tests!
-- [X]  Refactor `.final` field into `.l` labeled jump
-- [ ]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
-- [ ]  Handle PChoice consolidation
 
 ### Throw notes
 
