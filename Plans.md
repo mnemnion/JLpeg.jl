@@ -123,6 +123,7 @@ So a complex byteset (Unicode category, as the motivating example) is laid out l
 A:  IByteInst 0x[A] :B
     IByteInst 0x[B] :C
     ...
+    IFail
 B:  IByteInst 0x[C] :D
     ...
 C:  IByteInst 0x[D] :E
@@ -147,6 +148,44 @@ byte once (we know when an `IByteInst` has matched and can retrieve the next byt
 before we jump-to-label), a matching `IMultiSet` advances the subject pointer before
 jumping to :END.  Each `IMultiSet` either succeeds or fails, so we just need one `IFail`
 between the `IByteInst` and the `IMultiSet`.
+
+#### MultiSet layout Algorithm
+
+We have a prefix map, where the key is the headbyte, and the value is either a Vector of follow bytes or a prefix map.
+
+Here's one:
+
+```jldoctest skip=true
+Dict{UInt8, Any} with 3 entries:
+  0xf0 => Dict{UInt8, Any}(0x9f=>Dict{UInt8, Any}(0x91=>UInt8[0x0a, 0x0b, 0x0e]))
+  0xce => UInt8[0x38, 0x37, 0x36, 0x37, 0x37]
+  0xe1 => Dict{UInt8, Any}(0x88=>UInt8[0x06, 0x0a, 0x0a, 0x0a])
+```
+
+We vectorize it with Pairs:
+
+```julia
+[
+  0xf0 => Dict(1),
+  0xce => UInt8[1],
+  0xe1 => Dict(2),
+  OpFail => OpFail,
+  0x9f => Dict(3),  # pair from Dict1
+  0x88 => UInt8[2],
+  OpFail => OpFail,
+  UInt8[1],
+  UInt8[2],
+]
+```
+
+While we do this, we make an `IdDict` of each value's index in our Vector.
+
+Now we have the information we need to provide labels, so we go through and append all the relevant opcodes to the `.code` `IVector` we're building.
+
+
+#### Consolidating PChoice
+
+tl;dr probably just consolidate the root strings and ranges and feed it into a fresh layout.
 
 The bear of it will be consolidating `PChoice` instructions into a single mega-set,
 but the use of `IByteInst` actually makes this easier.  The first `IByteInst`
@@ -178,8 +217,9 @@ This calls for a certain order of operations!
 
 - [#]  Add a bunch more MultiSet tests (emoji in particular)
   - [ ]  Add **moar** Set tests!
-- [ ]  Refactor `.final` field into `.l` labeled jump
+- [X]  Refactor `.final` field into `.l` labeled jump
 - [ ]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
+- [ ]  Handle PChoice consolidation
 
 ### Throw notes
 

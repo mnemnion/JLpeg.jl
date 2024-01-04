@@ -239,6 +239,11 @@ function onInst(inst::Instruction, ::VMState)::Bool
     false
 end
 
+function onInst(inst::HoldInst, ::VMState)::Bool
+    @error "HoldInstruction left in code, op $(inst.op)"
+    false
+end
+
 "onAny"
 function onInst(any::AnyInst, vm::VMState)::Bool
     if vm.s > vm.top
@@ -315,38 +320,33 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     end
 end
 
-"onMultiSet"
-function onInst(inst::MultiSetInst, vm::VMState)::Bool
-    # Check if there's room to match
-    match = false
-    this = thischar(vm)
-    if this !== nothing
-        lead = inst.lead
-        width, bytes = encode_utf8(this)
-        # Correct sort of codepoint?
-        if width == sizeof(lead) + 1
-            headmatch = true
-            for (idx, byte) in enumerate(lead)
-                headmatch = headmatch && bytes[idx] == byte
-            end
-            if headmatch
-                # Mask off the high bit, always 1 for follow char
-                # Add 1 for Julia indexing
-                comp = (bytes[end] & 0b01111111) + UInt8(1)
-                if inst.vec[comp]
-                    match = true
-                end
-            end
-        end
-        if match
-            vm.s += width
-            vm.i += inst.l
-            return true
-        else
-            vm.i += 1
-            return true # OpFail at end of MultiSets
-        end
+"onByte"
+function onInst(inst::ByteInst, vm::VMState)::Bool
+    if vm.s > vm.top
+        updatesfar!(vm)
+        return false
+    end
+    byte = codeunit(vm.subject, vm.s)
+    if byte == inst.b
+        vm.i += inst.l
+        vm.s += 1
+        return true
     else
+        vm.i += 1
+        return true
+    end
+end
+
+"onMultiVec"
+function onInst(inst::MultiVecInst, vm::VMState)::Bool
+    # Mask high bit + 1 for Julia indexing
+    byte = (codeunit(vm.subject, vm.s) & 0b01111111) + UInt8(1)
+    if inst.vec[byte]
+        vm.i += inst.l
+        vm.s += 1
+        return true
+    else
+        updatesfar!(vm)
         return false
     end
 end

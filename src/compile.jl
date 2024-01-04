@@ -6,7 +6,8 @@
     IChar       # if char != aux, fail
     ISet        # if char not in buff, fail
     ILeadSet    # ASCII lead of MultiSet
-    IMultiSet   # Multibyte vectored sets
+    IByte       # Test the next byte at vm.s
+    IMultiVec   # match a set of end bytes of multibyte char
     ITestAny    # in no char, jump to 'offset'
     ITestChar   # if char != aux, jump to 'offset'
     ITestSet    # if char not in buff, jump to 'offset'
@@ -76,18 +77,19 @@ SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
 
 LeadSetInst(vec::BitVector, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
 
-struct MultiSetInst <: Instruction
+struct MultiVecInst <: Instruction
     op::Opcode
-    lead::Vector{UInt8}
     vec::BitVector
     l::Int32
 end
-function MultiSetInst(lead::Vector{UInt8}, vec::BitVector, l::Integer)
-    MultiSetInst(IMultiSet, lead, vec, Int32(l))
+MultiVecInst(vec::BitVector, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(l))
+
+struct ByteInst <: Instruction
+    op::Opcode
+    b::UInt8
+    l::Int32
 end
-function MultiSetInst(multi::MultiSetInst, l::Integer)
-    MultiSetInst(IMultiSet, multi.lead, multi.vec, Int32(l))
-end
+ByteInst(b::UInt8, l::Integer) = ByteInst(IByte, b, Int32(l))
 
 struct BehindInst <: Instruction
     op::Opcode
@@ -520,26 +522,8 @@ function addstar!(c::IVector, code::Vector{})
 end
 
 function _compile!(patt::PChoice)::Pattern
-    changed, mcode, start_idx = setoptimize!(patt)
-    choices = []
     c = patt.code
-    if changed
-        if start_idx == length(patt.val) + 1
-            # We merged everything, no backtrack
-            append!(c, mcode)
-            pushEnd!(c)
-            return patt
-        else # This is just the first choice, more to come
-            len = length(mcode)
-            push!(c, ChoiceInst(len + 2))
-            push!(choices, length(c))  # Which is 1 but code follows intent
-            append!(c, mcode)
-            push!(c, HoldInst(ICommit))
-        end
-    end
-
-    for idx in start_idx:length(patt.val)
-        p = patt.val[idx]
+    for (idx, p) in enumerate(patt)
         pcode = copy(p.code)
         trimEnd!(pcode)
         if idx == length(patt.val)
@@ -548,7 +532,6 @@ function _compile!(patt::PChoice)::Pattern
         end
         len = length(pcode)
         push!(c, ChoiceInst(len + 2))  # +2 == Choice and Commit
-        push!(choices, length(c))
         append!(c, pcode)
         push!(c, HoldInst(ICommit))
     end
@@ -753,57 +736,6 @@ function link!(code::IVector, aux::AuxDict)
 end
 
 """
-    setoptimize!(patt::PChoice)::Bool
-
-Performs any set optimizations which are possible for this set of choices.
-"""
-function setoptimize!(patt::PChoice)::Tuple{Bool,IVector,Integer}
-    # Every choice is as good as another so we always merge them and put them first
-    setable, other = [], []
-    has_multi = false
-    for p in patt.val
-        if p isa PChar
-            push!(setable, p)
-        elseif p isa PSet || p isa PRange
-            # Check for multiset opcodes
-            has_multi = has_multi || any(code -> code.op == IMultiSet, p.code)
-            push!(setable, p)
-        else
-            push!(other, p)
-        end
-    end
-    # Can't merge 0 or 1 settable choices
-    if length(setable) ≤ 1
-        return false, patt.code, 1  # patt.code is a placeholder
-    elseif !has_multi
-        # We can merge these easier
-        # No multis means our Sets are final
-        mcode = Inst()
-        bvec = falses(128)
-        for p in setable
-            if p isa PSet || p isa PRange
-                bvec = bvec .| p.code[1].vec
-            else
-                if isascii(p.val)
-                    bvec[UInt(p.val)+1] = true
-                else  # TODO Whatever we do with multibytes we might want this separate
-                    push!(other, p)
-                end
-            end
-        end
-        push!(mcode, SetInst(bvec))
-        # Juggle the choices so the merged ones come first, we're done with them
-        empty!(patt.val)
-        append!(patt.val, setable)
-        i = length(patt.val) + 1
-        append!(patt.val, other)
-        return true, mcode, i
-    else  # Nothing else for now
-        return false, patt.code, 1
-    end
-end
-
-"""
     headfail(patt::Pattern)::Bool
 
 Answer if the pattern fails (should it fail) on the first test.
@@ -943,44 +875,46 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
             if prefix_map === nothing
                 prefix_map = Dict()
             end
-            len, bytes = encode_utf8(char)
-            if len == 2
-                prefix!(prefix_map, [bytes[1]], bytes[2])
-            elseif len == 3
-                prefix!(prefix_map, [bytes[1], bytes[2]], bytes[3])
-            elseif len == 4
-                prefix!(prefix_map, [bytes[1], bytes[2], bytes[3]], bytes[4])
-            end
+            bytes = codeunits(string(char))
+            prefix!(prefix_map, bytes...)
         end
-    end
-    if !isnothing(prefix_map)
-        compact_bytevec!(prefix_map)
     end
     return bvec, prefix_map
 end
 
-function prefix!(map::Dict, key, val)
-    # mask off the top two bytes to save space later
-    val = val & 0b00111111
-    if haskey(map, key)
-        push!(map[key], val)
+function prefix!(map::Dict, b1::UInt8, b2::UInt8)
+    # mask off the top two bytes to save space later‡
+    b2 &= 0b00111111
+    if haskey(map, b1)
+        push!(map[b1], b2)
     else
-        map[key] = []
-        push!(map[key], val)
+        map[b1] = UInt8[]
+        push!(map[b1], b2)
     end
 end
 
-# later being here
-function compact_bytevec!(prefixes)
-    for (pre, vec) in prefixes
-        bvec = falses(64)
-        for byte in vec
-            bvec[byte+1] = true
-        end
-        prefixes[pre] = bvec
+function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8)
+    if !haskey(map, b1)
+        map[b1] = Dict{UInt8,Any}()
     end
+    prefix!(map[b1], b2, b3)
 end
 
+function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8, b4::UInt8)
+    if !haskey(map, b1)
+        map[b1] = Dict{UInt8,Any}()
+    end
+    prefix!(map[b1], b2, b3, b4)
+end
+
+#  ‡later being here
+function compact_bytevec!(vec::Vector{UInt8})::BitVector
+    bvec = falses(64)
+    for byte in vec
+        bvec[byte+1] = true
+    end
+    return bvec
+end
 
 """
     encode_multibyte_set!(c::IVector, pre::Dict)
@@ -988,16 +922,76 @@ end
 TBW
 """
 function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::Dict)
-    coll = collect(pre)
-    len = length(coll) + 2
     if bvec !== nothing
-        push!(c, LeadSetInst(bvec, len))  # -> end of MultiSet, after OpFail
+        push!(c, HoldInst(ILeadSet))  # -> end of MultiSet, after OpFail
     end
-    for (idx, pair) in enumerate(coll)
-        bytes, vec = pair
-        push!(c, MultiSetInst(bytes, vec, len - idx))
+    # We need to vectorize pre, for a 1-to-1 match with the code
+    prevec = []
+    # Store offsets as we find them
+    sites = IdDict{Any,Integer}()
+    # Vectors go last
+    vecs = Vector{UInt8}[]
+    # next set of Dicts, if any
+    seconds = []
+    for pair in pre
+        push!(prevec, pair)
+        if pair.second isa Dict
+            push!(seconds, pair.second)
+        elseif pair.second isa Vector{UInt8}
+            push!(vecs, pair.second)
+        else
+            error("type problem in encoder")
+        end
     end
-    push!(c, OpFail)
+    push!(prevec, OpFail)
+    # thirds?
+    thirds = []
+    for dict in seconds
+        sites[dict] = length(prevec) + 1
+        for pair in dict
+            push!(prevec, pair)
+            if pair.second isa Dict
+                push!(thirds, pair.second)
+            else
+                push!(vecs, pair.second)
+            end
+        end
+    end
+    if !isempty(thirds)
+        push!(prevec, OpFail)
+    end
+    for dict in thirds
+        sites[dict] = length(prevec) + 1
+        for pair in dict
+            @assert pair.second isa Vector "not-a-vector in thirds pair"
+            push!(prevec, pair)
+            push!(vecs, pair.second)
+        end
+    end
+    push!(prevec, OpFail)
+    for vec in vecs
+        push!(prevec, vec)
+        sites[vec] = length(prevec)
+    end
+    for (idx, elem) in enumerate(prevec)
+        if elem isa Pair
+            if elem.first isa UInt8
+                l = sites[elem.second] - idx
+                push!(c, ByteInst(elem.first, l))
+            else
+                error("bad pair in encoder $(typeof(elem))")
+            end
+        elseif elem == OpFail
+            push!(c, OpFail)
+        elseif elem isa Vector{UInt8}
+            push!(c, MultiVecInst(compact_bytevec!(elem), length(prevec) - idx + 1))
+        end
+    end
+    if bvec !== nothing
+        @assert c[1] isa HoldInst "HoldInst not found at 1"
+        c[1] = LeadSetInst(bvec, length(prevec) + 1)
+    end
+    push!(c, OpEnd)
 end
 
 function encode_utf8(char::Char)::Tuple{Int, Vector{UInt8}}

@@ -8,14 +8,13 @@ The possible struct fields have consistent meanings:
 
 | Fields  | Meaning                                            |
 |---------|----------------------------------------------------|
-| `op`    | The Opcode                                         |
-| `l`     | An instruction offset                              |
-| `n`     | A subject offset                                   |
-| `tag`   | Key in a capture/throw Dict, or mark identity      |
-| `c`     | An AbstractChar to match                           |
-| `vec`   | A set's test BitVector                             |
-| `lead`  | Lead bytes of a MultiSet                           |
-| `final` | Is this Set the final in the sequence              |
+| `op`    |  The `Opcode`                                      |
+| `l`     |  An instruction offset                             |
+| `n`     |  A subject offset                                  |
+| `c`     |  An `AbstractChar` to match                        |
+| `b`     |  A test byte                                       |
+| `tag`   |  Key in a capture/throw Dict                       |
+| `vec`   |  A set's test `BitVector`                          |
 """
 abstract type Instruction end
 
