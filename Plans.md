@@ -39,7 +39,7 @@ The hitlist:
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ]  Proposed optimizations not found in LPeg
   - [ ]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
-  - [ ]  Parameteric `IChar` specialized to `Char` (which is what I care about)
+  - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
   - [ ]  Fail optimization: only update the register once when returning from calls.
          this one should be deferred until we have real profiling on the hot loop.
          Technically this _is_ found in LPeg...
@@ -210,20 +210,38 @@ This calls for a certain order of operations!
   - [ ]  Add **moar** Set tests!
 - [X]  Refactor `.final` field into `.l` labeled jump
 - [X]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
-- [ ]  Handle PChoice consolidation
-  - [ ]  Make PRange and PSet both PSet
-  - [ ]  Compile time doesn't matter nearly so much as VM time, but it's still nice
+- [:nots]  It turns out that a simple complement of an ASCII PSet isn't valid, because
+       that doesn't match a Unicode character, and it would need to. "not this set"
+       and "not this character" are very common in the ASCII range in practical
+       patterns, to the point that it might be worth adding extra opcodes for them.
+       These will simply return `true` if the pattern doesn't match and `false` if it
+       does, so `!S"123"` will correctly match multibyte characters as well.
+  - [ ]  NotChar
+  - [ ]  NotSet
+  - [ ]  NotHeadSet: For testing the first byte of continuation characters.  This will
+         confirm the high bit is set, then mask it and test as usual for sets.
+- [#]  Handle PChoice consolidation
+  - [X]  Make PRange and PSet both PSet
+  - [X]  Compile time doesn't matter nearly so much as VM time, but it's still nice
          to avoid extra allocation, especially for something like ".val" fields which
          stick around forever.  So we could make PSet store a
          `Vector{Option{Char,Pair{Char,Char}}}`, get rid of separate PRange which
          only complicates the code, and JIT the bitvector in prefix!, apply the byte,
          and call it golden.
-  - [ ]  PChoice should have the option to be a PSet container, if it sees PRange,
-         PSet, PChar, it just adds these.  For that matter, we can specialize these
-         to automagically consolidate using `|`, that's better actually.
-  - [ ]  PNot can make a complement of a simple PSet, but a MultiSet needs to use
-         FailTwice.
-  - [ ]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
+  - [X]  Specialize `|` for combinations of `PSet` and `PChar` to automagically
+         consolidate into one `PSet`.
+  - [ ]  Make a special `PSetDiff` which has a second Settable value, such that
+         those characters and ranges are excluded from the construct.  This is a lot
+         of work for the gains it produces but for working with Unicode it's fairly
+         important I think.  Removing chars which are present is easy, removing chars
+         from a range only slightly less so, but handling negative ranges is a bear.
+         I can write a custom "sort" function, "sort" in quotes because it will outright
+         eliminate members if it needs to, such that a given PSet collection is in lexical
+         order and has no duplicates, that's a good start on making something like this
+         work.  But this has a lot of cases to handle, although it may be simplified by
+         not dealing with splitting ranges which have a negative character in them: just
+         keep them in the negation set and skip them when they come up in range iteration.
+  - [|nots]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
     - [ ]  Count the keys in the prefix map, if there are more than say five:
     - [ ]  Calculate a TestMultiVec, which fail-jumps without unwinding the stack
     - [ ]  Turn the LeadSet into a TestSet, if applicable (complement)
@@ -233,14 +251,6 @@ This calls for a certain order of operations!
          both return `true` on both conditions, so a LeadSet can just be a TestSet
          of the complement of the original ASCII set, which, upon success, jumps
          to a convenient FailOp.
-- [ ]  It turns out that a simple complement of an ASCII PSet isn't valid, because
-       that doesn't match a Unicode character, and it would need to. "not this set"
-       and "not this character" are very common in the ASCII range in practical
-       patterns, to the point that it might be worth adding extra opcodes for them.
-  - [ ]  NotChar
-  - [ ]  NotSet
-  - [ ]  NotHeadSet: For testing the first byte of continuation characters.  This will
-         confirm the high bit is set, then mask it and test as usual for sets.
 
 ### Throw notes
 
