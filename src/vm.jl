@@ -328,16 +328,15 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     match = false
     this = thischar(vm)
     if this !== nothing
-        code = UInt32(this)
-        if code < 128 && inst.vec[code + 1]
+        if this ≤ '\x7f' && inst.vec[UInt8(this) + 1]
             vm.s = nextind(vm.subject, vm.s)
             match = true
         end
     end
     if !match
         updatesfar!(vm)
-        vm.i += 1    # NOTE this depends on only two kinds of SetInst!
-        return inst.op == ISet ? false : true
+        vm.i += 1
+        return inst.op == ISet ? false : inst.op == ILeadSet ? true : error("weird opcode in onSet"); false
     else
         vm.i += inst.l
         return true
@@ -402,9 +401,10 @@ end
 function onInst(inst::MultiVecInst, vm::VMState)::Bool
     if vm.s ≤ vm.top
         byte = codeunit(vm.subject, vm.s)
-        if !iszero(byte & 0b10000000) # Malformed input, it happens
+        # check in valid continuation byte range
+        if 0b10000000 ≤ byte ≤ 0b10111111
             # Mask high bit, + 1 for Julia indexing
-            if @inbounds inst.vec[(byte & 0b01111111) + UInt8(1)]
+            if @inbounds inst.vec[(byte & 0b00111111) + UInt8(1)]
                 vm.i += inst.l
                 vm.s += 1
                 return true
@@ -423,7 +423,8 @@ function onInst(inst::LeadMultiInst, vm::VMState)::Bool
         return false
     end
     byte = codeunit(vm.subject, vm.s)
-    if @inbounds inst.vec[(byte & 0b01111111) + UInt8(1)]
+    # Must check for 0b11xxxxxx or false positives from malformed data
+    if (byte & 0xc0 == 0xc0) && @inbounds inst.vec[(byte & 0b00111111) + UInt8(1)]
         vm.i += 1
         return true
     else  # goto fail

@@ -101,10 +101,10 @@ MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(
 
 struct LeadMultiInst <: Instruction
     op::Opcode
-    vec::Bits{Int128}
+    vec::Bits{Int64}
     l::Int32
 end
-LeadMultiInst(vec::Bits{Int128}, l::Integer) = LeadMultiInst(ILeadMulti, vec, Int32(l))
+LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(ILeadMulti, vec, Int32(l))
 
 struct ByteInst <: Instruction
     op::Opcode
@@ -952,7 +952,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     end # we'll collect the heads just in case
     heads = UInt8[]
     for pair in pre
-        push!(heads, pair.first & 0b01111111)
+        push!(heads, pair.first & 0b00111111)
         push!(prevec, pair)
         if pair.second isa Dict
             push!(seconds, pair.second)
@@ -1012,7 +1012,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         c[1] = LeadSetInst(bvec, length(c))
     end
     if c[2] isa HoldInst
-        bvec = Bits{Int128}(0)
+        bvec = Bits{Int64}(0)
         for char in heads
             bvec[char + 1] = true
         end
