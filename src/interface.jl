@@ -208,6 +208,10 @@ Base.:|(a::CaptureTuple, b::Union{Integer,String}) = C(a...) | P(b)
 Base.:|(a::CaptureTuple, b::CaptureTuple) = C(a...) | C(b...)
 Base.:|(a::Vector, b::Pattern) = Cg(a) | b
 Base.:|(a::Pattern, b::Vector) = a | Cg(b)
+# Conversions
+Base.:|(a::PSet, b::PSet) = PSet(vcat(a.val, b.val))
+Base.:|(a::PChar, b::PSet) = PSet(append!(Settable([b.val]), a.val))
+Base.:|(a::PSet, b::PChar) = PSet(push!(copy(a.val), b.val))
 
 Base.:-(a::Pattern, b::Pattern) = PDiff(a, b)
 Base.:-(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))

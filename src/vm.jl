@@ -217,7 +217,7 @@ function runvm!(vm::VMState)::Bool
             vm.running = false
             continue
         end
-        inst = @inbounds vm.program[vm.i]
+        inst::Instruction = @inbounds vm.program[vm.i]
         # print(vm_to_str(vm))
         if !onInst(inst, vm)::Bool
             failmatch!(vm)
