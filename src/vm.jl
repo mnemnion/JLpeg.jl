@@ -235,7 +235,7 @@ further dispatch. Returns `false` if the instruction fails, otherwise `true`,
 in which case the dispatch function is expected to have altered the VM state.
 """
 function onInst(inst::Instruction, ::VMState)::Bool
-    @error "unrecognized instruction $inst"
+    error("unrecognized instruction $inst")
     false
 end
 
@@ -314,6 +314,26 @@ function onInst(inst::SetInst, vm::VMState)::Bool
         updatesfar!(vm)
         vm.i += 1    # NOTE this depends on only two kinds of SetInst!
         return inst.op == ISet ? false : true
+    else
+        vm.i += inst.l
+        return true
+    end
+end
+
+"onNotSet"
+function onInst(inst::NotSetInst, vm::VMState)::Bool
+    nomatch = true
+    this = thischar(vm)
+    if this !== nothing
+        code = UInt32(this)
+        if code < 128 && inst.vec[code + 1]
+            nomatch = false
+        end
+    end
+    if !nomatch
+        updatesfar!(vm)
+        vm.i += 1    # NOTE this depends on only two kinds of SetInst!
+        return false
     else
         vm.i += inst.l
         return true

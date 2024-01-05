@@ -11,6 +11,7 @@
     ITestAny    # in no char, jump to 'offset'
     ITestChar   # if char != aux, jump to 'offset'
     ITestSet    # if char not in buff, jump to 'offset'
+    INotSet     # Predicate, fails if set matches, doesn't advance s
     ISpan       # read a span of chars in buff
     IBehind     # walk back 'aux' characters (fail if not possible)
     IReturn     # return from a rule
@@ -76,6 +77,12 @@ SetInst(vec::Bits{Int128}, l::Integer) = SetInst(ISet, vec, Int32(l))
 SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
 
 LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
+
+struct NotSetInst <: Instruction
+    op::Opcode
+    vec::Bits{Int128}
+    l::Int32
+end # We create these at compile time from SetInst so only default constructor is used
 
 struct MultiVecInst <: Instruction
     op::Opcode
@@ -396,6 +403,12 @@ function _compile!(patt::PNot)::Pattern
                 && !(inst.kind == Cruntime))
             code[idx] = OpNoOp
         end
+    end
+    # We can turn ASCII sets into INotSet, which will
+    # therefore match multibyte chars
+    if length(code) == 2 && code[1].op == ISet && code[2] == OpEnd
+        push!(c, NotSetInst(INotSet, code[1].vec, code[1].l), OpEnd)
+        return patt
     end
     trimEnd!(code)
     l = length(code) + 2  # 3 -> FailTwice, next

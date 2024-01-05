@@ -216,8 +216,9 @@ This calls for a certain order of operations!
        patterns, to the point that it might be worth adding extra opcodes for them.
        These will simply return `true` if the pattern doesn't match and `false` if it
        does, so `!S"123"` will correctly match multibyte characters as well.
+       These are **predicates** so they do not advance the subject pointer.
   - [ ]  NotChar
-  - [ ]  NotSet
+  - [X]  NotSet
   - [ ]  NotHeadSet: For testing the first byte of continuation characters.  This will
          confirm the high bit is set, then mask it and test as usual for sets.
 - [#]  Handle PChoice consolidation
