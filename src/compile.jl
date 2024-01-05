@@ -873,8 +873,7 @@ function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{
             if prefix_map === nothing
                 prefix_map = Dict()
             end
-            bytes = codeunits(string(char))
-            prefix!(prefix_map, bytes...)
+            prefix!(prefix_map, codeunits(string(char))...)
         end
     end
     return bvec, prefix_map

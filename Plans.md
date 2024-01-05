@@ -217,6 +217,10 @@ This calls for a certain order of operations!
          advances if it fails, a TestSet jumps if it fails and advances if it leads,
          both return `true` on both conditions, so a LeadSet can just be a TestSet
          of the complement of the original ASCII set.
+- [ ]  It turns out that a simple complement of an ASCII PSet isn't valid, because
+       that doesn't match a Unicode character, and it would need to. "not this set"
+       and "not this character" are very common in the ASCII range in practical
+       patterns, to the point that it might be worth adding extra opcodes for them.
 
 #### Consolidating PChoice
 

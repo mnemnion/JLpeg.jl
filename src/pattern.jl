@@ -254,7 +254,9 @@ function PSeq(str::AbstractString)
     val = PVector(undef, 0)
     code = Inst()
     if length(str) == 0
-        push!(val, PTrue())
+        return PTrue()
+    elseif length(str) == 1
+        return PChar(first(str))
     end
     for char in str
         push!(val, PChar(char))

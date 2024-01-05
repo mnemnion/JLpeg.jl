@@ -1,5 +1,7 @@
 # Printing methods for elements of JLpeg
 
+using Unicode
+
 "Show an Instruction."
 function Base.show(io::IO, inst::Instruction)
     print(io, inst_str(inst, Int32(0)))
@@ -331,7 +333,7 @@ function frame_to_str(vm::VMState, i, s, c)::String
     if s == 0
         "[i:$(i)] {$c} $(inst_str(inst, i))"
     else
-        "[i:$(i)] {$c} $(inst_str(inst, i)) s:$(in_subject(vm.subject, s))"
+        "[i:$(i)] {$c} $(inst_str(inst, i)) s:$(in_red(vm.subject, s))"
     end
 end
 
@@ -363,29 +365,20 @@ function in_red(str::String, i::UInt32)
     end
     if i == 0
         str1 = "\x1B[38;5;208m*\x1B[0m"
-        str2, _ = substr_at_i(str, UInt32(1))
+        str2 = firstten(str)
         return str1 * str2
     elseif i > sizeof(str)
         str2 = "\x1B[38;5;208m*\x1B[0m"
-        str1, _ = substr_at_i(str, UInt32(sizeof(str)))
+        str1 = lastten(str)
         return str1 * str2
     end
     red_i(substr_at_i(str, i)...)
 end
 
-function red_i(str::String, i::UInt32)
-    red_start = "\x1B[31m"
-    red_end = "\x1B[0m"
-    sstr = sizeof(str)
-    hichar = str[i]
-    iprev = prevind(str, i)
-    inext = nextind(str, i)
-    highlighted_str = str[1:iprev] * red_start * hichar * red_end
-    if inext ≤ sstr
-        highlighted_str *= str[inext:end]
-    end
-
-    return highlighted_str
+function red_i(first::AbstractString, at::AbstractString, last::AbstractString)::AbstractString
+    bra = "\x1B[31m⟪"
+    ket = "⟫\x1B[0m"
+    return first * bra * at * ket * last
 end
 
 function in_subject(str::String, i::UInt32)
@@ -394,63 +387,89 @@ function in_subject(str::String, i::UInt32)
     end
     if i == 0
         str1 = "⟪*⟫"
-        str2, _ = substr_at_i(str, UInt32(1))
+        str2 = firstten(str)
         return str1 * str2
     elseif i > sizeof(str)
         str2 = "⟪*⟫"
-        str1, _ = substr_at_i(str, UInt32(sizeof(str)))
+        str1 = lastten(str)
         return str1 * str2
     end
     subject_i(substr_at_i(str, i)...)
 end
 
-function subject_i(str::String, i::UInt32)
-    s_start = "⟪"
-    s_end = "⟫"
-    sstr = sizeof(str)
-    hichar = str[i]
-    iprev = prevind(str, i)
-    inext = nextind(str, i)
-    highlighted_str = str[1:iprev] * s_start * hichar * s_end
-    if inext ≤ sstr
-        highlighted_str *= str[inext:end]
-    end
-
-    return highlighted_str
-end
-
-function substr_at_i(str::String, i::UInt32)
-    return str, i
-end
-
-function broken_substr_at_i(str::String, i::UInt32)
-    # Determine the start index
-    start_index = i
-    for _ = 1:10
-        start_index == 1 && break
-        start_index = prevind(str, start_index)
-    end
-
-    # Determine the end index with bounds checking
-    end_index = i
-    for _ = 1:10
-        if end_index > sizeof(str)
+function firstten(str::String)
+    count = 0
+    for _ in graphemes(str)
+        count += 1
+        if count > 10
             break
-        else
-            end_index = nextind(str, end_index)
         end
     end
-
-    if end_index > sizeof(str)
-        end_index = sizeof(str)
+    if count < 10
+        return str
+    else
+        return graphemes(str, 1:count)
     end
-    # Extract the substring
-    substring = str[start_index:end_index]
+end
 
-    # Find the byte index of 'i' within the substring
-    byte_index_in_substring = i - start_index + 1
+function lastten(str::String)
+    count = 0
+    for _ in graphemes(str)
+        count += 1
+    end
+    if count < 10
+        return str
+    else
+        return graphemes(str, count-10:count)
+    end
+end
 
-    return (substring, UInt32(byte_index_in_substring))
+function subject_i(first::AbstractString, at::AbstractString, last::AbstractString)::AbstractString
+    s_start = "⟪"
+    s_end = "⟫"
+    return first * s_start * at * s_end * last
+end
+
+
+function substr_at_i(str::String, i::UInt32)
+    # Determine the start index
+    idx = 0
+    at  = 0
+    before = 0
+    after = 0
+    pre = true
+    for graph in graphemes(str)
+        if pre
+            before += 1
+        end
+        idx += sizeof(graph)
+        if pre && idx > i
+            at = before - 1
+            pre = false
+            continue
+        elseif pre && idx == i
+            at = before
+            pre = false
+            continue
+        end
+        if !pre
+            after += 1
+        end
+        if after ≥ 7
+            break
+        end
+    end
+    if at < 1
+        at = 1
+    end
+    # five characters back, or first character
+    if before > 8
+        start = at - 7
+    else
+        start = 1
+    end
+    finish = at + after
+    return graphemes(str, start:at-1), graphemes(str, at:at), graphemes(str, at+1:finish)
 end
 
 return
