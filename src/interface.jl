@@ -44,8 +44,18 @@ Create a pattern ranging from the first to the second character.
 `s` must be two codepoints long, and the first must be lower-valued
 than the second.
 """
-R(s::AbstractString) = PRange(s)
-R(a::AbstractChar, b::AbstractChar) = PRange(a, b)
+function R(str::AbstractString)
+    if length(str) > 2
+        throw(PegError("Range must be two characters: $char"))
+    end
+    a, b = first(str), str[nextind(str, 1)]
+
+    if a ≥ b
+        throw(PegError("Range must be from low to high, got $a > $b"))
+    end
+    PSet((a, b))
+end
+R(a::AbstractChar, b::AbstractChar) = R(a * b)
 
 """
     B(p::Union{Pattern,AbstractString,Integer})

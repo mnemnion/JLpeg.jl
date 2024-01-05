@@ -46,33 +46,11 @@ const Settable = Vector{Union{AbstractChar, Tuple{AbstractChar,AbstractChar}}}
 struct PSet <: Pattern
     val::Settable
     code::IVector
-    PSet(val::AbstractString) = new(Settable(collect(val)), Inst())
-    PSet(val::Vector{AbstractChar}) = new(Settable(val), Inst())
+    PSet(val::AbstractString) = new(collect(val), Inst())
+    PSet(val::Vector{AbstractChar}) = new(val, Inst())
+    PSet(val::Tuple{AbstractChar,AbstractChar}) = new([val], Inst())
     PSet(val::Settable) = new(val, Inst())
     PSet(inst::IVector) = new([], inst)
-end
-
-
-struct PRange <: Pattern
-    val::Tuple{AbstractChar, AbstractChar}
-    code::IVector
-    function PRange(str::AbstractString)
-        a, b = (nothing, nothing)
-        for (idx, char) in enumerate(str)
-            if idx == 1
-                a = char
-            elseif idx == 2
-                b = char
-            else
-                @error lazy"Range must be two characters: $char"
-            end
-        end
-        if a ≥ b
-            error(lazy"Range must be from low to high, got $a > $b")
-        end
-        new((a, b), Inst())
-    end
-    PRange(a::AbstractChar, b::AbstractChar) = new((a, b), Inst())
 end
 
 struct PBehind <: Pattern
@@ -233,7 +211,7 @@ abstract type PTXInfo <:Pattern end
 const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}
 
 "Patterns which don't contain other patterns"
-const PPrimitive = Union{PChar,PSet,PRange,PRange,PAny,PTrue,PFalse,PThrow,PCall,POpenCall}
+const PPrimitive = Union{PChar,PSet,PAny,PTrue,PFalse,PThrow,PCall,POpenCall}
 
 function Base.getindex(patt::Pattern, i::Integer)
     if !isa(patt.val, PVector)

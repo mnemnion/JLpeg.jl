@@ -358,7 +358,7 @@ function _compile!(patt::PSet)::Pattern
         return compile!(PFalse())
     end
     # Specialize one-char sets into PChar
-    if length(patt.val) == 1
+    if length(patt.val) == 1 && patt.val[1] isa AbstractChar
         return compile!(PChar(first(patt.val)))
     end
     bvec, prefix_map = makebitvectors(patt.val)
@@ -367,24 +367,6 @@ function _compile!(patt::PSet)::Pattern
      else
          encode_multibyte_set!(patt.code, bvec, prefix_map)
      end
-    pushEnd!(patt.code)
-    return patt
-end
-
-function _compile!(patt::PRange)::Pattern
-    a, b = patt.val
-    vec = Vector{typeof(a)}(undef, b - a + 1)
-    i = 1
-    for char in a:b
-        vec[i] = char
-        i += 1
-    end
-    bvec, prefix_map = makebitvectors(Settable(vec))
-    if bvec !== nothing && prefix_map === nothing
-       push!(patt.code, SetInst(bvec))
-    else
-        encode_multibyte_set!(patt.code, bvec, prefix_map)
-    end
     pushEnd!(patt.code)
     return patt
 end
@@ -427,8 +409,8 @@ end
 function _compile!(patt::PDiff)::Pattern
     v = patt.val
     # Optimization: difference of sets can be done with Boolean logic
-    headset = isa(v[1], PSet) || isa(v[1], PRange)
-    if headset && isa(v[2], PSet) || isa(v[2], PRange)
+    headset = isa(v[1], PSet)
+    if headset && isa(v[2], PSet)
         ba, bb = v[1].code[1].vec, v[2].code[1].vec
         bvec = ba .& .! bb
         return PSet([SetInst(bvec), OpEnd])
@@ -762,7 +744,7 @@ function nofail(patt::Pattern)::Bool
         if patt.n ≤ 0 return true
         else return false
         end
-    elseif isof(patt, PRange, PChar, PAny, PSet, PFalse, PThrow) return false
+    elseif isof(patt, PChar, PAny, PSet, PFalse, PThrow) return false
     # POpenCall needs checked later
     elseif patt isa POpenCall return false
     elseif patt isa PCall return false  # should be nofail(patt.ref) but we need better rule match
@@ -801,7 +783,7 @@ If a pattern matches a fixed length, return that length,
 otherwise return `false`.
 """
 function fixedlen(patt::Pattern)::Union{Integer,Bool}
-    if isof(patt, PChar, PSet, PRange)
+    if isof(patt, PChar, PSet)
         return 1
     elseif isof(patt, PAny)
         return patt.val
