@@ -361,7 +361,7 @@ function _compile!(patt::PSet)::Pattern
     if length(patt.val) == 1
         return compile!(PChar(first(patt.val)))
     end
-    bvec, prefix_map = vecsforstring(patt.val)
+    bvec, prefix_map = makebitvectors(patt.val)
     if bvec !== nothing && prefix_map === nothing
         push!(patt.code, SetInst(bvec))
      else
@@ -379,7 +379,7 @@ function _compile!(patt::PRange)::Pattern
         vec[i] = char
         i += 1
     end
-    bvec, prefix_map = vecsforstring(Vector{AbstractChar}(vec))
+    bvec, prefix_map = makebitvectors(Settable(vec))
     if bvec !== nothing && prefix_map === nothing
        push!(patt.code, SetInst(bvec))
     else
@@ -859,22 +859,32 @@ compactly and quickly test for those characters.
 Return `(ascii, higher)` where `ascii` is all one-byte utf8 characters and higher is a somewhat
 complex dict of bitvectors useful for detecting practical multibyte ranges and sets.
 """
-function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
+function makebitvectors(set::Settable)::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
     bvec = nothing
     prefix_map = nothing
-    limit = Char(127)
-    for char in str
-        if char <= limit
-            if bvec === nothing
-                bvec = Bits{Int128}(0)
+    for elem in set
+        if elem isa Char
+            bvec, prefix_map = bvec_char!(bvec, prefix_map, elem)
+        elseif elem isa Tuple
+            for char in elem[1]:elem[2]
+                bvec, prefix_map = bvec_char!(bvec, prefix_map, char)
             end
-            bvec[UInt(char)+1] = true
-        else
-            if prefix_map === nothing
-                prefix_map = Dict()
-            end
-            prefix!(prefix_map, codeunits(string(char))...)
         end
+    end
+    return bvec, prefix_map
+end
+
+function bvec_char!(bvec::Union{Bits,Nothing}, prefix_map::Union{Dict,Nothing}, char::AbstractChar)
+    if char <= Char(127)
+        if bvec === nothing
+            bvec = Bits{Int128}(0)
+        end
+        bvec[UInt(char)+1] = true
+    else
+        if prefix_map === nothing
+            prefix_map = Dict()
+        end
+        prefix!(prefix_map, codeunits(string(char))...)
     end
     return bvec, prefix_map
 end

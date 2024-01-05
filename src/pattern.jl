@@ -41,15 +41,16 @@ struct PChar <: Pattern
     PChar(val::AbstractChar) = new(val, Inst())
 end
 
+const Settable = Vector{Union{AbstractChar, Tuple{AbstractChar,AbstractChar}}}
+
 struct PSet <: Pattern
-    val::Vector{AbstractChar}
+    val::Settable
     code::IVector
-    PSet(val::AbstractString) = new(collect(val), Inst())
-    PSet(val::Vector{AbstractChar}) = new(val, Inst())
+    PSet(val::AbstractString) = new(Settable(collect(val)), Inst())
+    PSet(val::Vector{AbstractChar}) = new(Settable(val), Inst())
+    PSet(val::Settable) = new(val, Inst())
     PSet(inst::IVector) = new([], inst)
 end
-
-
 
 
 struct PRange <: Pattern
