@@ -291,7 +291,7 @@ end
 
 Shows a set while collapsing ranges.
 """
-function bitvector_to_compact_repr(bitvec::Bits{128})
+function bitvector_to_compact_repr(bitvec::Bits{Int128})
     fragments = String[]
     start_idx = 0
     end_idx = 0

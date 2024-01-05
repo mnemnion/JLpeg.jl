@@ -320,6 +320,22 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     end
 end
 
+"onTestSet"
+function onInst(inst::TestSetInst, vm::VMState)::Bool
+    this = thischar(vm)
+    if this === nothing
+        return false
+    end
+    code = UInt32(this)
+    if code < 128 && @inbounds inst.vec[code + 1]
+        vm.i += 1
+        return true
+    else
+        vm.i += inst.l
+        return true  # Still not an unwinding fail
+    end
+end
+
 "onNotSet"
 function onInst(inst::NotSetInst, vm::VMState)::Bool
     nomatch = true
@@ -384,22 +400,6 @@ function onInst(inst::TestCharInst, vm::VMState)::Bool
     else
         vm.i += inst.l
         return true  # Not an unwinding fail
-    end
-end
-
-"onTestSet"
-function onInst(inst::TestSetInst, vm::VMState)::Bool
-    this = thischar(vm)
-    if this === nothing
-        return false
-    end
-    code = UInt32(this)
-    if code < 128 && @inbounds inst.vec[code + 1]
-        vm.i += 1
-        return true
-    else
-        vm.i += inst.l
-        return true  # Still not an unwinding fail
     end
 end
 
