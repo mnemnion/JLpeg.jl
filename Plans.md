@@ -38,6 +38,8 @@ The hitlist:
   - [ ] Capture-closing optimization (vm)
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ]  Proposed optimizations not found in LPeg
+  - [ ]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
+  - [ ]  Parameteric `IChar` specialized to `Char` (which is what I care about)
   - [ ]  Fail optimization: only update the register once when returning from calls.
          this one should be deferred until we have real profiling on the hot loop.
          Technically this _is_ found in LPeg...
@@ -55,6 +57,18 @@ The hitlist:
          we can compress the head (lead) bytes into a single ASCII-style lead test set, by
          masking the high bit off.  This lets us single-test fail out of some very large
          ranges indeed, such as Chinese.
+  - [ ]  Left recursion.  Strangely, [this paper](https://arxiv.org/pdf/1207.0443.pdf)
+         describes a method for implementing left recursion, by Roberto's team (!),
+         describing how to do it for the LPeg VM (!!), but LPeg has not been extended to allow
+         this.  I'd like to ask the Lua list why before trying it myself...
+  - [ ]  Choice-sequence prefix matching.  This is something regex automatons do
+         automatically, which would be nice for us to have.  Basically, it work with
+         head sequences (including sets, and maybe predicates, but not repetition
+         such that choices which share a prefix are collapsed into a single choice
+         sequence, this limits backtracking.  It ties into the next one:
+  - [ ]  Choice shadow detection.  This is just a nice thing I'd like to do for my
+         users.  In many circumstances the compiler could detect when an earlier ordered choice means that a later choice can't be matched, this is always a bug and should be brought to the user's attention.  The easy cases all involve fixed-length later choices, but
+         a certain amount of detection can be performed with predicates and repetition in the mi as well.  For literal sequences it's as simple as applying the earlier rule to the string form of the later rule and seeing if there's a match.
 - [ ]  Multigrammars (see [section](#multigrammar))
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
@@ -86,7 +100,8 @@ The hitlist:
 
 Now that I have significant progress on [JLpegUnicode](httk://add.repo.soon), it's
 time to make MultiSets optimal.  Optimal within the framework of the VM, that is,
-this might be somewhat slower than a perfect NFA, but then again, maybe not.  I refuse to add a regex special-case to the VM.
+this might be somewhat slower than a perfect NFA, but then again, maybe not.  I
+refuse to add a regex special-case to the VM.
 
 The first thing is to replace "final" with an instruction label, so that any match
 can skip the rest of the MultiSet in a single jump, this lets us do a simple loop for
@@ -216,40 +231,16 @@ This calls for a certain order of operations!
          complemented `.~` BitVector TestSet. A LeadSet jumps if it succeeds and
          advances if it fails, a TestSet jumps if it fails and advances if it leads,
          both return `true` on both conditions, so a LeadSet can just be a TestSet
-         of the complement of the original ASCII set.
+         of the complement of the original ASCII set, which, upon success, jumps
+         to a convenient FailOp.
 - [ ]  It turns out that a simple complement of an ASCII PSet isn't valid, because
        that doesn't match a Unicode character, and it would need to. "not this set"
        and "not this character" are very common in the ASCII range in practical
        patterns, to the point that it might be worth adding extra opcodes for them.
-
-#### Consolidating PChoice
-
-tl;dr probably just consolidate the root strings and ranges and feed it into a fresh layout.
-
-The bear of it will be consolidating `PChoice` instructions into a single mega-set,
-but the use of `IByteInst` actually makes this easier.  The first `IByteInst`
-contains the offset for any second byte, which has the offset for any third byte,
-which points to the MultiSets.  Even mixed-byte-length combination is (relatively)
-easy, because by definition the head-bytes are disjoint, so we can still put all the
-MultiSets at the end.
-
-An IChoice has potentially dozens, maybe hundreds, of Sets (Unicode, remember), and
-we want to be able to fixup the code in a single pass, so how's this for an
-algorithm: we go through each MegaSet, and make a Dict where each jumpable
-instruction (that isn't to the end) is the key, and each landable instruction is its
-value.  Then we shuffle all instructions into proper order, with a second Dict
-showing where we put everything, then do a fixup pass where we relabel all the jumps
-with their new Index.  For consistency we key all instructions, the ones which need
-to jump to the new OpEnd get a special HoldInst as a value.
-
-Algorithm then:
-
-- Collect all ASCII, 1byte, 2byte, 3byte, and MultiSets, Dict them appropriately
-- Compute the new ASCII test, append
-- Compute the new headfail for the 1bytes
-- Append all 1bytes, then 2bytes, then 3bytes, then the IMultisets, and OpEnd
-- Fixup pass to replace all instructions with their relabeled version.
-
+  - [ ]  NotChar
+  - [ ]  NotSet
+  - [ ]  NotHeadSet: For testing the first byte of continuation characters.  This will
+         confirm the high bit is set, then mask it and test as usual for sets.
 
 ### Throw notes
 
@@ -418,7 +409,7 @@ the first Mark, if it's within the first, say, eight frames (usually it's on top
 remove it, if not, we slip in a hold frame, and one of the canonical mark/check actions
 is performed, namely: are they the same substring, is one longer than the other, or
 equal length without regard to contents.  There's also a runtime mark for taking an
-Action on both captures, the result of which succeeds or fails the pattern.
+Action on both captures.  The result of any of which succeeds or fails the pattern.
 
 I _could_ implement this as captures but there are good reasons not to, this decomplects
 what is after all a pattern-matching operation from capturing, Mark/Check can cross rule
