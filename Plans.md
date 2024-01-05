@@ -229,6 +229,9 @@ This calls for a certain order of operations!
          and call it golden.
   - [X]  Specialize `|` for combinations of `PSet` and `PChar` to automagically
          consolidate into one `PSet`.
+  - [X]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
+    - [X]  Count the keys in the prefix map, if there are more than say five:
+    - [X]  Calculate a LeadMultiVec, which fail-jumps without unwinding the stack
   - [ ]  Make a special `PSetDiff` which has a second Settable value, such that
          those characters and ranges are excluded from the construct.  This is a lot
          of work for the gains it produces but for working with Unicode it's fairly
@@ -240,9 +243,6 @@ This calls for a certain order of operations!
          work.  But this has a lot of cases to handle, although it may be simplified by
          not dealing with splitting ranges which have a negative character in them: just
          keep them in the negation set and skip them when they come up in range iteration.
-  - [ ]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
-    - [ ]  Count the keys in the prefix map, if there are more than say five:
-    - [ ]  Calculate a LeadMultiVec, which fail-jumps without unwinding the stack
 
 ### Throw notes
 
