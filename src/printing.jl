@@ -233,7 +233,7 @@ end
 
 
 "String for Set Vector"
-function printset(vec::BitVector)::String
+function printset(vec::Bits)::String
     chars = bitvector_to_compact_repr(vec)
     str = "{"
 
@@ -242,12 +242,56 @@ function printset(vec::BitVector)::String
     return str
 end
 
+"String for MultSet Vector"
+function bitvector_to_compact_repr(bitvec::Bits{Int64})::Vector{String}
+    fragments = String[]
+    start_idx = 0
+    end_idx = 0
+    function _encode(i::Integer)
+        string(i, base=16)
+    end
+    for i in eachindex(bitvec)
+        if bitvec[i]
+            if start_idx == 0
+                start_idx = i
+            end
+            end_idx = i
+        elseif start_idx != 0
+            # End of a sequence
+            if end_idx - start_idx >= 2
+                # Three or more characters in succession
+                push!(fragments, "$(_encode(start_idx))-$(_encode(end_idx))")
+            else
+                # Individual characters
+                for j in start_idx:end_idx
+                    push!(fragments, _encode(j))
+                end
+            end
+            start_idx = 0
+            end_idx = 0
+        end
+    end
+
+    # Handle the case where the sequence reaches the end of the BitVector
+    if start_idx != 0
+        if end_idx - start_idx >= 2
+            push!(fragments, "$(_encode(start_idx))-$(_encode(end_idx))")
+        else
+            for j in start_idx:end_idx
+                push!(fragments, string(_encode(j)))
+            end
+        end
+    end
+
+    return fragments
+end
+
 """
     bitvector_to_compact_repr(bitvec::BitVector)
 
 Shows a set while collapsing ranges.
 """
-function bitvector_to_compact_repr(bitvec::BitVector)
+function bitvector_to_compact_repr(bitvec::Bits{128})
     fragments = String[]
     start_idx = 0
     end_idx = 0
