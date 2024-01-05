@@ -12,6 +12,7 @@
     ITestChar   # if char != aux, jump to 'offset'
     ITestSet    # if char not in buff, jump to 'offset'
     INotSet     # Predicate, fails if set matches, doesn't advance s
+    INotChar    # Predicate instruction for !P'char'
     ISpan       # read a span of chars in buff
     IBehind     # walk back 'aux' characters (fail if not possible)
     IReturn     # return from a rule
@@ -83,6 +84,12 @@ struct NotSetInst <: Instruction
     vec::Bits{Int128}
     l::Int32
 end # We create these at compile time from SetInst so only default constructor is used
+
+struct NotCharInst{C} <: Instruction where C <: AbstractChar
+    op::Opcode
+    c::C
+end
+NotCharInst(c::AbstractChar) = NotCharInst(INotChar, c)
 
 struct MultiVecInst <: Instruction
     op::Opcode
@@ -408,6 +415,11 @@ function _compile!(patt::PNot)::Pattern
     # therefore match multibyte chars
     if length(code) == 2 && code[1].op == ISet && code[2] == OpEnd
         push!(c, NotSetInst(INotSet, code[1].vec, code[1].l), OpEnd)
+        return patt
+    end
+    # We do the same for PChar
+    if patt.val[1] isa PChar
+        push!(c, NotCharInst(patt.val[1].val), OpEnd)
         return patt
     end
     trimEnd!(code)

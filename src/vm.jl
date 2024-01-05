@@ -280,6 +280,30 @@ function onInst(inst::CharInst, vm::VMState)::Bool
     end
 end
 
+"onTestChar"
+function onInst(inst::TestCharInst, vm::VMState)::Bool
+    this = thischar(vm)
+    if this == inst.c
+        vm.i += 1
+        return true
+    else  # this includes the this === nothing case
+        vm.i += inst.l
+        return true  # Not an unwinding fail
+    end
+end
+
+"onNotChar"
+function onInst(inst::NotCharInst, vm::VMState)::Bool
+    this = thischar(vm)
+    if this == inst.c
+        updatesfar!(vm)
+        return false
+    else  # this includes the this === nothing case
+        vm.i += 1
+        return true  # Not an unwinding fail
+    end
+end
+
 "onBehind"
 function onInst(inst::BehindInst, vm::VMState)::Bool
     s = vm.s
@@ -389,18 +413,6 @@ function onInst(inst::MultiVecInst, vm::VMState)::Bool
     vm.s = prevind(vm.subject, vm.s)
     updatesfar!(vm)
     return false
-end
-
-"onTestChar"
-function onInst(inst::TestCharInst, vm::VMState)::Bool
-    this = thischar(vm)
-    if this == inst.c
-        vm.i += 1
-        return true
-    else
-        vm.i += inst.l
-        return true  # Not an unwinding fail
-    end
 end
 
 "onCapture"
