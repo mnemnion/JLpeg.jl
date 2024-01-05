@@ -218,7 +218,7 @@ function runvm!(vm::VMState)::Bool
             continue
         end
         inst = @inbounds vm.program[vm.i]
-        print(vm_to_str(vm))
+        # print(vm_to_str(vm))
         if !onInst(inst, vm)::Bool
             failmatch!(vm)
         end
@@ -339,22 +339,20 @@ end
 
 "onMultiVec"
 function onInst(inst::MultiVecInst, vm::VMState)::Bool
-    if vm.s > vm.top
-        vm.s = prevind(vm.subject, vm.s)
-        updatesfar!(vm)
-        return false
-    end
-    # Mask high bit, + 1 for Julia indexing
-    byte = (codeunit(vm.subject, vm.s) & 0b01111111) + UInt8(1)
-    if inst.vec[byte]
-        vm.i += inst.l
-        vm.s += 1
-        return true
-    else  # Unwind the subject pointer for an accurate sfar
-        vm.s = prevind(vm.subject, vm.s)
-        updatesfar!(vm)
-        return false
-    end
+    if vm.s ≤ vm.top
+        byte = codeunit(vm.subject, vm.s)
+        if !iszero(byte & 0b10000000) # Malformed input, it happens
+            # Mask high bit, + 1 for Julia indexing
+            if @inbounds inst.vec[(byte & 0b01111111) + UInt8(1)]
+                vm.i += inst.l
+                vm.s += 1
+                return true
+            end
+        end
+    end # Unwind the subject pointer for an accurate sfar
+    vm.s = prevind(vm.subject, vm.s)
+    updatesfar!(vm)
+    return false
 end
 
 "onTestChar"
@@ -376,7 +374,7 @@ function onInst(inst::TestSetInst, vm::VMState)::Bool
         return false
     end
     code = UInt32(this)
-    if code < 128 && inst.vec[code + 1]
+    if code < 128 && @inbounds inst.vec[code + 1]
         vm.i += 1
         return true
     else

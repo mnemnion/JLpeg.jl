@@ -60,29 +60,29 @@ struct AnyInst <: Instruction
 end
 AnyInst(n::Integer) = n ≥ 0 ? AnyInst(IAny, UInt32(n)) : error("n must be a natural number")
 
-struct CharInst <: Instruction
+struct CharInst{C} <: Instruction where C <: AbstractChar
     op::Opcode
-    c::AbstractChar
+    c::C
 end
 CharInst(c::AbstractChar) = CharInst(IChar, c)
 
 struct SetInst <: Instruction
     op::Opcode
-    vec::BitVector
+    vec::Bits{Int128}
     l::Int32
 end
-SetInst(vec::BitVector) = SetInst(ISet, vec, Int32(1))
-SetInst(vec::BitVector, l::Integer) = SetInst(ISet, vec, Int32(l))
+SetInst(vec::Bits{Int128}) = SetInst(ISet, vec, Int32(1))
+SetInst(vec::Bits{Int128}, l::Integer) = SetInst(ISet, vec, Int32(l))
 SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
 
-LeadSetInst(vec::BitVector, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
+LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
 
 struct MultiVecInst <: Instruction
     op::Opcode
-    vec::BitVector
+    vec::Bits
     l::Int32
 end
-MultiVecInst(vec::BitVector, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(l))
+MultiVecInst(vec::Bits, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(l))
 
 struct ByteInst <: Instruction
     op::Opcode
@@ -136,10 +136,10 @@ TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(ITestChar, c, Int32(l))
 "Not yet in use"
 struct TestSetInst <: Instruction
     op::Opcode
-    vec::BitVector
+    vec::Bits{Int128}
     l::Int32
 end
-TestSetInst(vec::BitVector, l::Integer) = TestSetInst(ITestSet, vec, Int32(l))
+TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(ITestSet, vec, Int32(l))
 
 struct OpenCallInst <: Instruction
     op::Opcode
@@ -851,7 +851,7 @@ function isof(patt::Pattern, types::DataType...)
 end
 
 """
-    vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
+    vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
 
 Take a string, or a vector of characters, and break it down into bitvectors which
 compactly and quickly test for those characters.
@@ -859,14 +859,14 @@ compactly and quickly test for those characters.
 Return `(ascii, higher)` where `ascii` is all one-byte utf8 characters and higher is a somewhat
 complex dict of bitvectors useful for detecting practical multibyte ranges and sets.
 """
-function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{BitVector, Nothing},Union{Dict, Nothing}}
+function vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
     bvec = nothing
     prefix_map = nothing
     limit = Char(127)
     for char in str
         if char <= limit
             if bvec === nothing
-                bvec = falses(128)
+                bvec = Bits{Int128}(0)
             end
             bvec[UInt(char)+1] = true
         else
@@ -884,7 +884,7 @@ function prefix!(map::Dict, b1::UInt8, b2::UInt8)
     if haskey(map, b1)
         map[b1][b2 + 1] = true
     else
-        map[b1] = falses(64)
+        map[b1] = Bits{Int64}(0)
         map[b1][b2 + 1] = true
     end
 end
@@ -909,7 +909,7 @@ end
 
 TBW
 """
-function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::Dict)
+function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pre::Dict)
     if bvec !== nothing
         push!(c, HoldInst(ILeadSet))  # -> end of MultiSet, after OpFail
     end
@@ -918,7 +918,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
     # Store offsets as we find them
     sites = IdDict{Any,Integer}()
     # Vectors go last
-    vecs = BitVector[]
+    vecs = Bits{Int64}[]
     # next set of Dicts, if any
     seconds = []
     for pair in pre
@@ -949,7 +949,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
     for dict in thirds
         sites[dict] = length(prevec) + 1
         for pair in dict
-            @assert pair.second isa BitVector "not-a-bitvector in thirds pair"
+            @assert pair.second isa Bits{Int64} "not-a-bitvector in thirds pair"
             push!(prevec, pair)
             push!(vecs, pair.second)
         end
@@ -969,7 +969,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{BitVector,Nothing}, pre::
             end
         elseif elem == OpFail
             push!(c, OpFail)
-        elseif elem isa BitVector
+        elseif elem isa Bits{Int64}
             push!(c, MultiVecInst(elem, length(prevec) - idx + 1))
         end
     end
