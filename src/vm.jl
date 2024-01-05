@@ -348,7 +348,8 @@ end
 function onInst(inst::TestSetInst, vm::VMState)::Bool
     this = thischar(vm)
     if this === nothing
-        return false
+        vm.i += 1
+        return true
     end
     code = UInt32(this)
     if code < 128 && @inbounds inst.vec[code + 1]
@@ -413,6 +414,22 @@ function onInst(inst::MultiVecInst, vm::VMState)::Bool
     vm.s = prevind(vm.subject, vm.s)
     updatesfar!(vm)
     return false
+end
+
+"onLeadMulti"
+function onInst(inst::LeadMultiInst, vm::VMState)::Bool
+    if vm.s > vm.top
+        updatesfar!(vm)
+        return false
+    end
+    byte = codeunit(vm.subject, vm.s)
+    if @inbounds inst.vec[(byte & 0b01111111) + UInt8(1)]
+        vm.i += 1
+        return true
+    else  # goto fail
+        vm.i += inst.l
+        return true
+    end
 end
 
 "onCapture"

@@ -8,6 +8,7 @@
     ILeadSet    # ASCII lead of MultiSet
     IByte       # Test the next byte at vm.s
     IMultiVec   # match a set of end bytes of multibyte char
+    ILeadMulti  # Extended lead of MultiSet
     ITestAny    # in no char, jump to 'offset'
     ITestChar   # if char != aux, jump to 'offset'
     ITestSet    # if char not in buff, jump to 'offset'
@@ -93,10 +94,17 @@ NotCharInst(c::AbstractChar) = NotCharInst(INotChar, c)
 
 struct MultiVecInst <: Instruction
     op::Opcode
-    vec::Bits
+    vec::Bits{Int64}
     l::Int32
 end
-MultiVecInst(vec::Bits, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(l))
+MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(l))
+
+struct LeadMultiInst <: Instruction
+    op::Opcode
+    vec::Bits{Int128}
+    l::Int32
+end
+LeadMultiInst(vec::Bits{Int128}, l::Integer) = LeadMultiInst(ILeadMulti, vec, Int32(l))
 
 struct ByteInst <: Instruction
     op::Opcode
@@ -908,14 +916,14 @@ end
 
 function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8)
     if !haskey(map, b1)
-        map[b1] = Dict{UInt8,Any}()
+        map[b1] = Dict{UInt8,Bits{Int64}}()
     end
     prefix!(map[b1], b2, b3)
 end
 
 function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8, b4::UInt8)
     if !haskey(map, b1)
-        map[b1] = Dict{UInt8,Any}()
+        map[b1] = Dict{UInt8,Union{Dict{UInt8,Bits{Int64}},Bits{Int64}}}()
     end
     prefix!(map[b1], b2, b3, b4)
 end
@@ -924,7 +932,7 @@ end
 """
     encode_multibyte_set!(c::IVector, pre::Dict)
 
-TBW
+Encode instructions to recognize a set containing multibyte characters.
 """
 function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pre::Dict)
     if bvec !== nothing
@@ -938,7 +946,13 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     vecs = Bits{Int64}[]
     # next set of Dicts, if any
     seconds = []
+    # compute headset if there are four or more lead bytes
+    if length(pre) ≥ 4
+        push!(c, HoldInst(ILeadMulti))
+    end # we'll collect the heads just in case
+    heads = UInt8[]
     for pair in pre
+        push!(heads, pair.first & 0b01111111)
         push!(prevec, pair)
         if pair.second isa Dict
             push!(seconds, pair.second)
@@ -946,29 +960,30 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
             push!(vecs, pair.second)
         end
     end
-    push!(prevec, OpFail)
-    # thirds?
-    thirds = []
-    for dict in seconds
-        sites[dict] = length(prevec) + 1
-        for pair in dict
-            push!(prevec, pair)
-            if pair.second isa Dict
-                push!(thirds, pair.second)
-            else
-                push!(vecs, pair.second)
+    if !isempty(seconds)
+        # thirds?
+        thirds = []
+        push!(prevec, OpFail)
+        for dict in seconds
+            sites[dict] = length(prevec) + 1
+            for pair in dict
+                push!(prevec, pair)
+                if pair.second isa Dict
+                    push!(thirds, pair.second)
+                else
+                    push!(vecs, pair.second)
+                end
             end
         end
-    end
-    if !isempty(thirds)
-        push!(prevec, OpFail)
-    end
-    for dict in thirds
-        sites[dict] = length(prevec) + 1
-        for pair in dict
-            @assert pair.second isa Bits{Int64} "not-a-bitvector in thirds pair"
-            push!(prevec, pair)
-            push!(vecs, pair.second)
+        if !isempty(thirds)
+            push!(prevec, OpFail)
+            for dict in thirds
+                sites[dict] = length(prevec) + 1
+                for pair in dict
+                    push!(prevec, pair)
+                    push!(vecs, pair.second)
+                end
+            end
         end
     end
     push!(prevec, OpFail)
@@ -976,15 +991,17 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         push!(prevec, vec)
         sites[vec] = length(prevec)
     end
+    failidx = nothing  # need this for possible head test
     for (idx, elem) in enumerate(prevec)
         if elem isa Pair
             if elem.first isa UInt8
                 l = sites[elem.second] - idx
                 push!(c, ByteInst(elem.first, l))
-            else
-                error("bad pair in encoder $(typeof(elem))")
             end
         elseif elem == OpFail
+            if failidx === nothing
+                failidx = idx
+            end
             push!(c, OpFail)
         elseif elem isa Bits{Int64}
             push!(c, MultiVecInst(elem, length(prevec) - idx + 1))
@@ -992,7 +1009,14 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     end
     if bvec !== nothing
         @assert c[1] isa HoldInst "HoldInst not found at 1"
-        c[1] = LeadSetInst(bvec, length(prevec) + 1)
+        c[1] = LeadSetInst(bvec, length(c))
+    end
+    if c[2] isa HoldInst
+        bvec = Bits{Int128}(0)
+        for char in heads
+            bvec[char + 1] = true
+        end
+        c[2] = LeadMultiInst(bvec, failidx)
     end
     push!(c, OpEnd)
 end

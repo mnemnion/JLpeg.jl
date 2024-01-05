@@ -171,6 +171,9 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     if hasfield(t, :n)
         push!(line, " $(inst.n)")
     end
+    if hasfield(t, :b)
+        push!(line, " $(string(inst.b, base=16))")
+    end
     if hasfield(t, :l)
         push!(line, " ($(inst.l + off))")
     end

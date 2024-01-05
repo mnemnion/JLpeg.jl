@@ -210,17 +210,15 @@ This calls for a certain order of operations!
   - [ ]  Add **moar** Set tests!
 - [X]  Refactor `.final` field into `.l` labeled jump
 - [X]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
-- [:nots]  It turns out that a simple complement of an ASCII PSet isn't valid, because
+- [X]  It turns out that a simple complement of an ASCII PSet isn't valid, because
        that doesn't match a Unicode character, and it would need to. "not this set"
        and "not this character" are very common in the ASCII range in practical
        patterns, to the point that it might be worth adding extra opcodes for them.
        These will simply return `true` if the pattern doesn't match and `false` if it
        does, so `!S"123"` will correctly match multibyte characters as well.
        These are **predicates** so they do not advance the subject pointer.
-  - [ ]  NotChar
+  - [X]  NotChar
   - [X]  NotSet
-  - [ ]  NotHeadSet: For testing the first byte of continuation characters.  This will
-         confirm the high bit is set, then mask it and test as usual for sets.
 - [#]  Handle PChoice consolidation
   - [X]  Make PRange and PSet both PSet
   - [X]  Compile time doesn't matter nearly so much as VM time, but it's still nice
@@ -242,16 +240,9 @@ This calls for a certain order of operations!
          work.  But this has a lot of cases to handle, although it may be simplified by
          not dealing with splitting ranges which have a negative character in them: just
          keep them in the negation set and skip them when they come up in range iteration.
-  - [|nots]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
+  - [ ]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
     - [ ]  Count the keys in the prefix map, if there are more than say five:
-    - [ ]  Calculate a TestMultiVec, which fail-jumps without unwinding the stack
-    - [ ]  Turn the LeadSet into a TestSet, if applicable (complement)
-  - [ ]  We do not, in fact, need the LeadSet, which can be replaced with a
-         complemented `.~` BitVector TestSet. A LeadSet jumps if it succeeds and
-         advances if it fails, a TestSet jumps if it fails and advances if it leads,
-         both return `true` on both conditions, so a LeadSet can just be a TestSet
-         of the complement of the original ASCII set, which, upon success, jumps
-         to a convenient FailOp.
+    - [ ]  Calculate a LeadMultiVec, which fail-jumps without unwinding the stack
 
 ### Throw notes
 

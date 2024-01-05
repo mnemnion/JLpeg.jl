@@ -147,7 +147,6 @@ using Test
         p_one = (!P"1" * P(1))
         @test match(p_one, "2") isa PegMatch
         @test match(p_one, "1") isa PegFail
-        # Note: differs from lpeg(label) behavior, but I consider this correct
         @test match(!P"1", "") isa PegMatch
     end
     @testset "Match behind" begin
