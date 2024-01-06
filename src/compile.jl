@@ -251,6 +251,8 @@ end
 
 Base.iterate(inst::IVectored) = iterate(inst, 0)
 
+Base.count_ones(inst::IVectored) = count_ones(inst.vec.chunk)
+
 
 
 # ## Compilers
@@ -1011,9 +1013,9 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
             push!(vecs, pair.second)
         end
     end
-    if leadidx === nothing
+    # if leadidx === nothing
         push!(prevec, OpFail)
-    end
+    # end
     if !isempty(seconds)
         # thirds?
         thirds = []

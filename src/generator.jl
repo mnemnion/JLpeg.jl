@@ -20,23 +20,88 @@ function generate(set::PSet)::String
     buff = IOBuffer()
     c = set.code
     start = 1
+    leadcount = nothing
     if c[1].op == ISet
         _generateISet(buff, c[1])
         return String(take!(buff))
     elseif c[1].op == ILeadSet
         _generateISet(buff, c[1])
         start += 1
+        leadcount = count_ones(c[1])
     end
     if c[start].op == ILeadMulti
         start += 1
+        leadcount = count_ones(c[2])
     end
-    # ...
+    # We need a counter stack
+    if leadcount === nothing
+        leadcount = 0
+        for i in start:length(c)
+            leadcount += 1
+            if c[i] == OpFail
+                break
+            end
+        end
+        @assert leadcount > 0  "failure to count lead bytes"
+    end
+    countstack = [0, 0, 0, 0]
+    gen = true
+    off = start
+    charstack = []
+    byte = 1
+    function reset!()
+
+    end
+    # println(leadcount)
+    while gen
+        if countstack[1] ≥ leadcount
+            break
+        end
+        inst = c[off]
+        # println("$off: ", inst)
+        # println("   $countstack  $byte  $charstack")
+        if inst isa ByteInst
+            push!(charstack, inst.b)
+            byte += 1
+            off += inst.l + countstack[byte]
+        elseif inst isa MultiVecInst
+            _generateMultiVec(buff, charstack, inst)
+            empty!(charstack)
+            countstack[byte - 1] += 1
+            off = start + countstack[1]
+            byte = 1
+            continue
+        elseif inst == OpEnd
+            error("hit OpEnd")
+            gen = false
+        elseif inst == OpFail
+            if byte == 1
+                error("overshot lead bytes")
+            end
+            empty!(charstack)
+            countstack[byte - 1] += 1
+            countstack[byte] = 0
+            off = start + countstack[1]
+            byte = 1
+            continue
+        end
+    end
+
     return String(take!(buff))
 end
 
 function _generateISet(buff::IOBuffer, inst::Instruction)
     for b in inst
         if b isa UInt8
+            write(buff, b)
+        end
+    end
+end
+
+function _generateMultiVec(buff::IOBuffer, charstack::Vector, inst::MultiVecInst)
+    for b in inst
+        if b isa UInt8
+            write(buff, charstack...)
             write(buff, b)
         end
     end
