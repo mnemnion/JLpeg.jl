@@ -40,6 +40,7 @@ The hitlist:
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ]  Proposed optimizations not found in LPeg
   - [ ]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
+  - [ ]  MultiSetTest [conversion][#multiset-test-conversion]
   - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
   - [ ]  Fail optimization: only update the register once when returning from calls.
          this one should be deferred until we have real profiling on the hot loop.
@@ -207,6 +208,13 @@ Easy test is to generate a random number and take a program we have nice tests f
 (such as `re`, soon), scatter a bunch of OpNoOps in it, correct, remove a bunch,
 correct, and so on, testing each time.
 
+### Sparse Vectors
+
+Are going to be the efficient way to relabel. They store any nonzero value and any
+other index returns 0, so we can simply store a 1 for any added value and a -1 for a
+deleted one, then relabel by calculating the sum between the offset and its jump.
+Easy peasy.
+
 ### Fragment Parser
 
 This is something I was working on doing at the code-generation level with LPeg,
@@ -312,3 +320,9 @@ a conformant parser for a language which already has one.
 In fact, I'm going to start with a complete Set generator which just goes in order.
 This is the easiest way to demonstrate that the Unicode sets aren't producing any
 garbage or characters that obviously don't belong to the set.
+
+### Multiset Test Conversion
+
+Is easy: we have OpFail everywhere it can fail other than the vectorized
+instructions: we replace the end vectors with TestMultiVec (doesn't exist yet but
+obvious opcode is obvious) and swap the OpFails with jumps to the next Choice.
