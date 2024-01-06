@@ -35,5 +35,9 @@ function generate(set::PSet)::String
 end
 
 function _generateISet(buff::IOBuffer, inst::Instruction)
-
+    for b in inst
+        if b isa UInt8
+            write(buff, b)
+        end
+    end
 end
