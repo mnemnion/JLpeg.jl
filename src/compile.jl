@@ -940,7 +940,7 @@ function makebitvectors(set::Settable)::Tuple{Union{Bits, Nothing},Union{Dict, N
     return bvec, prefix_map
 end
 
-function bvec_char!(bvec::Union{Bits,Nothing}, prefix_map::Union{Dict,Nothing}, char::AbstractChar)
+function bvec_char!(bvec::Union{Bits,Nothing}, prefix_map::Union{OrderedDict,Nothing}, char::AbstractChar)
     if char <= Char(127)
         if bvec === nothing
             bvec = Bits{Int128}(0)
@@ -948,14 +948,14 @@ function bvec_char!(bvec::Union{Bits,Nothing}, prefix_map::Union{Dict,Nothing}, 
         bvec[UInt(char)+1] = true
     else
         if prefix_map === nothing
-            prefix_map = Dict()
+            prefix_map = OrderedDict{UInt8,Union{OrderedDict,Bits{Int64}}}()
         end
         prefix!(prefix_map, codeunits(string(char))...)
     end
     return bvec, prefix_map
 end
 
-function prefix!(map::Dict, b1::UInt8, b2::UInt8)
+function prefix!(map::OrderedDict, b1::UInt8, b2::UInt8)
     b2 &= 0b00111111
     if haskey(map, b1)
         map[b1][b2 + 1] = true
@@ -965,16 +965,16 @@ function prefix!(map::Dict, b1::UInt8, b2::UInt8)
     end
 end
 
-function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8)
+function prefix!(map::OrderedDict, b1::UInt8, b2::UInt8, b3::UInt8)
     if !haskey(map, b1)
-        map[b1] = Dict{UInt8,Bits{Int64}}()
+        map[b1] = OrderedDict{UInt8,Bits{Int64}}()
     end
     prefix!(map[b1], b2, b3)
 end
 
-function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8, b4::UInt8)
+function prefix!(map::OrderedDict, b1::UInt8, b2::UInt8, b3::UInt8, b4::UInt8)
     if !haskey(map, b1)
-        map[b1] = Dict{UInt8,Union{Bits{Int64},Dict{UInt8,Bits{Int64}}}}()
+        map[b1] = OrderedDict{UInt8,Union{Bits{Int64},OrderedDict{UInt8,Bits{Int64}}}}()
     end
     prefix!(map[b1], b2, b3, b4)
 end
@@ -1007,7 +1007,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     for pair in pre
         push!(heads, pair.first & 0b00111111)
         push!(prevec, pair)
-        if pair.second isa Dict
+        if pair.second isa OrderedDict
             push!(seconds, pair.second)
         else
             push!(vecs, pair.second)
@@ -1023,7 +1023,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
             sites[dict] = length(prevec) + 1
             for pair in dict
                 push!(prevec, pair)
-                if pair.second isa Dict
+                if pair.second isa OrderedDict
                     push!(thirds, pair.second)
                 else
                     push!(vecs, pair.second)

@@ -2,6 +2,7 @@
 module JLpeg
 
 using BitPermutations
+using OrderedCollections
 
 include("types.jl")
 include("pattern.jl")
