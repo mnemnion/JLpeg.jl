@@ -951,7 +951,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     if length(pre) ≥ 4
         push!(c, HoldInst(ILeadMulti))
         leadidx = length(c)
-    end # we'll collect the heads just in case
+    end
     heads = UInt8[]
     for pair in pre
         push!(heads, pair.first & 0b00111111)
@@ -962,10 +962,12 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
             push!(vecs, pair.second)
         end
     end
+    if leadidx === nothing
+        push!(prevec, OpFail)
+    end
     if !isempty(seconds)
         # thirds?
         thirds = []
-        push!(prevec, OpFail)
         for dict in seconds
             sites[dict] = length(prevec) + 1
             for pair in dict
@@ -976,9 +978,9 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
                     push!(vecs, pair.second)
                 end
             end
+            push!(prevec, OpFail)
         end
         if !isempty(thirds)
-            push!(prevec, OpFail)
             for dict in thirds
                 sites[dict] = length(prevec) + 1
                 for pair in dict
@@ -986,9 +988,9 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
                     push!(vecs, pair.second)
                 end
             end
+            push!(prevec, OpFail)
         end
     end
-    push!(prevec, OpFail)
     for vec in vecs
         push!(prevec, vec)
         sites[vec] = length(prevec)
@@ -1008,6 +1010,10 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         elseif elem isa Bits{Int64}
             push!(c, MultiVecInst(elem, length(prevec) - idx + 1))
         end
+    end
+    if failidx === nothing
+        failidx = length(prevec)
+        push!(c, OpFail)
     end
     if bvec !== nothing
         @assert c[1] isa HoldInst "HoldInst not found at 1"
