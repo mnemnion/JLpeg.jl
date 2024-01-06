@@ -12,16 +12,16 @@ Wherein I note how I'm building the thing.
 
 The hitlist:
 
-- [X]  Multibyte sets and chars
-  - [X]  Implement multibyte sets
-  - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
-  - [X]  [Multiset Rewrite](#multiset-rewrite)
-  - [ ]  [Clean Up](#multiset-checklist)
 - [#]  Captures
-  - [X] Cc
-  - [ ] `Ce`, `=>`
-  - [ ] `Anow`, `>`
-  - [ ] `Cf`, `./`
+  - [X]  Cc
+  - [ ]  `Ce`, `=>`
+    - [ ]  Do I want this syntax for expression captures?
+  - [ ]  `Anow`, `>` (`.>`? I think I like this better, the two-character pattern and
+         all)
+    - [ ]  Refactor `aftermatch` to get a function which can enact captures across
+           part of the  stack
+    - [ ]  The rest should be fairly simple
+  - [ ]  `Cf`, `./`
   - [ ]  "deferred action" form `patt |> :func` || `patt > :func`.  This one will be rather
          complex to get right, but we get one critical and one nice thing out of it: assigning
          several actions to a single grammar, and compile-time compiling grammars then load-time
@@ -31,6 +31,7 @@ The hitlist:
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ] TestPatt / headfail optimizations
   - [ ] Tail-call elimination
+  - [ ] Intermediate jump elimination
   - [ ] Set ISpan optimization
   - [?] fixed-length detection
   - [ ] full-capture optimization (bytecode)
@@ -49,7 +50,8 @@ The hitlist:
          want a full rule).
   - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common patterns
          like whitespace, where the {\t\n } is very frequent and the comment part is not, lets
-         use use ISpan for a leading set.
+         us use ISpan for a leading set.  Note: there's some bytecode trickery needed here to
+         make sure it doesn't infinite loop.
   - [ ]  Follow sets for TestSet and Span.  These have the additional advantage that they can
          jump immediately if they fail (for TestSet) or recurse to the start instruction after
          a match (for a SpanSet).
@@ -69,10 +71,23 @@ The hitlist:
   - [ ]  Choice shadow detection.  This is just a nice thing I'd like to do for my
          users.  In many circumstances the compiler could detect when an earlier ordered choice means that a later choice can't be matched, this is always a bug and should be brought to the user's attention.  The easy cases all involve fixed-length later choices, but
          a certain amount of detection can be performed with predicates and repetition in the mi as well.  For literal sequences it's as simple as applying the earlier rule to the string form of the later rule and seeing if there's a match.
-- [ ]  Multigrammars (see [section](#multigrammar))
+- [ ]  Fragment parser (see [section](#fragment-parser))
+- [ ]  Add beginning index or `UnitRange` as optional third argument for `match`
+- [ ]  Suspendable VM [discussion](#suspend-the-vm)
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
+- [ ]  Make a special `PSetDiff` which has a second Settable value, such that
+       those characters and ranges are excluded from the construct.  This is a lot
+       of work for the gains it produces but for working with Unicode it's fairly
+       important I think.  Removing chars which are present is easy, removing chars
+       from a range only slightly less so, but handling negative ranges is a bear.
+       I can write a custom "sort" function, "sort" in quotes because it will outright
+       eliminate members if it needs to, such that a given PSet collection is in lexical
+       order and has no duplicates, that's a good start on making something like this
+       work.  But this has a lot of cases to handle, although it may be simplified by
+       not dealing with splitting ranges which have a negative character in them: just
+       keep them in the negation set and skip them when they come up in range iteration.
 - [X] Done:
   - [X] Handle the other PStar cases
   - [X] `P(-n)` for n bytes remaining
@@ -95,229 +110,37 @@ The hitlist:
       - [X]  `@grammar!`
   - [X]  [Compiler Rewrite](#compiler-rewrite)
     - [X]  Hoisting
-
-### Multiset Rewrite
-
-Now that I have significant progress on [JLpegUnicode](httk://add.repo.soon), it's
-time to make MultiSets optimal.  Optimal within the framework of the VM, that is,
-this might be somewhat slower than a perfect NFA, but then again, maybe not.  I
-refuse to add a regex special-case to the VM.
-
-The first thing is to replace "final" with an instruction label, so that any match
-can skip the rest of the MultiSet in a single jump, this lets us do a simple loop for
-the rest of the tests.
-
-Next, we need a `ExtTestSetInst` instruction.  This fails if the high bit is zero, if
-not, we mask it off and test the byte against a BitVec, telling us whether our
-extended char is by definition not in our set.
-
-Test instructions all have a label, when this is done *all* SetInst will have a label
-(and no `.final` field).
-
-This alone would give relatively good performance, but since we have labels in Sets now, we can do better than this, by breaking 3 and 4 character sets down into head-matching leads with a jump to the tail match.  So an IByteInst which matches against the headbyte and jumps to the MultiSetInst, which is now just a lead byte and a Bitvector64.
-
-So S"😾👍" (we don't do headfails for less than, let's say, four multibyte chars) looks like this:
-
-```txt
-01 IByteInst 0xf0 :05
-02 IByteInst 0x9f :05
-03 IMultiSet lead:0x98 vec:{0xbe} :05
-04 IMultiSet lead:0x98 vec:{0x8d} :05
-05 [next instruction]
-```
-
-Or, come to think of it, maybe `IMultiSet` is just a :vec and an :l and we use
-`IByteInst` with a label to consolidate.  I like that more.  (Now I'm getting
-distracted thinking about how Vectors get laid out in memory and how to eke out that
-performance. Later!)
-
-So a complex byteset (Unicode category, as the motivating example) is laid out like this (I'm assuming three bytes for simplicity, the pattern generalizes to two or four)
-
-```txt
-    ExtTestSetInst (testing if byte 1 ) :A (this can fail)
-    SetInst :END (If it contains ASCII, also can fail)
-A:  IByteInst 0x[A] :B
-    IByteInst 0x[B] :C
-    ...
-    IFail
-B:  IByteInst 0x[C] :D
-    ...
-C:  IByteInst 0x[D] :E
-    ...
-    IFail
-D:  IMultiSet [:vec] :END
-    ...
-E:  IMultiSet [:vec] :END
-    ...
-    IFail
-END:  (rest of program goes here)
-```
-
-This layout respects the convention "succeed, go to label" and in fact, we shouldn't
-need to special case any of these instructions with `followset!` or anything like it,
-we just put an `IFail` at `:END`.  That's much nicer, innit.
-
-That said, the advantages of running a single Set as one dispatch are compelling.  We
-don't have to unwind the subject pointer, `vm.s` never points at an invalid character
-(correct code doesn't need that property, to be fair), we only need to extract each
-byte once (we know when an `IByteInst` has matched and can retrieve the next byte
-before we jump-to-label), a matching `IMultiSet` advances the subject pointer before
-jumping to :END.  Each `IMultiSet` either succeeds or fails, so we just need one `IFail`
-between the `IByteInst` and the `IMultiSet`.
-
-#### MultiSet layout Algorithm
-
-We have a prefix map, where the key is the headbyte, and the value is either a Vector of follow bytes or a prefix map.
-
-Here's one:
-
-```jldoctest skip=true
-Dict{UInt8, Any} with 3 entries:
-  0xf0 => Dict{UInt8, Any}(0x9f=>Dict{UInt8, Any}(0x91=>UInt8[0x0a, 0x0b, 0x0e]))
-  0xce => UInt8[0x38, 0x37, 0x36, 0x37, 0x37]
-  0xe1 => Dict{UInt8, Any}(0x88=>UInt8[0x06, 0x0a, 0x0a, 0x0a])
-```
-
-We vectorize it with Pairs:
-
-```julia
-[
-  0xf0 => Dict(1),
-  0xce => UInt8[1],
-  0xe1 => Dict(2),
-  OpFail => OpFail,
-  0x9f => Dict(3),  # pair from Dict1
-  0x88 => UInt8[2],
-  OpFail => OpFail,
-  UInt8[1],
-  UInt8[2],
-]
-```
-
-While we do this, we make an `IdDict` of each value's index in our Vector.
-
-Now we have the information we need to provide labels, so we go through and append all the relevant instructions to the `.code` `IVector` we're building.
-
-#### It worked
-
-Got a bit of cleaning up to do and then we're golden.
-
-#### MultiSet Checklist
-
-This calls for a certain order of operations!
-
-- [#]  Add a bunch more MultiSet tests (emoji in particular)
-  - [ ]  Add **moar** Set tests!
-- [X]  Refactor `.final` field into `.l` labeled jump
-- [X]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
-- [X]  It turns out that a simple complement of an ASCII PSet isn't valid, because
-       that doesn't match a Unicode character, and it would need to. "not this set"
-       and "not this character" are very common in the ASCII range in practical
-       patterns, to the point that it might be worth adding extra opcodes for them.
-       These will simply return `true` if the pattern doesn't match and `false` if it
-       does, so `!S"123"` will correctly match multibyte characters as well.
-       These are **predicates** so they do not advance the subject pointer.
-  - [X]  NotChar
-  - [X]  NotSet
-- [#]  Handle PChoice consolidation
-  - [X]  Make PRange and PSet both PSet
-  - [X]  Compile time doesn't matter nearly so much as VM time, but it's still nice
-         to avoid extra allocation, especially for something like ".val" fields which
-         stick around forever.  So we could make PSet store a
-         `Vector{Option{Char,Pair{Char,Char}}}`, get rid of separate PRange which
-         only complicates the code, and JIT the bitvector in prefix!, apply the byte,
-         and call it golden.
-  - [X]  Specialize `|` for combinations of `PSet` and `PChar` to automagically
-         consolidate into one `PSet`.
-  - [X]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
-    - [X]  Count the keys in the prefix map, if there are more than say five:
-    - [X]  Calculate a LeadMultiVec, which fail-jumps without unwinding the stack
-  - [ ]  Make a special `PSetDiff` which has a second Settable value, such that
-         those characters and ranges are excluded from the construct.  This is a lot
-         of work for the gains it produces but for working with Unicode it's fairly
-         important I think.  Removing chars which are present is easy, removing chars
-         from a range only slightly less so, but handling negative ranges is a bear.
-         I can write a custom "sort" function, "sort" in quotes because it will outright
-         eliminate members if it needs to, such that a given PSet collection is in lexical
-         order and has no duplicates, that's a good start on making something like this
-         work.  But this has a lot of cases to handle, although it may be simplified by
-         not dealing with splitting ranges which have a negative character in them: just
-         keep them in the negation set and skip them when they come up in range iteration.
-
-### Throw notes
-
-Currently adding throws to JLpeg, which are the basic mechanism to build good error reporting
-and recovery. Observations from the code:
-
-Adds three new instructions: `IPredChoice`, `IThrow`, and `IThrowRec`.
-
-`IPredChoice` isn't directly related to throws, it's so error reporting works correctly (?). It's coded by (for us) `PAnd` and `PNot`, and acts just like a choice in ordinary unwinds.
-
-`IThrow` and `IThrowRec` differ based on whether the grammar has a recovery rule with the label name; the latter has an offset to the recovery instruction (other differences TBD).
-
-`lpeglabel` adds two booleans, `labenv` and `predchoice`, to each stack frame, and an `insidepred` de-facto register (local variable inside the dispatch loop, so same thing).
-
-The essential distinction is that `labenv` is `true` anytime we have any sort of PredChoice on the stack, and `predchoice` itself means we're inside an actual predicate choice (and not an ordinary choice, within a predicate choice or not).  These are both `false` in call frames.
-
-This is so that throws can unwind through ordinary Choice frames, which I should be able to do
-just by checking the opcode of the frame's instruction pointer, which I like more.
-
-So that means we add a `p` Bool to each StackFrame, a `tp` stack register, an `inpred` VM register, and we unwind predicates on throw the (relatively) expensive way, by checking the instruction pointer each time we see an .s.
-
-#### [X] PThrow Checklist
-
-- [X]  Re-code `PAnd` and `PNot` to use `IPredChoice`
-- [X]  Add `p` to stack frames, `inpred` and `tp` registers, proper updating in:
-       `onChoice`, `onPredChoice`, and `failinst`.
-- [#]  Code ThrowInst and ThrowRecInst, starting (ofc) with `PThrow`.
-  - [X]  Good time to re-code the compiler to stop trying to float auxiliaries and just
-         pass in a `:throws` and `:caps` Dict during `prepare!`, good preparation for
-         better compiling of Grammars.
-  - [X]  Code ThrowInst
-  - [X]  Code ThrowRecInst
-
-### Grammar Compile Rewrite
-
-Time to tackle codegen in an order which lets us determine what's going on with rules
-at a time when it's useful to the calling rule.
-
-#### [X] Rule Traversal
-
-This should begin by replacing all POpenCall with PCall, only then generating code.
-What this means is we pass along the rulemap to the first rule, then go visiting
-subrules: if it's terminal, we compile it, if we see it twice, it's recursive: if
-that's left recursion, bail out, otherwise we tag as such (and therefore variable
-length by definition).
-
-Whenever we reach the end of a visited rule, we know if it's recursive, and all
-ultimately-terminal calls (at whatever degree of remove) are compiled / we know
-what we need to know, so we can compile that rule, and when we reach the end of the
-start rule, we're done, and ready to hoist and link.
-
-We use `:aux` to store everything we determine about rules, nullable, nofail,
-fixedlen, terminal, visited, anything else we really need to know.
-
-#### Compiler Rewrite
-
-I'm not satisfied with the flow of the current compiler, and I don't entirely understand
-why.  It might not even be about that, might just need to be more willing to lift the
-sub-codes of, particularly, `PChoice`, to rewrite them under some circumstances.
-
-Two things and I might not need both:
-
-- [?]  Pass in the parent in `compile` to `_compile`, to condition compiling on parental
-       context.
-- [?]  Add a `hoist!(parent::Pattern, child::Pattern)` method, which by default returns
-       the `.code`, but which can contextually rewrite it or copy it based on expectation
-       of the parental unit.  I like this better actually, full dispatch is one of the
-       gems of Julia and it is rather distinct behavior from compiling itself.  The
-       contract is that the parent (by being what it is) informs the child if a copy
-       or copy-and-rewrite is needed.
-
-I like `hoist!` better.  A pattern doesn't need its parent to compile, this makes
-"rewrite in context" its own operation, which I expect will be easier to follow.  It
-lets us have specialization in both directions, such as an enclosing rule which
-always needs a copy, if such exist.
+  - [X]  Add a bunch more MultiSet tests (emoji in particular)
+    - [X]  Add **moar** Set tests!
+  - [X]  Refactor `.final` field into `.l` labeled jump
+  - [X]  Add `IByteInst`, refactor `IMultiSet` for new bytecode
+  - [X]  It turns out that a simple complement of an ASCII PSet isn't valid, because
+         that doesn't match a Unicode character, and it would need to. "not this set"
+         and "not this character" are very common in the ASCII range in practical
+         patterns, to the point that it might be worth adding extra opcodes for them.
+         These will simply return `true` if the pattern doesn't match and `false` if it
+         does, so `!S"123"` will correctly match multibyte characters as well.
+         These are **predicates** so they do not advance the subject pointer.
+    - [X]  NotChar
+    - [X]  NotSet
+  - [X]  Handle PChoice consolidation
+    - [X]  Make PRange and PSet both PSet
+    - [X]  Compile time doesn't matter nearly so much as VM time, but it's still nice
+           to avoid extra allocation, especially for something like ".val" fields which
+           stick around forever.  So we could make PSet store a
+           `Vector{Option{Char,Pair{Char,Char}}}`, get rid of separate PRange which
+           only complicates the code, and JIT the bitvector in prefix!, apply the byte,
+           and call it golden.
+    - [X]  Specialize `|` for combinations of `PSet` and `PChar` to automagically
+           consolidate into one `PSet`.
+    - [X]  Add the headfail instruction, that should go fairly smoothly I think, it's just:
+      - [X]  Count the keys in the prefix map, if there are more than say five:
+      - [X]  Calculate a LeadMultiVec, which fail-jumps without unwinding the stack
+  - [X]  Multibyte sets and chars
+    - [X]  Implement multibyte sets
+    - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
+    - [X]  Multiset Rewrite
+    - [X]  Clean Up
 
 ### Capture closing
 
@@ -380,7 +203,7 @@ Easy test is to generate a random number and take a program we have nice tests f
 (such as `re`, soon), scatter a bunch of OpNoOps in it, correct, remove a bunch,
 correct, and so on, testing each time.
 
-### Multigrammar
+### Fragment Parser
 
 This is something I was working on doing at the code-generation level with LPeg,
 which was/is the wrong way to go.  Note that this name probably belongs to embedding a
@@ -448,3 +271,11 @@ This is something I wanted to do in Lua, Julia having a canonical Expr format ma
 the idea bearable, but this is a separate VM, or program really, which reparses
 changes to a parser Expr to see when they remain valid to the specified Grammar.
 Crucial for getting rid of Treesitter.
+
+### Suspend the VM
+
+I've been thinking about parsing streams, and this would require a change to the
+semantics of hitting the end of input. Our "forward" patterns all check for end of
+input and return `false`, but we could have a version of the VM that checks for this
+condition on fails and suspends parsing, such that it can be renewed on more input or
+told that there is no more, at which point a final pass/fail judgement is issued.
