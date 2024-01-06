@@ -170,7 +170,7 @@ using Test
         @test occursin(ff, "all the way until the end")
     end
     @testset "Grammars" begin
-        g1 = Grammar(:a <= P"123" * :b, :b <= S"abd" * (:a | P"q"))
+        g1 = Grammar(:a <-- P"123" * :b, :b <-- S"abd" * (:a | P"q"))
         @test match(g1, "123a123b123dq")[1] == "123a123b123dq"
         # A Real Grammar
         lisp = Grammar(
