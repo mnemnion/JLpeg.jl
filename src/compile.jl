@@ -618,7 +618,7 @@ function _compile!(patt::PGrammar)::Pattern
         rule.aux[:visiting] = false
         rule.aux[:walked] = false
         rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
-    end
+    end  # TODO we can fold all of this into recursepattern
     patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
         if p isa PCapture
             a[:caps][p.tag] = p.cap
@@ -778,9 +778,13 @@ function nofail(patt::Pattern)::Bool
         else return false
         end
     elseif isof(patt, PChar, PAny, PSet, PFalse, PThrow) return false
-    # POpenCall needs checked later
+    # POpenCall needs checked later TODO raise error here?
     elseif patt isa POpenCall return false
-    elseif patt isa PCall return false  # should be nofail(patt.ref) but we need better rule match
+    elseif patt isa PCall return false
+    # should be nofail(patt.ref) but we need to watch for recursion
+    # aka patt.aux[:nofailcheck] = true, top check for no-failability, set it
+    # back to nothing/remove the key
+
     # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
     elseif isof(patt, PNot, PBehind, PRunTime) return false
     # PSeq nofail if entire sequence is nofail
@@ -923,7 +927,7 @@ end
 
 function prefix!(map::Dict, b1::UInt8, b2::UInt8, b3::UInt8, b4::UInt8)
     if !haskey(map, b1)
-        map[b1] = Dict{UInt8,Union{Dict{UInt8,Bits{Int64}},Bits{Int64}}}()
+        map[b1] = Dict{UInt8,Union{Bits{Int64},Dict{UInt8,Bits{Int64}}}}()
     end
     prefix!(map[b1], b2, b3, b4)
 end
