@@ -17,6 +17,7 @@ The hitlist:
   - [ ]  `Ce`, `=>`
     - [ ]  Do I want this syntax for expression captures?
     - [ ]  Expression caps can just be |> `toexpr`, right?
+           I think having a gazillion capture types is too LPeg for JLpeg...
   - [ ]  `Anow`, `>` (`.>`? I think I like this better, the two-character pattern and
          all)
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
@@ -30,14 +31,15 @@ The hitlist:
 - [ ]  [Mark / Check](#mark-and-check-back-references)
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
-  - [ ] TestPatt / headfail optimizations
-  - [ ] Tail-call elimination
-  - [ ] Intermediate jump elimination
-  - [ ] Set ISpan optimization
-  - [?] fixed-length detection
-  - [ ] full-capture optimization (bytecode)
-  - [ ] disjoint-PChoice optimization
-  - [ ] Capture-closing optimization (vm)
+  - [ ]  Add `getfirst`
+  - [ ]  TestPatt / headfail optimizations
+  - [X]  Tail-call elimination
+  - [ ]  Intermediate jump elimination
+  - [ ]  Set ISpan optimization
+  - [?]  fixed-length detection
+  - [ ]  full-capture optimization (bytecode)
+  - [ ]  disjoint-PChoice optimization
+  - [ ]  Capture-closing optimization (vm)
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ]  Proposed optimizations not found in LPeg
   - [ ]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
