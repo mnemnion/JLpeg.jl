@@ -153,6 +153,9 @@ end
 
 "Vector of instruction string fragments"
 function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
+    if inst == OpNoOp
+        return ["---"]
+    end
     line = ["$(inst.op)"]
     t = typeof(inst)
     if t == CaptureInst

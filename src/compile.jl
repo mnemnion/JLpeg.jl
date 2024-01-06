@@ -486,17 +486,7 @@ end
 
 function _compile!(patt::PDiff)::Pattern
     v = patt.val
-    # Optimization: difference of sets can be done with Boolean logic
-    headset = isa(v[1], PSet)
-    if headset && isa(v[2], PSet)
-        ba, bb = v[1].code[1].vec, v[2].code[1].vec
-        bvec = ba .& .! bb
-        return PSet([SetInst(bvec), OpEnd])
-    elseif headset && isa(v[2], PChar)
-        bvec = copy(v[1].code[1].vec)
-        bvec[Int(v[2].val) + 1] = false
-        return PSet([SetInst(bvec), OpEnd])
-    end
+    # TODO Set complementation is rather complex with MultiSets!
     compile!(PSeq(PNot(patt.val[2]), patt.val[1]))
 end
 
@@ -778,19 +768,30 @@ function link!(code::IVector, aux::AuxDict)
     callsite = aux[:callsite]
     rules = aux[:rules]
     throws = aux[:throws]
-    for (idx, inst) in enumerate(code)
+    for i ∈ 1:length(code)
+        inst = code[i]
         if inst.op == IOpenCall
             site = callsite[inst.rule]
-            l = site - idx
-            code[idx] = CallInst(l)
+            l = site - i
+            if code[i+1] ≠ OpReturn
+                code[i] = CallInst(l)
+            else
+                println("found a tail call @ $i")
+                code[i] = JumpInst(l)
+                code[i + 1] = OpNoOp
+            end
         elseif inst.op == IThrow
             if haskey(rules, throws[inst.tag])
                 site = callsite[throws[inst.tag]]
-                l = site - idx
-                code[idx] = ThrowRecInst(inst.tag, l)
+                l = site - i
+                code[i] = ThrowRecInst(inst.tag, l)
             end
         end
     end
+    # TODO Optimize jumps (once I have a test grammar displaying multiple indirects)
+    # What creates jumps?
+    # - [x] tail calls
+    # - [ ] PStar with a headfail / test instruction
 end
 
 """
@@ -805,8 +806,13 @@ function headfail(patt::Pattern)::Bool
     # Pretty sure this one is wrong...
     # elseif patt isa PCall return headfail(patt.val[2])
 
-    # This is different than in LPeg and I'm not sure why
-    elseif patt isa PSeq return headfail(patt.val[1])
+    # LPeg does this, I still don't understand it
+    elseif patt isa PSeq
+        if !nofail(patt.val[2])
+            return false
+        else
+            return headfail(patt.val[1])
+        end
     # TODO there's also the disjoint-head version of headfail for PChoice
     elseif patt isa PChoice return all(p -> headfail(p), patt.val)
     else @error "headfail not defined for $(typeof(patt))"
