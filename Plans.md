@@ -40,7 +40,7 @@ The hitlist:
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
 - [ ]  Proposed optimizations not found in LPeg
   - [ ]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
-  - [ ]  MultiSetTest [conversion][#multiset-test-conversion]
+  - [ ]  MultiSetTest [conversion](#multiset-test-conversion)
   - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
   - [ ]  Fail optimization: only update the register once when returning from calls.
          this one should be deferred until we have real profiling on the hot loop.
