@@ -267,7 +267,8 @@ function bitvector_to_compact_repr(bitvec::Bits{Int128})
         '\'' => "\\'"   # single quote
     )
     function _encode(i::Integer)
-        c = Char(i -1)
+        i -= 1
+        c = Char(i)
         if haskey(escaped_chars, c)
             escaped_chars[c]
         elseif i ≤ 31

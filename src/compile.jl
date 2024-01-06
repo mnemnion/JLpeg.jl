@@ -209,6 +209,49 @@ struct ThrowRecInst <: Instruction
 end
 ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrowRec, tag, Int32(l))
 
+# ## Vector Ops
+#
+
+const IVectored = Union{SetInst,NotSetInst,TestSetInst,MultiVecInst,LeadMultiInst}
+const IASCIISet = Union{SetInst,NotSetInst,TestSetInst}
+
+Base.getindex(inst::IVectored, i::Integer) = inst.vec[i]
+
+function Base.iterate(inst::IASCIISet, i::Integer)
+    i = i + 1
+    i > 128 && return nothing
+
+    if inst.vec[i]
+        return UInt8(i-1), i
+    else
+        return false, i
+    end
+end
+
+function Base.iterate(inst::LeadMultiInst, i::Integer)
+    i = i + 1
+    i > 128 && return nothing
+
+    if inst.vec[i]
+        return UInt8(i-1) | 0b11000000, i
+    else
+        return false, i
+    end
+end
+
+function Base.iterate(inst::MultiVecInst, i::Integer)
+    i = i + 1
+    i > 64 && return nothing
+    if inst.vec[i]
+        return UInt8(i-1) | 0b10000000, i
+    else
+        return false, i
+    end
+end
+
+Base.iterate(inst::IVectored) = iterate(inst, 0)
+
+
 
 # ## Compilers
 
@@ -759,8 +802,10 @@ function headfail(patt::Pattern)::Bool
     elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return headfail(patt.val[1])
     # Pretty sure this one is wrong...
     # elseif patt isa PCall return headfail(patt.val[2])
+
     # This is different than in LPeg and I'm not sure why
     elseif patt isa PSeq return headfail(patt.val[1])
+    # TODO there's also the disjoint-head version of headfail for PChoice
     elseif patt isa PChoice return all(p -> headfail(p), patt.val)
     else @error "headfail not defined for $(typeof(patt))"
     end

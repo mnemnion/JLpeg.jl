@@ -1,5 +1,6 @@
-using JLpeg
+using JLpeg; import JLpeg as J
 using Test
+using InteractiveUtils
 
 @testset "Patterns" begin
     @testset "Sequences" begin
@@ -206,7 +207,7 @@ using Test
         @test_throws "malformed rule" @eval @rule :a != :b
         @rule :loadtime  ←  "123" | "456" | ("789")^1
         @rule! :comptime  ←  "123" | "456" | ("789")^1
-        JLpeg.prepare!(loadtime)
+        J.prepare!(loadtime)
         @test comptime.code == loadtime.code
     end
     @testset "Captures" begin
@@ -287,5 +288,14 @@ using Test
         @test match(not123, "4") isa PegMatch
         @test match(not123, "3") isa PegFail
         @test match(not123, "🤡") isa PegMatch
+    end
+
+    @testset "Type tests" begin
+        for I in subtypes(J.Instruction)
+            if hasfield(I, :vec)
+                @test I <: J.IVectored
+                @test length(methods(iterate, (I, Integer))) > 0
+            end
+        end
     end
 end
