@@ -72,7 +72,10 @@ The hitlist:
          users.  In many circumstances the compiler could detect when an earlier ordered choice means that a later choice can't be matched, this is always a bug and should be brought to the user's attention.  The easy cases all involve fixed-length later choices, but
          a certain amount of detection can be performed with predicates and repetition in the mi as well.  For literal sequences it's as simple as applying the earlier rule to the string form of the later rule and seeing if there's a match.
 - [ ]  Fragment parser (see [section](#fragment-parser))
-- [ ]  Add beginning index or `UnitRange` as optional third argument for `match`
+- [ ]  Add beginning index or `UnitRange` as optional third argument for `match`.
+       The way the VM is structured we don't even need to make a SubString, we cache
+       the last index string set the subject pointer to 1, so both of those are mutable
+       things.
 - [ ]  Suspendable VM [discussion](#suspend-the-vm)
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
@@ -269,7 +272,7 @@ recognized grammar.
 
 This is something I wanted to do in Lua, Julia having a canonical Expr format makes
 the idea bearable, but this is a separate VM, or program really, which reparses
-changes to a parser Expr to see when they remain valid to the specified Grammar.
+changes to a parsed Expr to see when they remain valid to the specified Grammar.
 Crucial for getting rid of Treesitter.
 
 ### Suspend the VM
@@ -279,3 +282,7 @@ semantics of hitting the end of input. Our "forward" patterns all check for end 
 input and return `false`, but we could have a version of the VM that checks for this
 condition on fails and suspends parsing, such that it can be renewed on more input or
 told that there is no more, at which point a final pass/fail judgement is issued.
+
+Also useful for e.g. iterating over a large XML or JSON file: deep recursion is
+unusual, but the structure means that any interruption before the final closing
+element would fail the match in an ordinary PEG parser.

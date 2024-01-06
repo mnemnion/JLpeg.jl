@@ -155,15 +155,17 @@ attempted for error recovery, otherwise `:label` and the error position are atta
 to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
 is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
 
-| [ ] | Action           | Consequence                                             |
-| --- | ---------------- | ------------------------------------------------------- |
-| [X] | `A(patt, λ)`,    | the returns of function applied to the captures of patt |
-| [X] | `patt \|> λ`     |
-| [ ] | `Anow(patt, λ)`, | captures `λ(C(patt)...)` at match time, return          |
-| [ ] | `patt > λ`       | `nothing` to fail the match                             |
-| [ ] | `patt ./ λ`      | fold/reduces captures with `λ`, captures last return    |
-| [X] | `T(:label)`,     | fail the match and throw `:label`                       |
-| [X] | `patt % :label`  |                                                         |
+| [ ] | Action                | Consequence                                             |
+| --- | --------------------- | ------------------------------------------------------- |
+| [X] | `A(patt, λ)`,         | the returns of function applied to the captures of patt |
+| [X] | `patt \|> λ`          |                                                         |
+| [ ] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return          |
+| [ ] | `patt > λ`            | `nothing` to fail the match                             |
+| [ ] | `patt ./ λ`           | fold/reduces captures with `λ`, captures last return    |
+| [X] | `T(:label)`,          | fail the match and throw `:label`                       |
+| [X] | `patt % :label`       |                                                         |
+| [ ] | `M(patt, :label)`     | mark a the region of `patt` for later reference         |
+| [ ] | `k(patt, :label, op)` | checK `patt` against the last marked region with `op`   |
 
 ### Rules
 
