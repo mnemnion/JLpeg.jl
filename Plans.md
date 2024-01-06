@@ -82,18 +82,8 @@ The hitlist:
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
-- [ ]  Make a special `PSetDiff` which has a second Settable value, such that
-       those characters and ranges are excluded from the construct.  This is a lot
-       of work for the gains it produces but for working with Unicode it's fairly
-       important I think.  Removing chars which are present is easy, removing chars
-       from a range only slightly less so, but handling negative ranges is a bear.
-       I can write a custom "sort" function, "sort" in quotes because it will outright
-       eliminate members if it needs to, such that a given PSet collection is in lexical
-       order and has no duplicates, that's a good start on making something like this
-       work.  But this has a lot of cases to handle, although it may be simplified by
-       not dealing with splitting ranges which have a negative character in them: just
-       keep them in the negation set and skip them when they come up in range iteration.
-- [X] Done:
+- [ ]  [PDiff][#pdiff]
+- [ ] - [X] Done:
   - [X] Handle the other PStar cases
   - [X] `P(-n)` for n bytes remaining
   - [X] And and Not predicates
@@ -146,6 +136,19 @@ The hitlist:
     - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
     - [X]  Multiset Rewrite
     - [X]  Clean Up
+
+### PDiff
+
+Make a special `PSetDiff` which has a second Settable value, such that those
+characters and ranges are excluded from the construct.
+
+- Algorithm:
+  - Separate ranges and characters in a sort, characters (ofc) lexicographically,
+      ranges by first member. so we have `pluschar`, `plusrange`, `minuschar`,
+      `minusrange`.
+  - Diff the ranges first, then the characters: remove them if they're in the charset,
+    split any range containing them.
+  - Merge what's left.
 
 ### Capture closing
 
@@ -225,7 +228,7 @@ I'm referring to a grammar which will first try to match the start rule, then if
 fails, try to match any of the subrules, in "sight order", which is the order
 subrules are encountered from the start rule.
 
-This is *very easily done* in bytecode!  We're currently doing the standard thing of
+This is _very easily done_ in bytecode!  We're currently doing the standard thing of
 starting with a call at [1] to the program body at [3], with [2] an [End].  But we
 can replace that with [Choice, Call, Commit, Program], where Choice jumps beyond the
 "end" of the program and Commit goes home.  The 'post program' is just a big ol'
@@ -321,8 +324,25 @@ In fact, I'm going to start with a complete Set generator which just goes in ord
 This is the easiest way to demonstrate that the Unicode sets aren't producing any
 garbage or characters that obviously don't belong to the set.
 
+- [ ]  Generate Primitives
+  - [ ]  Generate PSets
+    - [ ]  Full generator
+    - [ ]  Random-character generator
+  - [ ]  Generate PChar
+  - [ ]  Generate PAny(1)
+    - [ ]  Random version should produce Unicode characters, some restricted ranges.
+- [ ] Generate repetition
+  - [ ]  "full reps" can expand every member within a set (when allowed, aka n ≥ 0)
+  - [ ]  It would be fun to special case S"AZ"^+n, S"az"^+n, and variations, such
+         that in a grammar they give back a word from lorem ipsum.
+
 ### Multiset Test Conversion
 
 Is easy: we have OpFail everywhere it can fail other than the vectorized
 instructions: we replace the end vectors with TestMultiVec (doesn't exist yet but
-obvious opcode is obvious) and swap the OpFails with jumps to the next Choice.
+obvious opcode is obvious) and swap the OpFails with jumps to the next Choice, put an
+`IAny (1)` at the end, done.
+
+We're probably going to have to assume that MultiSet codes aren't disjoint with other
+choices though, although.... with the PDiff thing we'll have a way of differing two
+PSets by value, we don't have to examine the bytecode directly.
