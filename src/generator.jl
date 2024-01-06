@@ -50,6 +50,7 @@ function generate(set::PSet)::String
     charstack = UInt8[]
     byte = 1
     # println(leadcount)
+    # dbgcount = 0
     while gen
         if countstack[1] ≥ leadcount
             break
@@ -62,6 +63,8 @@ function generate(set::PSet)::String
             byte += 1
             off += inst.l + countstack[byte]
         elseif inst isa MultiVecInst
+            # dbgcount += 1
+            # println("   $dbgcount  $countstack  $byte  $charstack  $off")
             _generateMultiVec(buff, charstack, inst)
             empty!(charstack)
             countstack[byte - 1] += 1
@@ -98,8 +101,8 @@ function _generateMultiVec(buff::IOBuffer, charstack::Vector{UInt8}, inst::Multi
     # stack = UInt8[]
     for b in inst
         if b isa UInt8
-           # append!(stack, charstack)
-           #  push!(stack, b)
+            # append!(stack, charstack)
+            # push!(stack, b)
             write(buff, charstack...)
             write(buff, b)
         end

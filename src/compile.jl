@@ -1038,8 +1038,8 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
                     push!(prevec, pair)
                     push!(vecs, pair.second)
                 end
+                push!(prevec, OpFail)
             end
-            push!(prevec, OpFail)
         end
     end
     for vec in vecs
