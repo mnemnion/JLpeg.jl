@@ -12,8 +12,7 @@ end
 struct CapEntry
     s::UInt32      # String index
     inst::CaptureInst
-    CapEntry(s::UInt32,
-             inst::CaptureInst) = new(s, inst)
+    CapEntry(s::UInt32, inst::CaptureInst) = new(s, inst)
 end
 
 """
@@ -38,7 +37,7 @@ Other than the `subject` and `program`, we have:
 - `running`: `Bool` which is `true` when the VM is executing
 - `matched`: true if we matched the program on the subject
 
-## Implementation
+##  Implementation
 
 Classic dispatch-driven VM with a program counter, opcodes, stack
 frames.  I borrowed a page from Forth and made the top of the
@@ -47,20 +46,20 @@ permitting the PartialCommit optimization.
 """
 mutable struct VMState
    subject::AbstractString # The subject we're parsing
-   program::IVector # Our program
-   patt::Pattern # The pattern it's derived from
-   top::UInt32  # Byte length of subject string
+   program::IVector  # Our program
+   patt::Pattern     # The pattern it's derived from
+   top::UInt32       # Byte length of subject string
    # Registers
-   i::Int32         # Instruction Counter
-   s::UInt32        # Subject pointer
-   ti::Int32        # Stack top instruction register
-   ts::UInt32       # Stack top subject register
-   tc::UInt32       # Stack top capture level register
-   tp::Bool         # Stack top predicate register
-   t_on::Bool       # Is there a frame on the stack?
-   inpred::Bool     # Are we inside a predicate?
-   sfar::UInt32     # Farthest subject pointer we've failed at
-   failtag::UInt16  # Labeled failure tag
+   i::Int32          # Instruction Counter
+   s::UInt32         # Subject pointer
+   ti::Int32         # Stack top instruction register
+   ts::UInt32        # Stack top subject register
+   tc::UInt32        # Stack top capture level register
+   tp::Bool          # Stack top predicate register
+   t_on::Bool        # Is there a frame on the stack?
+   inpred::Bool      # Are we inside a predicate?
+   sfar::UInt32      # Farthest subject pointer we've failed at
+   failtag::UInt16   # Labeled failure tag
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapEntry}
    running::Bool
@@ -211,12 +210,7 @@ pointers to see if the code generated from this approach is, in fact, optimal.
 """
 function runvm!(vm::VMState)::Bool
     vm.running = true
-    vtop = length(vm.program)
     while vm.running
-        if vm.i > vtop
-            vm.running = false
-            continue
-        end
         inst::Instruction = @inbounds vm.program[vm.i]
         # print(vm_to_str(vm))
         if !onInst(inst, vm)::Bool
@@ -440,7 +434,6 @@ function onInst(inst::CaptureInst, vm::VMState)::Bool
     return true
 end
 
-
 "onChoice"
 function onInst(inst::ChoiceInst, vm::VMState)
     pushframe!(vm, vm.i + inst.l, vm.s + inst.n)
@@ -482,7 +475,7 @@ function unwindpred!(vm::VMState)
     end # until we've left the predicate on the stack
     vm.failtag = 0
     vm.sfar = vm.s
-    return false
+    return false  # This handles .inpred (we could be in more than one)
 end
 
 function onInst(inst::LabelInst, vm::VMState)
@@ -631,7 +624,7 @@ function aftermatch(vm::VMState)::PegMatch
         key = capsdict[cap.inst.tag]
         if bcap.inst.kind == ikey.kind
             # TODO if there are non-capturing captures (possible), we
-            # check for those here.
+            # check for those here.  I think the rule is a capture gets an offset.
             push!(offsets, Int(bcap.s))
             if ikey.kind == Csimple
                 push!(captures, _substr(bcap.s, cap.s))
@@ -639,9 +632,9 @@ function aftermatch(vm::VMState)::PegMatch
                 sub = _substr(bcap.s, cap.s)
                 push!(captures, key => sub)
             elseif ikey.kind == Cgroup
-                #grab the outer captures and offsets
+                # grab the outer captures and offsets
                 caps, offs = pop!(groupstack)
-                if isempty(captures) # the group is the capture
+                if isempty(captures)  # the group is the capture
                     push!(captures, _substr(bcap.s, cap.s))
                     push!(offsets, bcap.s)
                     push!(caps, captures)

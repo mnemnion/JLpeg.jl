@@ -147,6 +147,10 @@ function inst_str(inst::Instruction, off::Integer)::String
     "⟪$(join(inst_pieces(inst, off)))⟫"
 end
 
+function inst_pieces(inst::HoldInst, ::Integer)::Vector{String}
+    ["HOLD INSTRUCTION → ", " $(inst.op)"]
+end
+
 "Vector of instruction string fragments"
 function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     line = ["$(inst.op)"]
@@ -183,57 +187,11 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     if hasfield(t, :final)
         push!(line, inst.final ? " t" : " f")
     end
-    if hasfield(t, :vec) && !hasfield(t, :lead)
+    if hasfield(t, :vec)
         push!(line, " $(printset(inst.vec))")
-    elseif hasfield(t, :vec) && hasfield(t, :lead)
-        push!(line, " {$(multivec_string(inst))}")
     end
     return line
 end
-
-
-"String for Multivector"
-function multivec_string(set::Instruction)::String
-    frag = []
-    lead = set.lead
-    vec = set.vec
-    si = 0
-    ei = 0
-    function tochar(i)
-        b = (i | 0b10000000) - UInt8(1)
-        str = String(push!(copy(lead), b))
-        return str
-    end
-    for i in eachindex(vec)
-        if vec[i]
-            if si == 0
-                si = i
-            end
-            ei = i
-        elseif si != 0
-            # Sequence
-            if ei - 2 > si
-                push!(frag, "$(tochar(si))-$(tochar(ei))")
-            else
-                for j in si:ei
-                    push!(frag, tochar(j))
-                end
-            end
-            si, ei = 0, 0
-        end
-    end
-    if si > 0
-        if ei - 2 > si
-            push!(frag, "$(tochar(si))-$(tochar(ei))")
-        else
-            for j in si:ei
-                push!(frag, tochar(j))
-            end
-        end
-    end
-    return join(frag, ",")
-end
-
 
 "String for Set Vector"
 function printset(vec::Bits)::String
@@ -251,7 +209,7 @@ function bitvector_to_compact_repr(bitvec::Bits{Int64})::Vector{String}
     start_idx = 0
     end_idx = 0
     function _encode(i::Integer)
-        string(i, base=16)
+        string(i, base=16, pad=2)
     end
     for i in eachindex(bitvec)
         if bitvec[i]

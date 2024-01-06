@@ -938,6 +938,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     if bvec !== nothing
         push!(c, HoldInst(ILeadSet))  # -> end of MultiSet, after OpFail
     end
+    leadidx = nothing  # for if we put a hold for a LeadMultiInst
     # We need to vectorize pre, for a 1-to-1 match with the code
     prevec = []
     # Store offsets as we find them
@@ -949,6 +950,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     # compute headset if there are four or more lead bytes
     if length(pre) ≥ 4
         push!(c, HoldInst(ILeadMulti))
+        leadidx = length(c)
     end # we'll collect the heads just in case
     heads = UInt8[]
     for pair in pre
@@ -1011,12 +1013,12 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         @assert c[1] isa HoldInst "HoldInst not found at 1"
         c[1] = LeadSetInst(bvec, length(c))
     end
-    if c[2] isa HoldInst
+    if leadidx !== nothing
         bvec = Bits{Int64}(0)
         for char in heads
             bvec[char + 1] = true
         end
-        c[2] = LeadMultiInst(bvec, failidx)
+        c[leadidx] = LeadMultiInst(bvec, failidx)
     end
     push!(c, OpEnd)
 end
