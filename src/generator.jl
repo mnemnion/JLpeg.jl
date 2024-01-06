@@ -24,34 +24,31 @@ function generate(set::PSet)::String
     if c[1].op == ISet
         _generateISet(buff, c[1])
         return String(take!(buff))
+        start += 1
     elseif c[1].op == ILeadSet
         _generateISet(buff, c[1])
         start += 1
-        leadcount = count_ones(c[1])
     end
     if c[start].op == ILeadMulti
+        leadcount = count_ones(c[start])
         start += 1
-        leadcount = count_ones(c[2])
     end
     # We need a counter stack
     if leadcount === nothing
         leadcount = 0
         for i in start:length(c)
-            leadcount += 1
             if c[i] == OpFail
                 break
             end
+            leadcount += 1
         end
         @assert leadcount > 0  "failure to count lead bytes"
     end
     countstack = [0, 0, 0, 0]
     gen = true
     off = start
-    charstack = []
+    charstack = UInt8[]
     byte = 1
-    function reset!()
-
-    end
     # println(leadcount)
     while gen
         if countstack[1] ≥ leadcount
@@ -72,7 +69,6 @@ function generate(set::PSet)::String
             byte = 1
             continue
         elseif inst == OpEnd
-            error("hit OpEnd")
             gen = false
         elseif inst == OpFail
             if byte == 1
@@ -98,11 +94,15 @@ function _generateISet(buff::IOBuffer, inst::Instruction)
     end
 end
 
-function _generateMultiVec(buff::IOBuffer, charstack::Vector, inst::MultiVecInst)
+function _generateMultiVec(buff::IOBuffer, charstack::Vector{UInt8}, inst::MultiVecInst)
+    # stack = UInt8[]
     for b in inst
         if b isa UInt8
+           # append!(stack, charstack)
+           #  push!(stack, b)
             write(buff, charstack...)
             write(buff, b)
         end
     end
+    # println(String(stack))
 end
