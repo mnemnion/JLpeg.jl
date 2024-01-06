@@ -72,6 +72,7 @@ The hitlist:
          users.  In many circumstances the compiler could detect when an earlier ordered choice means that a later choice can't be matched, this is always a bug and should be brought to the user's attention.  The easy cases all involve fixed-length later choices, but
          a certain amount of detection can be performed with predicates and repetition in the mi as well.  For literal sequences it's as simple as applying the earlier rule to the string form of the later rule and seeing if there's a match.
 - [ ]  Fragment parser (see [section](#fragment-parser))
+- [ ]  String [generators](#string-generation)
 - [ ]  Add beginning index or `UnitRange` as optional third argument for `match`.
        The way the VM is structured we don't even need to make a SubString, we cache
        the last index string set the subject pointer to 1, so both of those are mutable
@@ -286,3 +287,28 @@ told that there is no more, at which point a final pass/fail judgement is issued
 Also useful for e.g. iterating over a large XML or JSON file: deep recursion is
 unusual, but the structure means that any interruption before the final closing
 element would fail the match in an ordinary PEG parser.
+
+### String generation
+
+This has been on the long-term plan for a long time, and debugging the MultiSets got
+me thinking about it again.  It's very simple: a different VM which interprets the
+opcodes as rules for generating a string.
+
+Easy: Chars, Sets, repetition, these are all done with a random number generator.
+Choices should maintain a modulus and produce a different choice each time they're
+visited, recursive self-calls are treated as a sort of repetition (which of course
+they are).  I think we can ignore throws which don't have a recovery rule, and any
+sequence before one (this is very uncommon anyway).
+
+The only tricky part is predicates, and it isn't that tricky, just brute-force it:
+for `!`, generate a token, test it, continue, for `~`, use the lookahead as the
+generator, then apply the second rule.
+
+I just think it would be funny to build a cheesy math parser in the demo, and then
+instead of parsing an expression, generate one. There are actually useful things to
+do with it as well but those are mostly debugging aids, especially if trying to make
+a conformant parser for a language which already has one.
+
+In fact, I'm going to start with a complete Set generator which just goes in order.
+This is the easiest way to demonstrate that the Unicode sets aren't producing any
+garbage or characters that obviously don't belong to the set.
