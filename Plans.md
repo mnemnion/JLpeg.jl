@@ -16,6 +16,7 @@ The hitlist:
   - [X]  Cc
   - [ ]  `Ce`, `=>`
     - [ ]  Do I want this syntax for expression captures?
+    - [ ]  Expression caps can just be |> `toexpr`, right?
   - [ ]  `Anow`, `>` (`.>`? I think I like this better, the two-character pattern and
          all)
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
@@ -56,7 +57,7 @@ The hitlist:
   - [ ]  Follow sets for TestSet and Span.  These have the additional advantage that they can
          jump immediately if they fail (for TestSet) or recurse to the start instruction after
          a match (for a SpanSet).
-  - [ ]  Headfailing TestSet groups: If we have a group of multibyte sets we want to test,
+  - [X]  Headfailing TestSet groups: If we have a group of multibyte sets we want to test,
          we can compress the head (lead) bytes into a single ASCII-style lead test set, by
          masking the high bit off.  This lets us single-test fail out of some very large
          ranges indeed, such as Chinese.
@@ -66,7 +67,7 @@ The hitlist:
          this.  I'd like to ask the Lua list why before trying it myself...
   - [ ]  Choice-sequence prefix matching.  This is something regex automatons do
          automatically, which would be nice for us to have.  Basically, it work with
-         head sequences (including sets, and maybe predicates, but not repetition
+         head sequences (including sets, and maybe predicates, but not repetition)
          such that choices which share a prefix are collapsed into a single choice
          sequence, this limits backtracking.  It ties into the next one:
   - [ ]  Choice shadow detection.  This is just a nice thing I'd like to do for my
@@ -82,7 +83,7 @@ The hitlist:
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
-- [ ]  [PDiff][#pdiff]
+- [ ]  [PDiff](#pdiff)
 - [ ] - [X] Done:
   - [X] Handle the other PStar cases
   - [X] `P(-n)` for n bytes remaining
@@ -140,7 +141,8 @@ The hitlist:
 ### PDiff
 
 Make a special `PSetDiff` which has a second Settable value, such that those
-characters and ranges are excluded from the construct.
+characters and ranges are excluded from the construct.  This is just to defer
+the expensive operation until we compile, it should return itself as a PSet.
 
 - Algorithm:
   - Separate ranges and characters in a sort, characters (ofc) lexicographically,
@@ -156,22 +158,21 @@ I knew there was a reason I might want to cache the capture stack...
 
 This optimization changes `CapEntry` back to holding the values of the instruction
 separately, and adds a capture register holding the values of the top frame.  When we
-get a CloseCaptureInst, we mutate the register to hold a FullCaptureEntry with the
+get a `CloseCaptureInst`, we mutate the register to hold a FullCaptureEntry with the
 calculated offset. And this simplifies the `aftermatch` code somewhat because there
-will only be FullCaptures, if we find a not-FullCapture there's a mistake somewhere.
+will only be `FullCapture`s, if we find a not-`FullCapture` there's a mistake somewhere.
 
-This would also mean not having to synthesize a FullCaptureInst in the following,
+This would also mean not having to synthesize a `FullCaptureInst` in the following,
 although I doubt very much that this would generate different machine code, but
 maybe: the compiler pays a lot of attention to method dispatch.
 
 ### CaptureCommitInst
 
-We can use this whenever a PCapture is enclosing a PChoice, but it's a slightly tricky
-optimization to get right.  What we do is go through the copied bytecode and replace
-every Commit (not Partial Commit) _which belongs to the PChoice_ with a
-CaptureCommit.  We can accomplish this by using a counter of PChoice instructions in
-the run, and if that counter is greater than 0 then when we encounter ICommit we
-decrement the counter rather than swapping in a CaptureCommit.
+We can use this whenever a `PCapture` is enclosing a `PChoice`, but it's a slightly
+tricky optimization to get right.  What we do is go through the copied bytecode and
+replace every Commit (not Partial Commit) _which belongs to the `PChoice`_ with a
+`CaptureCommitInst`.  This is best accomplished by re-synthesizing the choice code
+from parts.
 
 `onCaptureCommit` looks like this:
 
@@ -194,7 +195,7 @@ in a common workload.
 
 At some point I intend to add serializing of bytecode, just a (versioned!!) minimal
 string form which allows a zero-logic construction of a Grammar.  That would be a
-good time to remov NoOps, which get left around by various optimizations. There's a
+good time to remove NoOps, which get left around by various optimizations. There's a
 reason every instruction set in existence has them, but it's aesthetically
 unsatisfying to leave them in.
 
