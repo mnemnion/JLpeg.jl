@@ -16,6 +16,7 @@ end
 Generate a `String` of all characters matched by a Set.
 """
 function generate(set::PSet)::String
+    # TODO remove the printf spam when satisfied this is accurate code
     isempty(set.code) && compile!(set)
     buff = IOBuffer()
     c = set.code
@@ -33,7 +34,6 @@ function generate(set::PSet)::String
         leadcount = count_ones(c[start])
         start += 1
     end
-    # We need a counter stack
     if leadcount === nothing
         leadcount = 0
         for i in start:length(c)
@@ -44,6 +44,7 @@ function generate(set::PSet)::String
         end
         @assert leadcount > 0  "failure to count lead bytes"
     end
+    # Generator state
     countstack = [0, 0, 0, 0]
     gen = true
     off = start
@@ -72,6 +73,7 @@ function generate(set::PSet)::String
             byte = 1
             continue
         elseif inst == OpEnd
+            error("overshot MultiSet")
             gen = false
         elseif inst == OpFail
             if byte == 1
