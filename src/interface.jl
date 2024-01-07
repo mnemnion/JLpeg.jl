@@ -35,6 +35,12 @@ PegMatch(["👍"])
 function P end
 
 const Patternable = Union{AbstractString,AbstractChar,Integer,Bool,Symbol}
+
+"""
+    Grammar(rule...)
+
+Create a grammar from the provided rules.
+"""
 const Grammar = PGrammar
 const Rule = PRule
 const CapSym = Union{Symbol,AbstractString}
@@ -263,6 +269,12 @@ Base.:!(a::Pattern) = PNot(a)
 <-- = ←(a::Symbol, b::CaptureTuple) = PRule(a, C(b...))
 <-- = ←(a::Symbol, b::Vector) = PRule(a, Cg(b))
 <-- = ←(a::Symbol, b::Patternable) = PRule(a, P(b))
+
+<-->(a::Symbol, b::Pattern) = PRule(a,C(b, a))
+<-->(a::Symbol, b::CaptureTuple) = PRule(a, C(C(b...), a))
+<-->(a::Symbol, b::Vector) = PRule(a, C(Cg(b),a))
+<-->(a::Symbol, b::Patternable) = PRule(a, C(P(b), a))
+
 
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:
