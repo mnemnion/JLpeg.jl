@@ -773,13 +773,7 @@ function link!(code::IVector, aux::AuxDict)
         if inst.op == IOpenCall
             site = callsite[inst.rule]
             l = site - i
-            if code[i+1] ≠ OpReturn
-                code[i] = CallInst(l)
-            else
-                println("found a tail call @ $i")
-                code[i] = JumpInst(l)
-                code[i + 1] = OpNoOp
-            end
+            code[i] = CallInst(l)
         elseif inst.op == IThrow
             if haskey(rules, throws[inst.tag])
                 site = callsite[throws[inst.tag]]

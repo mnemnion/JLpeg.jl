@@ -9,7 +9,7 @@ end
 
 "Show a CapEntry"
 function Base.show(io::IO, cap::CapEntry)
-    print(io, "{i:$(cap.i) s:$(Int(cap.s)) $(cap.inst)}")
+    print(io, "s:$(Int(cap.s)) $(cap.inst)}")
 end
 
 "Show a vector of Bytecode instructions."

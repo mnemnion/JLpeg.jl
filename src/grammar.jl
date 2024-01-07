@@ -160,8 +160,7 @@ end
 Variable-escaping version of @rule.
 
 ```jldoctest
-julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") |> uppercase
-JLpeg.PRule(val→[JLpeg.PCapture], IVec[]))
+julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") |> uppercase;
 
 julia> match(upfoobar, "foo")
 PegMatch(["FOO"])
