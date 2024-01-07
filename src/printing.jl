@@ -34,6 +34,8 @@ function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     print(io, join(lines, "\n"))
 end
 
+Base.show(io::IO, code::IVector) = show(io, "text/plain", code)
+
 "Show a vector of patterns."
 function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
     compact = get(io, :compact, false)

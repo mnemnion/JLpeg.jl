@@ -291,7 +291,6 @@ end
 
 Base.keys(::IVec64) = 1:64
 Base.keys(::IVec128) = 1:128
-Base.eltype(::IVector) = Union{UInt8,Bool}
 
 
 function Base.iterate(inst::IASCIISet, i::Integer)
