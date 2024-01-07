@@ -3,9 +3,12 @@ using JLpeg
 DocMeta.setdocmeta!(JLpeg, :DocTestSetup, :(using JLpeg); recursive=true)
 
 makedocs(
-    sitename = "JLpeg",
-    format = Documenter.HTML(),
-    modules = [JLpeg]
+    sitename  =  "JLpeg",
+    format    =  Documenter.HTML(),
+    modules   =  [JLpeg],
+    checkdocs =  :exports,
+    # , checkdocs = :none
+    # , doctest = :fix
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.

@@ -3,6 +3,7 @@
 Complete `docstring` documentation of the JLPeg internal API.
 
 
-```@autodocs
-Modules = [JLpeg]
+```@docs
+JLpeg.Instruction
+JLpeg.VMState
 ```

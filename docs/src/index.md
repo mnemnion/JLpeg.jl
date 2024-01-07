@@ -47,6 +47,9 @@ that which dialects compile to.
 The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/),
 with several extensions, refinements, and a more natively Julian character.
 
+
+## Combination
+
 The basic operations are as follows:
 
 | Operator                | Description                                                 |
@@ -58,8 +61,8 @@ The basic operations are as follows:
 | `S(s::String)`          | match the set of all characters in `string`                 |
 | `R("xy")`, `R('x','y')` | matches any character between `x` and `y` (Range)           |
 | `B(patt)`               | match `patt` behind the cursor, without advancing           |
-| `patt^n`                | match `n` repetitions of `patt` at most                     |
-| `patt^-n`               | match `n` repetitions of `patt` at least                    |
+| `patt^n`                | match at least `n` repetitions of `patt`                    |
+| `patt^-n`               | match at most `n` repetitions of `patt`                     |
 | `patt1 * patt2`         | match the sequence `patt1` , `patt2`                        |
 | `patt1 \| patt2`        | match `patt1` or `patt2`, in that order                     |
 | `patt1 - patt2`         | match `patt1` if `patt2` does not match                     |
@@ -72,17 +75,18 @@ The basic operations are as follows:
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
 this is true for `S` and `R` as well.  These basic operations are not recursive, and
 without further modification merely match the longest substring recognized by the
-pattern, but suffice to match all regulat languages.
+pattern, but suffice to match all regular languages.
 
 ## Matching
 
-`match(pattern::Pattern, string::String)` will attempt to match the pattern against
-the string, returning a `PegMatch <: AbstractMatch`. In the event of a failure, it
-returns a `PegFail`, with the index of the failure at `.errpos`.  Note that unlike
-regular expressions, JLpeg will not skip ahead to find a pattern in a string, unless
-the pattern is so constructed.  We offer the easy shorthand `"" >> patt` to convert a
-pattern into its searching equivalent; `P""` matches the empty string, and JLPeg will
-convert strings and numbers (but not booleans) into patterns when able.
+[`match`](@ref)`(pattern::`[`Pattern`](@ref), `string::String)` will
+attempt to match the pattern against the string, returning a [`PegMatch`](@ref) `<:
+AbstractMatch`. In the event of a failure, it returns a [`PegFail`](@ref), with the
+index of the failure at `.errpos`.  Note that unlike regular expressions, JLpeg will
+not skip ahead to find a pattern in a string, unless the pattern is so constructed.
+We offer the easy shorthand `"" >> patt` to convert a pattern into its searching
+equivalent; `P""` matches the empty string, and JLPeg will convert strings and
+numbers (but not booleans) into patterns when able.
 
 ```jldoctest
 julia> match(P"123", "123456")
@@ -162,17 +166,17 @@ attempted for error recovery, otherwise `:label` and the error position are atta
 to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
 is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
 
-| [ ] | Action                | Consequence                                             |
-| --- | --------------------- | ------------------------------------------------------- |
-| [X] | `A(patt, λ)`,         | the returns of function applied to the captures of patt |
-| [X] | `patt \|> λ`          |                                                         |
-| [ ] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return          |
-| [ ] | `patt > λ`            | `nothing` to fail the match                             |
-| [ ] | `patt ./ λ`           | fold/reduces captures with `λ`, captures last return    |
-| [X] | `T(:label)`,          | fail the match and throw `:label`                       |
-| [X] | `patt % :label`       |                                                         |
-| [ ] | `M(patt, :label)`     | mark a the region of `patt` for later reference         |
-| [ ] | `k(patt, :label, op)` | checK `patt` against the last marked region with `op`   |
+| [ ] | Action                | Consequence                                          |
+| --- | --------------------- | ---------------------------------------------------- |
+| [X] | `A(patt, λ)`,         | the returns of `λ` applied to the captures of `patt` |
+| [X] | `patt \|> λ`          |                                                      |
+| [ ] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return       |
+| [ ] | `patt > λ`            | `nothing` to fail the match                          |
+| [ ] | `patt ./ λ`           | fold/reduces captures with `λ`, captures last return |
+| [X] | `T(:label)`,          | fail the match and throw `:label`                    |
+| [X] | `patt % :label`       | shorthand for `patt \| T(:label)`                    |
+| [ ] | `M(patt, :label)`     | mark a the region of `patt` for later reference      |
+| [ ] | `K(patt, :label, op)` | checK `patt` against the last mark with `op`         |
 
 ### Rules
 
@@ -180,15 +184,17 @@ To match recursive structures, patterns must be able to call themselves, which i
 `Rule`.  A collection of Rules is a Grammar.
 
 As is the PEG convention, a rule reduction uses the left arrow `←`, which you can
-type as `\leftarrow` (or in fact `\lef[TAB]`).  We overload `<=` if you happen to hate
-Unicode.  A simple Grammar can look like this:
+type as `\leftarrow` (or in fact `\lef[TAB]`).  Also defined as `<--` if you happen
+to hate Unicode.  A simple Grammar can look like this:
 
-```julia
-abc_and = :a <= P"abc" * (:b | P"")
+```jldoctest
+abc_and = :a <-- P"abc" * (:b | P"")
 _123s   = :b ← P"123"^1 * :a
 abc123  = Grammar(abc_and, _123s)
 
 match(abc123, "abc123123123abc123abc")
+# output
+PegMatch(["abc123123123abc123abc"])
 ```
 
 The `@grammar` and `@rule` macros are much prettier ways to make a pattern, however:
