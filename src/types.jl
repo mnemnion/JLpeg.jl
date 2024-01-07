@@ -6,15 +6,15 @@ Abstract type of JLPeg VM instructions.
 
 The possible struct fields have consistent meanings:
 
-| Fields  | Meaning                                            |
-|---------|----------------------------------------------------|
-| `op`    |  The `Opcode`                                      |
-| `l`     |  An instruction offset                             |
-| `n`     |  A subject offset                                  |
-| `c`     |  An `AbstractChar` to match                        |
-| `b`     |  A test byte                                       |
-| `tag`   |  Key in a capture/throw Dict                       |
-| `vec`   |  A set's test `BitVector`                          |
+| Field | Type                | Meaning                     |
+| ----- | ------------------- | --------------------------- |
+| `op`  | @enum `UInt8`       | The `Opcode`                |
+| `l`   | `Int32`             | An instruction offset       |
+| `n`   | `UInt32`            | A subject index             |
+| `c`   | `AbstractChar`      | A character to match        |
+| `b`   | `UInt8`             | A test byte                 |
+| `tag` | `UInt32`            | Key in a capture/throw Dict |
+| `vec` | `BitVector` (kinda) | A set's test `BitVector`    |
 """
 abstract type Instruction end
 
@@ -27,9 +27,9 @@ unique to that pattern type.
 abstract type Pattern <: AbstractPattern end
 
 """
-    PegError(msg)
+    PegError(msg) <: Exception
 
-An error while constructing a JLPeg Pattern.
+An error while constructing a [`Pattern`](@ref).
 """
 struct PegError <: Exception
     msg::String

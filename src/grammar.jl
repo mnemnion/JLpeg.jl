@@ -62,7 +62,7 @@ ranges, which will otherwise be transformed into `S(P("123"))`, which is invalid
 The three-expression form of `@grammar` takes a tuple of variable names, which are to
 be escaped, that is, interpreted as what they mean in the local scope.
 
-## Example use
+# Example
 
 This simple grammar captures the first string of numbers it finds:
 

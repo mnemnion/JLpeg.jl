@@ -7,31 +7,28 @@ const PegOffset = Vector{Union{Integer, Vector}}
 """
     PegMatch <: AbstractMatch
 
-A type representing a single match to a `Pattern`.  Typically created from the `match`
-function.
+A type representing a single match to a [`Pattern`](@ref).  Typically returned from
+the [`match`](@ref) function.  [`PegFail`](@ref) is the atypical return value.
 
 Fields:
 
-    -  `subject` stores the string matched.
+-  `subject` stores the string matched.
 
-    -  `last` is the index of the last character matched by `patt`.  Due to the nature
-        of PEGs, the match always begins at the first character, so there is little
-        point in storing this information as a SubString (although the subject itself
-        may be one).
+-  `last` is the index of the last character matched by `patt`.  Due to the nature of
+    PEGs, the match always begins at the first character, so there is little point in
+    storing this information as a SubString (although the subject itself may be one).
 
-    -  `captures` contains any captures from matching `patt` to `subject`.  This
-        Vector can in principle contain anything, as captures may call functions,
-        in which case the return value of that function becomes the capture.  For
-        more information, consult the `JLPeg` documentation, and the docstrings
-        for `C`, `Cg`, #Todo others
+-  `captures` contains any captures from matching `patt` to `subject`.  This Vector
+    can in principle contain anything, as captures may call functions, in which case
+    the return value of that function becomes the capture.  For more information,
+    consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`, #Todo others
 
-    -  `offsets` is a `Vector` of offsets matching the start of these captures, and
-       `Vector`s of that vector, such that the same pattern of iterative search will
-       produce the offset and its substring.
+-  `offsets` is a `Vector` of offsets matching the start of these captures, and
+    `Vector`s of that vector, such that the same pattern of iterative search will
+    produce the offset and its substring.
 
-    - `patt` is the `Pattern` matched against the subject.
+- `patt` is the `Pattern` matched against the subject.
 """
-
 struct PegMatch <: AbstractMatch
     subject::AbstractString
     last::Integer
@@ -107,11 +104,7 @@ Base.length(m::PegMatch) = length(m.captures)
 Base.eltype(::PegMatch) = Pair{PegKey, PegVal}
 
 """
-    struct PegFail
-        subject::String
-        errpos::UInt32
-        label::Symbol
-    end
+    PegFail
 
 Returned on a failure to `match(patt:Pattern, subject::AbstractString)`. `errpos` is the
 position at which the pattern ultimately failed to match, `label` is info about the failure

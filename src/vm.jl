@@ -66,7 +66,7 @@ mutable struct VMState
    matched::Bool
    function VMState(patt::Pattern, subject::AbstractString)
       program = prepare!(patt).code
-      stack = Vector{StackFrame}(undef, 0)
+      stack = sizehint!(Vector{StackFrame}(undef, 0), 64)
       cap   = Vector{CapEntry}(undef, 0)
       top = ncodeunits(subject)
       return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, false, false, 1, 0, stack, cap, false, false)

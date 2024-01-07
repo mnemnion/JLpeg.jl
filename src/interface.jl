@@ -4,14 +4,33 @@
 """
     P(p::Union{AbstractString,AbstractChar,Integer,Bool,Symbol})::Pattern
 
-Create a Pattern.
+Create a [`Pattern`](@ref).
 
-If `p` is a String, this matches that string.
-If `p` is a positive Integer, it matches that many characters.
-If `p` is `true`, the rules succeeds, if `false`, the rule fails.
-If `p` is a Symbol, this represents a call to the rule with that name.
-If `p` is a negative Integer, matches if that many characters remain, consumes no input.
-If `p` is already a Pattern, it is simply returned.
+- If `p` is a `String`, this matches that string.
+- If `p` is a positive `Integer`, it matches that many characters.
+- If `p` is `true`, the rules succeeds, if `false`, the rule fails.
+- If `p` is a `Symbol`, this represents a call to the rule with that name.
+- If `p` is a negative `Integer`, matches if that many characters remain, consumes no input.
+- If `p` is already a `Pattern`, it is simply returned.
+
+# Examples
+
+```jldoctest
+julia> match(P("func"), "funci")
+PegMatch(["func"])
+
+julia> match(P(3), "three")
+PegMatch(["thr"])
+
+julia> match(P(true), "pass")
+PegMatch([""])
+
+julia> match(P(false), "fail")
+PegFail("⟪f⟫ail", 1)
+
+julia> match(P('👍'), "👍")
+PegMatch(["👍"])
+```
 """
 function P end
 
@@ -32,7 +51,7 @@ P(p::Pattern) = p
 """
     S(s::AbstractString)
 
-Create a pattern matching any charcter in the string.
+Create a Pattern matching any charcter in the string.
 """
 S(s::AbstractString) = PSet(s)
 
@@ -40,9 +59,9 @@ S(s::AbstractString) = PSet(s)
 """
     R(s::AbstractString)
 
-Create a pattern ranging from the first to the second character.
-`s` must be two codepoints long, and the first must be lower-valued
-than the second.
+Create a Pattern matching every character in the range from the first to the second
+character.  `s` must be two codepoints long, and the first must be lower-valued than
+the second.
 """
 function R(str::AbstractString)
     if length(str) > 2
@@ -55,15 +74,23 @@ function R(str::AbstractString)
     end
     PSet((a, b))
 end
+
+
+"""
+    R(a::AbstractChar, b::AbstractChar)
+
+Match any character in the range `a` to `b`, inclusive.
+"""
 R(a::AbstractChar, b::AbstractChar) = R(a * b)
 
 """
-    B(p::Union{Pattern,AbstractString,Integer})
+    B(p::Union{Pattern,AbstractString,AbstractChar,Integer})
 
-Match `patt` behind the current subject index. `patt` must be of fixed length.
-Most useful `B` pattern is `!B(1)`, which succeeds at the beginning of the string.
+Match `patt` behind the current subject index. `patt` must be of fixed length.  The
+most useful `B` pattern is `!B(1)`, which succeeds at the beginning of the string,
+followed by `B('\n')` to match the start of a line.
 """
-B(p::Union{AbstractString,Integer}) = PBehind(P(p))
+B(p::Union{AbstractString,AbstractChar,Integer}) = PBehind(P(p))
 B(p::Pattern) = PBehind(p)
 # Captures
 
@@ -122,8 +149,9 @@ end
 """
     Cc(args...)
 
-Constant capture. Matches the empty string and puts the values of `args` as a
-tuple in that place within the `PegMatch` captures.
+Constant capture. Matches the empty string and puts the values of `args` as a tuple
+in that place within the `PegMatch` captures.  If `args` is a `Pair{Symbol,Any}`,
+that symbol will appear as a key in the match.
 """
 function Cc(args...)
     PCapture(P(true), Cconst, (args...,))
@@ -132,7 +160,7 @@ end
 """
     Cr(patt::Pattern, sym::Union{CapSym, Nothing})
 
-Captures a UnitRange of matches in `patt`, optionally keyed by `sym`.
+Captures a `UnitRange` of matches in `patt`, optionally keyed by `sym`.
 Convenient for substitutions and annotations.
 """
 function Cr(patt::Pattern, sym::Union{CapSym, Nothing})
@@ -250,43 +278,6 @@ Base.:>>(a::Pattern, b::CaptureTuple) = a >> C(b...)
 Base.:>>(a::Patternable, b::CaptureTuple) = P(a) >> C(b...)
 Base.:>>(a::Pattern, b::Vector) = a >> Cg(b)
 
-"""
-    extrasugar()
-
-Perform type piracy of the gravest kind, allowing symbols to be
-interpreted as calls to pattern rules for all combining and
-modifying forms.
-"""
-function extrasugar()
-    @eval Base.:!(a::Symbol) = PNot(POpenCall(a))
-    @eval Base.:|(a::Symbol, b::Symbol) = PChoice(POpenCall(a), POpenCall(b))
-    @eval Base.:|(a::String, b::Symbol) = PChoice(P(a), POpenCall(b))
-    @eval Base.:|(a::Symbol, b::String) = PChoice(POpenCall(a), P(b))
-    @eval Base.:*(a::Symbol, b::Symbol) = PSeq(POpenCall(a), POpenCall(b))
-    @eval Base.:*(a::String, b::Symbol) = PSeq(P(a), POpenCall(b))
-    @eval Base.:*(a::Symbol, b::String) = PSeq(POpenCall(a), P(b))
-    @eval Base.:~(a::Symbol) = PAnd(POpenCall(a))
-    @eval Base.:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
-end
-
-"""
-    modulesugar()
-
-Introduces operator overloads to `:symbol`s limited to the enclosing module scope.
-
-"""
-function modulesugar()
-    @eval $(@__MODULE__).:!(a::Symbol) = PNot(POpenCall(a))
-    @eval $(@__MODULE__).:|(a::Symbol, b::Symbol) = PChoice(POpenCall(a), POpenCall(b))
-    @eval $(@__MODULE__).:|(a::String, b::Symbol) = PChoice(P(a), POpenCall(b))
-    @eval $(@__MODULE__).:|(a::Symbol, b::String) = PChoice(POpenCall(a), P(b))
-    @eval $(@__MODULE__).:*(a::Symbol, b::Symbol) = PSeq(POpenCall(a), POpenCall(b))
-    @eval $(@__MODULE__).:*(a::String, b::Symbol) = PSeq(P(a), POpenCall(b))
-    @eval $(@__MODULE__).:*(a::Symbol, b::String) = PSeq(POpenCall(a), P(b))
-    @eval $(@__MODULE__).:~(a::Symbol) = PAnd(POpenCall(a))
-    @eval $(@__MODULE__).:^(a::Symbol, b::Int)  = PStar(POpenCall(a), b)
-end
-
 """Helper for macros"""
 function compile_raw_string(str::String)::String
     # Mapping of C escape sequences to their Julia equivalents
@@ -315,7 +306,7 @@ end
 """
     P"str"
 
-Calls P(str) on the string, in close imitation of Lua's calling convention.
+Calls P(str) on the String, in close imitation of Lua's calling convention.
 """
 macro P_str(str)
     P(compile_raw_string(str))
@@ -324,7 +315,7 @@ end
 """
     R"str"
 
-Calls R(str) on the string, in close imitation of Lua's calling convention.
+Calls R(str) on the String, in close imitation of Lua's calling convention.
 """
 macro R_str(str)
     R(compile_raw_string(str))
@@ -333,8 +324,8 @@ end
 """
     S"str"
 
-Calls S(str) on the string, in close imitation of Lua's calling convention.
+Calls S(str) on the String, in close imitation of Lua's calling convention.
 """
 macro S_str(str)
     S(compile_raw_string(str))
-end
+end;
