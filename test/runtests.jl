@@ -205,10 +205,8 @@ using InteractiveUtils
         @test_throws "a must be a tuple" @eval @rule 12 :a  ←  :b
         @test_throws "tuple must be Symbols" @eval @rule (a, b, 12) :a  ←  :b
         @test_throws "malformed rule" @eval @rule :a != :b
-        @rule :loadtime  ←  "123" | "456" | ("789")^1
-        @rule! :comptime  ←  "123" | "456" | ("789")^1
-        J.prepare!(loadtime)
-        @test comptime.code == loadtime.code
+        @rule :nums <--> R"09"^1
+        @test match(nums, "1234abc")[:nums] == "1234"
     end
     @testset "Captures" begin
         cap1 = C("123")
@@ -251,7 +249,15 @@ using InteractiveUtils
         @rule :ccap ← "abc" * Cc(12, "string", :symbol)
         @test match(ccap, "abc")[1] == (12, "string", :symbol)
     end
-    @testset "throws" begin
+
+    @testset "PegMatch Interface" begin
+        @rule :pmix <-- ("a",) * ("b", :b) * ("c",)
+        mix = match(pmix, "abc")
+        @test collect(enumerate(mix)) == [1 => "a", 2 => "b", 3 => "c"]
+        @test collect(pairs(mix)) == [1 => "a", :b => "b", 3 => "c"]
+        @test collect(mix) == ["a", :b => "b", "c"]
+    end
+    @testset "Throws" begin
         pthrow = P"123" * (P"abc" | T(:noletter))
         @test match(pthrow, "123abc")[1] == "123abc"
         @test match(pthrow, "1234").label == :noletter
@@ -274,10 +280,10 @@ using InteractiveUtils
         @test match(throwrec, "fooba").label == :nobar
     end
     @testset "`re` dialect" begin
-        @test match(re, "'string'")[1] == (:string => "string")
-        @test match(re, "[a-z]")[1] == (:range => ["a", "z"])
+        @test match(re, "'string'")[:string] == "string"
+        @test match(re, "[a-z]")[:range] == ["a", "z"]
         @test match(re, "sym")[1] == "sym"
-        @test match(re, "a <- b c*")[1] == (:definition => ["a", " b c*"])
+        @test match(re, "a <- b c*")[:definition] == ["a", " b c*"]
     end
     @testset "MultiSet refactor tests" begin
         emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)

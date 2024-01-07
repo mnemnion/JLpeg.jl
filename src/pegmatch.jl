@@ -43,13 +43,40 @@ struct PegMatch <: AbstractMatch
 end
 
 
+"""
+    Base.keys(m::PegMatch)::Vector
+
+Return a vector of keys for all captures from the pattern.  This is as similar to
+`keys(::RegexMatch)`, given the greater power of PEGs to match strings, and
+therefore, the greater complexity of a PegMatch.
+
+Captures are only included if they succeed, and only the first capture of a given
+name may be indexed with the corresponding symbol or string.  Therefore, the key for
+the first capture of that name will be its string or symbol, and subsequent named
+captures will return the index which can retrieve that capture.
+
+This somewhat awkward interface will provide usefully regex-like behavior for
+regex-like captures.
+"""
 function Base.keys(m::PegMatch)::Vector
-    # TODO handle other key types
-    return collect(eachindex(m.captures))
+    keys = []
+    keyset = Set{Union{Symbol,AbstractString}}()
+    for (idx, elem) in enumerate(m.captures)
+        if elem isa Pair
+            if elem.first in keyset
+                push!(keys, idx)
+            else
+                push!(keys, elem.first)
+                push!(keyset, elem.first)
+            end
+        else
+            push!(keys, idx)
+        end
+    end
+    return keys
 end
 
 Base.eachindex(m::PegMatch) = eachindex(m.captures)
-
 
 """
     Base.getindex(m::PegMatch, i::PegKeys)
@@ -59,7 +86,12 @@ as integer.  If so, the first capture by that name, if any, is returned.
 """
 function Base.getindex(m::PegMatch, i::PegKey)
     if i isa Integer
-        return m.captures[i]
+        elem =  m.captures[i]
+        if elem isa Pair
+            return elem.second
+        else
+            return elem
+        end
     else
         for cap in m.captures
             if cap isa Pair && cap.first == i
@@ -69,6 +101,31 @@ function Base.getindex(m::PegMatch, i::PegKey)
     end
 end
 
+function _topair(key, value)
+    if value isa Pair
+        return value
+    else
+        return key => value
+    end
+end
+
+function _frompair(key, value)
+    if value isa Pair
+        return key => value.second
+    else
+        return key => value
+    end
+end
+
+"""
+    Base.pairs(m::PegMatch)
+
+Return all captures as Pairs. If the capture has a name, that name is `pair.first`.
+This is only a valid index for the first such capture, if you need those, use `enumerate`.
+"""
+Base.pairs(m::PegMatch) = Base.Generator(_topair, range(1,length(m.captures)), m.captures)
+
+Base.enumerate(m::PegMatch) = Base.Generator(_frompair, range(1, length(m.captures)), m.captures)
 
 function showcaptures(io::IO, caps::Vector)
     print(io, "[")
@@ -101,7 +158,6 @@ end
 
 Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
 Base.length(m::PegMatch) = length(m.captures)
-Base.eltype(::PegMatch) = Pair{PegKey, PegVal}
 
 """
     PegFail
