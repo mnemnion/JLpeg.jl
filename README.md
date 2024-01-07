@@ -164,7 +164,7 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | [X] | `T(:label)`,          | fail the match and throw `:label`                       |
 | [X] | `patt % :label`       |                                                         |
 | [ ] | `M(patt, :label)`     | mark a the region of `patt` for later reference         |
-| [ ] | `k(patt, :label, op)` | checK `patt` against the last marked region with `op`   |
+| [ ] | `K(patt, :label, op)` | checK `patt` against the last marked region with `op`   |
 
 ### Rules
 
