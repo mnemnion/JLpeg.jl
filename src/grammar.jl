@@ -6,28 +6,27 @@ const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 
 const 🔠 = P  # Won't interfere with user uses of P
 
-const ops = [:*, :|, :^, :~, :¬, :!, :>>, :|>, :>, :(=>), :%, :./,]
-const JPublic = vcat(ops, names(JLpeg))
+const ops = Set([:*, :|, :^, :~, :¬, :!, :>>, :|>, :>, :(=>), :%, :./,])
+const JPublic = Set(names(JLpeg)) ∪ ops
 
 function wrap_rule_body(rulebody::Expr)::Expr
     function for_x(x)
-        if x isa String || x isa QuoteNode || x isa Char
+        if x isa String || x isa QuoteNode || x isa Char || x isa Integer
             return :(🔠($x))
         elseif x isa Symbol && !(x ∈ JPublic)
             return esc(x)
         elseif x isa Expr
+            # Unmunge various pattern'ed values
             if @capture(x, (@S_str(🔠(val_))))
                 :(@S_str($val))
             elseif @capture(x, (@R_str(🔠(val_))))
                 :(@R_str($val))
             elseif @capture(x, ((cap_, 🔠(sym1_))))
                 :(C($cap, $sym1))
-            elseif @capture(x, ([val_, sym_]))
-                if sym isa Expr && sym.head == :call
-                    :(Cg([$val, $(sym.args[2])]))
-                else
-                    return x
-                end
+            elseif @capture(x, ([val_, 🔠(sym2_)]))
+                :(Cg($val, $sym2))
+            elseif @capture(x, val_^🔠(sym3_))
+                :($val^$sym3)
             elseif @capture(x, fn_(params__))
                 if fn ∈ ops
                     return x
