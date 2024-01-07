@@ -14,12 +14,18 @@ The hitlist:
 
 - [#]  Captures
   - [X]  Cc
-  - [ ]  `Ce`, `=>`
-    - [ ]  Do I want this syntax for expression captures?
-    - [ ]  Expression caps can just be |> `toexpr`, right?
-           I think having a gazillion capture types is too LPeg for JLpeg...
-  - [ ]  `Anow`, `>` (`.>`? I think I like this better, the two-character pattern and
-         all)
+  - [ ]  Capture questions
+    - [N]  `Ce`, `=>`: Do I want this syntax for expression captures? I might want
+          that syntax for `:a <-- :acap => :b | :c | :d` for Csymbol.  Probably even.
+    - [Y]  Shorthand: `:a <--> patt` for `:a <-- :a => patt`.  I like this a lot.
+    - [?]  Expression caps can just be |> `toexpr`, right? Although what's the
+           symbol.  I think having a gazillion capture types is too LPeg for JLpeg...
+    - [Y]  Captures in fact should just be Csimple and Csymbol, the rest are
+           conceptually Actions according to the distinction I've drawn.
+    - [Y]  Anow: `>`, `.>`? I think I like the dotted form better, the two-character
+           pattern and all, it also has very low precedence, which we like for these
+           Actions.
+  - [ ]  `Anow`, `patt .> λ`
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
            part of the  stack
     - [ ]  The rest should be fairly simple
@@ -36,6 +42,14 @@ The hitlist:
          up to two substrings surrounding it, and booleans telling whether or not we
          truncated the string in the front or the back.
   - [ ]  Refactor color printing to use `printstyled`.
+- [ ]  Macros
+  - [?]  I think precompilation means that `@grammar!` and `@rule!` are useless
+  - [ ]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
+         escaping rules for the macro correct.
+- [ ]  Documenter stuff
+  - [X]  Order the pages correctly
+  - [ ]  Docstrings for private module names in Internals
+  - [ ]  Add a "comparisons.md" page for in-depth comparison of PEGs to other systems.
 - [ ]  [Mark / Check](#mark-and-check-back-references)
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
@@ -44,6 +58,8 @@ The hitlist:
   - [X]  Tail-call elimination
   - [ ]  Intermediate jump elimination
   - [ ]  Set ISpan optimization
+    - [ ]  Do we even want this? All Sets have jumps now, we could code it as
+           `[TestSet(3), Any(1), Jump(-2), ...]`.
   - [?]  fixed-length detection
   - [ ]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
@@ -90,6 +106,14 @@ The hitlist:
        the last index string set the subject pointer to 1, so both of those are mutable
        things.
 - [ ]  Suspendable VM [discussion](#suspend-the-vm)
+- [ ]  Pure Code Bumming (need to be able to check if it even matters)
+  - [ ]  StaticArray for prepared programs.
+    - [ ]  This might have to be custom because of indexing, it's likely to be a dip
+           down into C.  Lpeg labels are jiggered based on some instructions (entirely charsets I believe) being extra-length, when I print pcode there are gaps in the numbers
+  - [ ]  Optimal VM dispatch, the current system is aggressively not-type-stable.
+           accordingly.  It's a major operation from my perspective, we'd need to obtain a pointer to the Vector somehow and correct all the instruction labels, but probably
+           worth the most speedup after a type-stable dispatch.
+  - [ ]  SetInst may not need a `:l`.
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
@@ -222,7 +246,7 @@ Easy test is to generate a random number and take a program we have nice tests f
 (such as `re`, soon), scatter a bunch of OpNoOps in it, correct, remove a bunch,
 correct, and so on, testing each time.
 
-### Sparse Vectors
+#### Sparse Vectors
 
 Are going to be the efficient way to relabel. They store any nonzero value and any
 other index returns 0, so we can simply store a 1 for any added value and a -1 for a
@@ -362,7 +386,7 @@ they were).
   - [ ]  It would be fun to special case S"AZ"^+n, S"az"^+n, and variations, such
          that in a grammar they give back a word from lorem ipsum.
 
-### Multiset Test Conversion
+### MultiSet to MultiTestSet Conversion
 
 Is easy: we have OpFail everywhere it can fail other than the vectorized
 instructions: we replace the end vectors with TestMultiVec (doesn't exist yet but
@@ -372,3 +396,7 @@ obvious opcode is obvious) and swap the OpFails with jumps to the next Choice, p
 We're probably going to have to assume that MultiSet codes aren't disjoint with other
 choices though, although.... with the PDiff thing we'll have a way of differing two
 PSets by value, we don't have to examine the bytecode directly.
+
+### Notes on Full Parsing
+
+`match` is all well and good, but I'm going to want a separate system for parsing, one which returns something more useful than a `PegMatch`.

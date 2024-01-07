@@ -1,5 +1,15 @@
 # Reference
 
+```@contents
+Pages = ["reference.md"]
+```
+
+```@index
+Pages = ["reference.md"]
+Modules = [JLpeg]
+```
+
+
 ## Core API
 
 The basic structure of recognition in JLPeg is a `Pattern`.
@@ -65,6 +75,7 @@ The great advantage (other than composability) PEGs have over regular expression
 the ability to match recursive patterns.  These are constructed out of Rules and Grammars.
 
 ```@docs
+JLpeg.Grammar
 JLpeg.@rule
 JLpeg.@grammar
 JLpeg.@rule!
@@ -79,7 +90,7 @@ A work in progress.
 JLpeg.re
 ```
 
-# Generators
+## Generators
 
 A PEG is a specification of a class of algorithms which are valid on a universe of
 strings.  While the common thing to do is use this specification to construct a recognizer

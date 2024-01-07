@@ -6,6 +6,11 @@ makedocs(
     sitename  =  "JLpeg",
     format    =  Documenter.HTML(),
     modules   =  [JLpeg],
+    pages = [
+        "JLpeg Guide" => "index.md",
+        "reference.md",
+        "internals.md",
+    ],
     checkdocs =  :exports,
     # , checkdocs = :none
     # , doctest = :fix

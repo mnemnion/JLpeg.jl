@@ -7,8 +7,10 @@ DocTestSetup = quote
 end
 ```
 
-JLpeg provides a fast PEG engine for matching patterns in strings, using a bytecode
-virtual machine based on the pioneering work of [Roberto
+JLpeg provides a fast [Parsing Expression
+Grammar](https://en.wikipedia.org/wiki/Parsing_expression_grammar) engine for
+matching patterns in strings, using a bytecode virtual machine based on the
+pioneering work of [Roberto
 Ierusalimschy](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf).
 
 Compared to regular expressions, PEGs offer greater power and expressivity, being, in
@@ -28,19 +30,23 @@ reporting and recovery.
 
 Compared with a "compiler compiler" such as ANTLR or the classic yacc/bison, JLpeg
 does not generate source code, but rather bytecode, which Julia is able to JIT into
-near-optimal machine code on the fly.  PEGs are also far more suitable for scanning,
-captures, and other pattern-recognition tasks than these programs, which are best
-suited to full grammars, a task JLPeg also excels at.
+near-optimal machine code on the fly.  These systems work on tokens, an abstraction
+PEGs don't use, which allows JLpeg to parse contextually-valid grammars which cannot
+be readily tokenized.  PEGs are also far more suitable for scanning, captures, and
+other pattern-recognition tasks than these programs, which are only well-suited to
+parsing of full grammars, a task JLpeg also excels at.
+
+
 
 ## Patterns
 
 Parsing Expression Grammars are built out of patterns, which begin with atomic units
-of recognition and are combined into complex rules which can recognize context free,
+of recognition and are combined into complex rules, which can recognize context free,
 and some context sensitive, languages.  LPeg, JLpeg's inspiration, uses a
-Snobol-style set of operator overloads as the basic tool for building up patterns, a
+SNOBOL-style set of operator overloads as the basic tool for building up patterns, a
 practice we also follow.
 
-Although many users of JLpeg may prefer to use one of the [Dialects](#dialects),
+Although many users of JLpeg may prefer to use one of the [Dialects](#Dialects),
 patterns and their combination are the building block of JLpeg recognition engines,
 that which dialects compile to.
 
@@ -115,77 +121,38 @@ PegFail("⟪1⟫23abc", 1)
 ```
 
 The operators introduce a pattern 'context', where any `a <op> b` combination where
-`a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.  This UI is adequate for light work, but the macros discussed later are much cleaner.
+`a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.
+Generally, a `MethodError` may be repaired by using `P` on the left side of the the
+operator, although we can't guarantee that other method overloads for those operators
+might apply. Notably, `*` is used for concatenation of strings; , although in the
+JLpeg context, `P"abc" * P"123"` is in fact the same as `P("abc" * "123")`.
+
+This UI is adequate for light work, but the [macros](#Rules-and-Grammars) discussed
+later are cleaner to work with, defined such that `P` should never be necessary,
+although any of the public names in the [`JLpeg`](reference.md) module may be used.
 
 Note that unlike regular expressions, PEG always starts with the first character, any
 match returned by a call to `match(patt, string)` will therefore be a prefix of the
 string, up to and including the entire string.
 
 Most interesting uses of pattern recognition will call for more than matching the
-longest substring.  For those more complex cases, we have captures and actions.
+longest substring.  For those more complex cases, we have [`Captures`](#Captures) and
+[`Actions`](#Actions).
 
-## Captures
+### Rules and Grammars
 
-A `PegMatch` defaults to the longest `SubString` when no captures are provided, or
-when the pattern succeeds but all captures within fail (#TODO I may change this
-behavior).  To capture only the substring of interest, use `C(patt)` or just make a
-tuple `(patt,)`.  Don't forget the comma or Julia will interpret this as a group.
+While simple patterns may be composed by assigning to variables and using those
+variable names to build up more complex patterns, this doesn't allow for recursion,
+which is essential for matching many strings of interest, perhaps most.
 
-```jldoctest
-julia> match("" >> (P"56",), "1234567")
-PegMatch(["56"])
-```
-
-This matches the empty string, fast-forwards to the first 56, and captures it.  Note
-that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
-`P("") >> C(P("56"))`.
-
-| [ ] | Operation               | What it produces                                       |
-| --- | ----------------------- | ------------------------------------------------------ |
-| [X] | `C(patt [, key])`,      | captures the substring of `patt`                       |
-| [X] | `(patt,)`,              | same as above, note the comma!                         |
-| [X] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                   |
-| [X] | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,        |
-| [X] | `[patt], ([patt], key)` | optionally tagged with `key`                           |
-| [X] | `Cp()`                  | captures `""` so `PegMatch.offsets` has the position   |
-| [ ] | `Cc(any)`               | places `any` in `.captures` at the current offset      |
-| [X] | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key` |
-| [ ] | `Ce(patt, :key)`,       | groups the captures of`patt` and creates an Expr       |
-| [ ] | `patt => :key`          | with head `:key` and args `[patt]...`                  |
-
-## Actions
-
-A pattern may be modified with an action to be taken, either at runtime, or, more
-commonly, once the match has completed.  These actions are supplied with all captures
-in `patt`, or the substring matched by `patt` itself if `patt` contains no captures
-of its own.
-
-`T(:label)` doesn't capture, but rather, fails the match, records the position
-of that failure, and throws `:label`.  If there is a rule by that name, it is
-attempted for error recovery, otherwise `:label` and the error position are attached
-to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
-is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
-
-| [ ] | Action                | Consequence                                          |
-| --- | --------------------- | ---------------------------------------------------- |
-| [X] | `A(patt, λ)`,         | the returns of `λ` applied to the captures of `patt` |
-| [X] | `patt \|> λ`          |                                                      |
-| [ ] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return       |
-| [ ] | `patt > λ`            | `nothing` to fail the match                          |
-| [ ] | `patt ./ λ`           | fold/reduces captures with `λ`, captures last return |
-| [X] | `T(:label)`,          | fail the match and throw `:label`                    |
-| [X] | `patt % :label`       | shorthand for `patt \| T(:label)`                    |
-| [ ] | `M(patt, :label)`     | mark a the region of `patt` for later reference      |
-| [ ] | `K(patt, :label, op)` | checK `patt` against the last mark with `op`         |
-
-### Rules
-
-To match recursive structures, patterns must be able to call themselves, which is a
-`Rule`.  A collection of Rules is a Grammar.
+For this purpose, we have rules, which are simply named patterns.  A rule with no
+references to another rule within it may be used for matching directly, while those
+with such references (including a reference to itself) must be composed into
+grammars.
 
 As is the PEG convention, a rule reduction uses the left arrow `←`, which you can
-type as `\leftarrow` (or in fact `\lef[TAB]`).  Also defined as `<--` if you happen
-to hate Unicode.  A simple Grammar can look like this:
+type as `\leftarrow` (or in fact `\lef[TAB]`), also defined as `<--`.  A simple
+grammar can look like this:
 
 ```jldoctest
 abc_and = :a <-- P"abc" * (:b | P"")
@@ -196,6 +163,11 @@ match(abc123, "abc123123123abc123abc")
 # output
 PegMatch(["abc123123123abc123abc"])
 ```
+
+The first rule is the start rule, which must succeed if the match is to succeed.  A
+grammar which is missing rules will throw a [`PegError`](@ref), but duplicate rules
+are undefined behavior: currently JLpeg will compile the last rule of that name it
+encounters, but this behavior must not be relied upon.
 
 The `@grammar` and `@rule` macros are much prettier ways to make a pattern, however:
 
@@ -210,6 +182,60 @@ end
 
 Always use `R"az"` and `S"abc"` forms for ranges and sets in these macros, or you'll
 get the wrong result.
+
+## Captures
+
+A `PegMatch` defaults to the longest `SubString` when no captures are provided, or
+when the pattern succeeds but all captures within fail.  To capture only the
+substring of interest, use `C(patt)` or just make a tuple `(patt,)`.  Don't forget
+the comma or Julia will interpret this as a group.
+
+```jldoctest
+julia> match("" >> (P"56",), "1234567")
+PegMatch(["56"])
+```
+
+This matches the empty string, fast-forwards to the first 56, and captures it.  Note
+that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
+`P("") >> C(P("56"))`.
+
+| [❓] | Operation               | What it produces                                       |
+| --- | ----------------------- | ------------------------------------------------------ |
+| [✅] | `C(patt [, key])`,      | captures the substring of `patt`                       |
+| [✅] | `(patt,)`,              | same as above, note the comma!                         |
+| [✅] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                   |
+| [✅] | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,        |
+| [✅] | `[patt], ([patt], key)` | optionally tagged with `key`                           |
+| [✅] | `Cp()`                  | captures `""` so `PegMatch.offsets` has the position   |
+| [🔶] | `Cc(any)`               | places `any` in `.captures` at the current offset      |
+| [✅] | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key` |
+| [🔶️] | `Ce(patt, :key)`,       | groups the captures of`patt` and creates an Expr       |
+| [🔶] | `patt => :key`          | with head `:key` and args `[patt]...`                  |
+
+## Actions
+
+A pattern may be modified with an action to be taken, either at runtime, or, more
+commonly, once the match has completed.  These actions are supplied with all captures
+in `patt`, or the substring matched by `patt` itself if `patt` contains no captures
+of its own.
+
+`T(:label)` doesn't capture, but rather, fails the match, records the position
+of that failure, and throws `:label`.  If there is a rule by that name, it is
+attempted for error recovery, otherwise `:label` and the error position are attached
+to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
+is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
+
+| [❓] | Action                | Consequence                                          |
+| --- | --------------------- | ---------------------------------------------------- |
+| [✅] | `A(patt, λ)`,         | the returns of `λ` applied to the captures of `patt` |
+| [✅] | `patt \|> λ`          |                                                      |
+| [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return       |
+| [⭕️] | `patt .> λ`           | `nothing` to fail the match                          |
+| [⭕️] | `patt ./ λ`           | fold/reduces captures with `λ`, captures last return |
+| [✅] | `T(:label)`,          | fail the match and throw `:label`                    |
+| [✅] | `patt % :label`       | shorthand for `patt \| T(:label)`                    |
+| [⭕️] | `M(patt, :label)`     | mark a the region of `patt` for later reference      |
+| [⭕️] | `K(patt, :label, op)` | checK `patt` against the last mark with `op`         |
 
 ## Dialects
 

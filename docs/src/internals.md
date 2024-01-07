@@ -1,4 +1,4 @@
-# JLpeg internals
+# Internals
 
 Complete `docstring` documentation of the JLPeg internal API.
 
