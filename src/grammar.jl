@@ -14,7 +14,6 @@ function wrap_rule_body(rulebody::Expr)::Expr
         if x isa String || x isa QuoteNode || x isa Char
             return :(🔠($x))
         elseif x isa Symbol && !(x ∈ JPublic)
-            print("escaping $x ")
             return esc(x)
         elseif x isa Expr
             if @capture(x, (@S_str(🔠(val_))))
@@ -50,8 +49,14 @@ function wrap_rule_body(rulebody::Expr)::Expr
 end
 
 function wrap_rule(expr::Expr)::Expr
-    @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_)) || error("malformed rule in $(expr)")
-    :($sym ← $(wrap_rule_body(rulebody)))
+    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_))
+        return wrap_rule_body(expr)
+    elseif @capture(expr, (sym_ <--> rulebody_))
+        local body = wrap_rule_body(rulebody)
+        :(C($sym ← $body, $sym))
+    else
+        error("malformed rule in $(expr)")
+    end
 end
 
 
