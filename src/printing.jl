@@ -191,13 +191,13 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
         push!(line, inst.final ? " t" : " f")
     end
     if hasfield(t, :vec)
-        push!(line, " $(printset(inst.vec))")
+        push!(line, " $(printset(inst))")
     end
     return line
 end
 
 "String for Set Vector"
-function printset(vec::Bits)::String
+function printset(vec::IVectored)::String
     chars = bitvector_to_compact_repr(vec)
     str = "{"
 
@@ -207,7 +207,7 @@ function printset(vec::Bits)::String
 end
 
 "String for MultSet Vector"
-function bitvector_to_compact_repr(bitvec::Bits{Int64})::Vector{String}
+function bitvector_to_compact_repr(bitvec::IVec64)::Vector{String}
     fragments = String[]
     start_idx = 0
     end_idx = 0
@@ -255,7 +255,7 @@ end
 
 Shows a set while collapsing ranges.
 """
-function bitvector_to_compact_repr(bitvec::Bits{Int128})
+function bitvector_to_compact_repr(bitvec::IVec128)
     fragments = String[]
     start_idx = 0
     end_idx = 0

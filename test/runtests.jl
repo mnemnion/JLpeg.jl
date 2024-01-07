@@ -298,4 +298,7 @@ using InteractiveUtils
             end
         end
     end
+    @testset "Code tests" begin
+        # Tests for code optimization purposes go here
+    end
 end

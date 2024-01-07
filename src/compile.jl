@@ -77,41 +77,43 @@ NotCharInst(c::AbstractChar) = NotCharInst(INotChar, c)
 
 struct SetInst <: Instruction
     op::Opcode
-    vec::Bits{Int128}
+    vec::Int128
     l::Int32
 end
-SetInst(vec::Bits{Int128}) = SetInst(ISet, vec, Int32(1))
-SetInst(vec::Bits{Int128}, l::Integer) = SetInst(ISet, vec, Int32(l))
+SetInst(vec::Bits{Int128}) = SetInst(ISet, vec.chunk::Int128, Int32(1))
+SetInst(vec::Bits{Int128}, l::Integer) = SetInst(ISet, vec.chunk::Int128, Int32(l))
 SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
-LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
+LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(ILeadSet, vec.chunk::Int128, Int32(l))
 
 struct NotSetInst <: Instruction
     op::Opcode
-    vec::Bits{Int128}
+    vec::Int128
     l::Int32
-end # We create these at compile time from SetInst so only default constructor is used
+end
+NotSetInst(vec::Bits{Int128}, l::Integer) = NotSetInst(vec.chunk, Int32(l))
+
 
 "Not yet in use"
 struct TestSetInst <: Instruction
     op::Opcode
-    vec::Bits{Int128}
+    vec::Int128
     l::Int32
 end
-TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(ITestSet, vec, Int32(l))
+TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(ITestSet, vec.chunk, Int32(l))
 
 struct MultiVecInst <: Instruction
     op::Opcode
-    vec::Bits{Int64}
+    vec::Int64
     l::Int32
 end
-MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(IMultiVec, vec, Int32(l))
+MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(IMultiVec, vec.chunk, Int32(l))
 
 struct LeadMultiInst <: Instruction
     op::Opcode
-    vec::Bits{Int64}
+    vec::Int64
     l::Int32
 end
-LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(ILeadMulti, vec, Int32(l))
+LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(ILeadMulti, vec.chunk, Int32(l))
 
 struct ByteInst <: Instruction
     op::Opcode
@@ -209,13 +211,88 @@ struct ThrowRecInst <: Instruction
 end
 ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrowRec, tag, Int32(l))
 
+
+"""
+    relabel(inst::Instruction, l::Integer)
+
+Produce an Instruction based on the old one, with the new label.
+"""
+relabel(inst::Instruction, ::Integer) = error("$(inst.op) instructions have no label")
+
+function _relabeler(T::Union{DataType,UnionAll})
+    local params = []
+    if !hasfield(T, :l)
+        return nothing
+    end
+    for field in fieldnames(T)
+        if field == :l
+            push!(params, field)
+        else
+            push!(params, :(inst.$field))
+        end
+    end
+    return :(relabel(inst::$(T), l::Integer) = $T($(params...),))
+end
+
+begin
+    for I in subtypes(JLpeg.Instruction)
+        eval(_relabeler(I))
+    end
+end
+
 # ## Vector Ops
 #
 
 const IVectored = Union{SetInst,NotSetInst,TestSetInst,MultiVecInst,LeadMultiInst}
 const IASCIISet = Union{SetInst,NotSetInst,TestSetInst}
+const IVec128 = Union{SetInst,NotSetInst,TestSetInst}
+const IVec64 = Union{MultiVecInst,LeadMultiInst}
 
-Base.getindex(inst::IVectored, i::Integer) = inst.vec[i]
+# Code borrowed from BitPermutations.jl for converting vector instructions
+#   into bit types
+
+"""
+    bitsize(::Type{T})
+    bitsize(obj::T)
+
+Number of bits in the binary representations of any primitive type `T`.
+"""
+function bitsize(x::Type{T}) where {T}
+    isprimitivetype(x) || throw(ArgumentError("Argument of `bitsize` must be a primitive type"))
+    return 8 * sizeof(x)
+end
+
+bitsize(::T) where {T} = bitsize(T)
+
+"""
+    shift_safe(::Type{T}, s::Integer)
+
+Changes the shifting amount for bitshifts to guarantee to the compiler that the shift
+amount will not exceed `bitsize(T)`.  Because bit shifting behaves slighly
+differently in Julia vs. LLVM, this help the compiler emit less code.
+
+See also: https://github.com/JuliaLang/julia/issues/30674.
+"""
+@inline shift_safe(::Type{T}, s::Integer) where {T} = s & (bitsize(T) - 1)
+
+# #/ borrow
+
+function Base.getindex(inst::IVec128, i::Integer)
+    @boundscheck i ≤ 128 || throw(BoundsError)
+    u = one(Int128) << shift_safe(Int128, i - 1)
+    return !iszero(inst.vec & u)
+end
+
+function Base.getindex(inst::IVec64, i::Integer)
+    @boundscheck i ≤ 64 || throw(BoundsError)
+    u = one(Int64) << shift_safe(Int64, i - 1)
+    return !iszero(inst.vec & u)
+end
+
+Base.keys(::IVec64) = 1:64
+Base.keys(::IVec128) = 1:128
+Base.eltype(::IVector) = Union{UInt8,Bool}
+
 
 function Base.iterate(inst::IASCIISet, i::Integer)
     i = i + 1
@@ -231,7 +308,7 @@ function Base.iterate(inst::LeadMultiInst, i::Integer)
     i = i + 1
     i > 128 && return nothing
 
-    if inst.vec[i]
+    if @inbounds inst.vec[i]
         return UInt8(i-1) | 0b11000000, i
     else
         return false, i
@@ -241,7 +318,7 @@ end
 function Base.iterate(inst::MultiVecInst, i::Integer)
     i = i + 1
     i > 64 && return nothing
-    if inst.vec[i]
+    if @inbounds inst.vec[i]
         return UInt8(i-1) | 0b10000000, i
     else
         return false, i
@@ -250,57 +327,9 @@ end
 
 Base.iterate(inst::IVectored) = iterate(inst, 0)
 
-Base.count_ones(inst::IVectored) = count_ones(inst.vec.chunk)
+Base.count_ones(inst::IVectored) = count_ones(inst.vec)
 
-#=  Code borrowed from BitPermutations.jl for converting vector instructions
-#   into bit types
-
-"""
-    bitsize(::Type{T})
-    bitsize(obj::T)
-
-Number of bits in the binary representations of any primitive type `T`.
-"""
-function bitsize(x::Type{T}) where {T}
-    isprimitivetype(x) || throw(ArgumentError("Argument of `bitsize` must be a primitive type"))
-    return 8 * sizeof(x)
-end
-
-bitsize(x::T) where {T} = bitsize(T)
-
-"""
-    shift_safe(::Type{T}, s::Integer)
-
-Changes the shifting amount for bitshifts to guarantee to the compiler that the shift
-amount will not exceed `bitsize(T)`.  Because bit shifting behaves slighly
-differently in Julia vs. LLVM, this help the compiler emit less code.
-
-See also: https://github.com/JuliaLang/julia/issues/30674.
-"""
-@inline shift_safe(::Type{T}, s::Integer) where {T} = s & (bitsize(T) - 1)
-
-function Base.getindex(m::Bits{T}, i::Int) where {T}
-    @boundscheck checkbounds(m, i)
-    a = chunk(m)
-    u = one(T) << shift_safe(T, i - 1)
-    return !iszero(a & u)
-end
-
-# Fast iteration
-function Base.iterate(m::Bits)
-    val, rest = _peel(chunk(m))
-    return val, (rest, 1)
-end
-
-function Base.iterate(m::Bits{T}, state::Tuple{T,Int}) where {T}
-    rest, n = state
-    n === length(m) && return nothing
-    val, rest = _peel(rest)
-    return val, (rest, n + 1)
-end
-
-_peel(a::Integer) = (Bool(a & one(a)), a >> 1)
-=# # =#
+# # #
 
 # ## Compilers
 
@@ -683,7 +712,7 @@ end
 """
     compile!(patt::PGrammar)::Pattern
 
-Compiles _and prepares_ a Grammar, which deserves its own approach.
+Compiles _and prepares_ a Grammar.
 """
 function _compile!(patt::PGrammar)::Pattern
     # TODO we want to cache this eventually but the code is... in flux
@@ -811,6 +840,15 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
     return patt
 end
 
+"""
+    link!(code::IVector, aux::AuxDict)
+
+Links a grammar by replacing IOpenCall instructions with their callsite. Also
+performs tail-call elimination and links Throws with a matching rule to that
+rule.
+
+# TODO will optimize jumps and jump-like instructions
+"""
 function link!(code::IVector, aux::AuxDict)
     callsite = aux[:callsite]
     rules = aux[:rules]

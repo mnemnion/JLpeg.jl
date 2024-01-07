@@ -322,7 +322,7 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     match = false
     this = thischar(vm)
     if this !== nothing
-        if this ≤ '\x7f' && inst.vec[UInt8(this) + 1]
+        if this ≤ '\x7f' && inst[UInt8(this) + 1]
             vm.s = nextind(vm.subject, vm.s)
             match = true
         end
@@ -345,7 +345,7 @@ function onInst(inst::TestSetInst, vm::VMState)::Bool
         return true
     end
     code = UInt32(this)
-    if code < 128 && @inbounds inst.vec[code + 1]
+    if code < 128 && @inbounds inst[code + 1]
         vm.i += 1
         return true
     else
@@ -360,7 +360,7 @@ function onInst(inst::NotSetInst, vm::VMState)::Bool
     this = thischar(vm)
     if this !== nothing
         code = UInt32(this)
-        if code < 128 && inst.vec[code + 1]
+        if code < 128 && inst[code + 1]
             nomatch = false
         end
     end
@@ -398,7 +398,7 @@ function onInst(inst::MultiVecInst, vm::VMState)::Bool
         # check in valid continuation byte range
         if 0b10000000 ≤ byte ≤ 0b10111111
             # Mask high bit, + 1 for Julia indexing
-            if @inbounds inst.vec[(byte & 0b00111111) + UInt8(1)]
+            if @inbounds inst[(byte & 0b00111111) + UInt8(1)]
                 vm.i += inst.l
                 vm.s += 1
                 return true
@@ -418,7 +418,7 @@ function onInst(inst::LeadMultiInst, vm::VMState)::Bool
     end
     byte = codeunit(vm.subject, vm.s)
     # Must check for 0b11xxxxxx or false positives from malformed data
-    if (byte & 0xc0 == 0xc0) && @inbounds inst.vec[(byte & 0b00111111) + UInt8(1)]
+    if (byte & 0xc0 == 0xc0) && @inbounds inst[(byte & 0b00111111) + UInt8(1)]
         vm.i += 1
         return true
     else  # goto fail
