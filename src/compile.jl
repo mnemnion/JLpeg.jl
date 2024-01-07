@@ -69,6 +69,12 @@ struct CharInst{C} <: Instruction where C <: AbstractChar
 end
 CharInst(c::AbstractChar) = CharInst(IChar, c)
 
+struct NotCharInst{C} <: Instruction where C <: AbstractChar
+    op::Opcode
+    c::C
+end
+NotCharInst(c::AbstractChar) = NotCharInst(INotChar, c)
+
 struct SetInst <: Instruction
     op::Opcode
     vec::Bits{Int128}
@@ -77,7 +83,6 @@ end
 SetInst(vec::Bits{Int128}) = SetInst(ISet, vec, Int32(1))
 SetInst(vec::Bits{Int128}, l::Integer) = SetInst(ISet, vec, Int32(l))
 SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
-
 LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(ILeadSet, vec, Int32(l))
 
 struct NotSetInst <: Instruction
@@ -86,11 +91,13 @@ struct NotSetInst <: Instruction
     l::Int32
 end # We create these at compile time from SetInst so only default constructor is used
 
-struct NotCharInst{C} <: Instruction where C <: AbstractChar
+"Not yet in use"
+struct TestSetInst <: Instruction
     op::Opcode
-    c::C
+    vec::Bits{Int128}
+    l::Int32
 end
-NotCharInst(c::AbstractChar) = NotCharInst(INotChar, c)
+TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(ITestSet, vec, Int32(l))
 
 struct MultiVecInst <: Instruction
     op::Opcode
@@ -155,13 +162,6 @@ struct TestCharInst <: Instruction
 end
 TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(ITestChar, c, Int32(l))
 
-"Not yet in use"
-struct TestSetInst <: Instruction
-    op::Opcode
-    vec::Bits{Int128}
-    l::Int32
-end
-TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(ITestSet, vec, Int32(l))
 
 struct OpenCallInst <: Instruction
     op::Opcode
