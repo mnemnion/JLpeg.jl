@@ -33,7 +33,7 @@ The hitlist:
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ]  Add `getfirst`
   - [ ]  TestPatt / headfail optimizations
-  - [X]  Tail-call elimination
+  - [X]  [Tail-call elimination](#tail-calls)
   - [ ]  Intermediate jump elimination
   - [ ]  Set ISpan optimization
   - [?]  fixed-length detection
@@ -349,3 +349,7 @@ obvious opcode is obvious) and swap the OpFails with jumps to the next Choice, p
 We're probably going to have to assume that MultiSet codes aren't disjoint with other
 choices though, although.... with the PDiff thing we'll have a way of differing two
 PSets by value, we don't have to examine the bytecode directly.
+
+### Tail calls
+
+My first attempt at this failed and I need to understand why that is.

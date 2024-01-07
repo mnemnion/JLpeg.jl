@@ -773,7 +773,11 @@ function link!(code::IVector, aux::AuxDict)
         if inst.op == IOpenCall
             site = callsite[inst.rule]
             l = site - i
-            code[i] = CallInst(l)
+            if code[i + 1] == OpReturn
+                code[i] = JumpInst(l)
+            else
+                code[i] = CallInst(l)
+            end
         elseif inst.op == IThrow
             if haskey(rules, throws[inst.tag])
                 site = callsite[throws[inst.tag]]
