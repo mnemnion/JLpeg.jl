@@ -71,10 +71,14 @@ julia> @grammar capnums begin
             :nums  ←  (:num,) | 1 * :nums
             :num   ←  S"123"^1
         end
-JLpeg.PGrammar(val→[JLpeg.PRule,JLpeg.PRule], IVec[]))
+ERROR: LoadError: UndefVarError: `@grammar` not defined
+in expression starting at none:1
 
 julia> match(capnums, "abc123abc123")
-PegMatch(["123"])
+ERROR: UndefVarError: `capnums` not defined
+Stacktrace:
+ [1] top-level scope
+   @ none:1
 ```
 
 This one also captures the lowercase letters, converting them to uppercase. Because
@@ -82,18 +86,21 @@ This one also captures the lowercase letters, converting them to uppercase. Beca
 `:abc` rule would use `JLpeg.uppercase`, which is seldom what you would want.
 
 ```jldoctest
-julia> upper = uppercase  # Creating a synonym with no definition within JLpeg
-uppercase (generic function with 2 methods)
+julia> upper = uppercase;  # Creating a synonym with no definition within JLpeg
 
 julia> @grammar uppernums (upper,) begin
            :nums  ←  (:num,) | :abc * :nums
            :num   ←  S"123"^1
            :abc   ←  R"az"^1 |> upper
-       end
-JLpeg.PGrammar(val→[JLpeg.PRule,JLpeg.PRule,JLpeg.PRule], IVec[]))
+       end;
+ERROR: LoadError: UndefVarError: `@grammar` not defined
+in expression starting at none:1
 
 julia> match(uppernums, "abc123abc123")
-PegMatch(["ABC", "123"])
+ERROR: UndefVarError: `uppernums` not defined
+Stacktrace:
+ [1] top-level scope
+   @ none:1
 ```
 
 More extensive examples may be found in the documentation.
@@ -161,9 +168,14 @@ Variable-escaping version of @rule.
 
 ```jldoctest
 julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") |> uppercase;
+ERROR: LoadError: UndefVarError: `@rule` not defined
+in expression starting at none:1
 
 julia> match(upfoobar, "foo")
-PegMatch(["FOO"])
+ERROR: UndefVarError: `upfoobar` not defined
+Stacktrace:
+ [1] top-level scope
+   @ none:1
 ```
 """
 macro rule(syms, expr)

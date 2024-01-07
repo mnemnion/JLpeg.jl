@@ -20,7 +20,7 @@ worst-case complexity the regex is prone to, for most useful patterns.
 Compared with parser combinators, a more common algorithm for matching PEG grammars,
 the approach taken by this package is superior.  A bytecode interpreter allows
 several key optimizations which parser combinators do not allow; generally such
-libraries choose between a naive backtracking algorithm with bad time complexity and
+libraries choose between a naive backtracking algorithm with bad time complexity, and
 a memorizing packrat algorithm which trades this for bad space complexity, with
 consequent memory pressure.  JLpeg generates programs which may be inspected and
 modified, and uses an innovative thrown-label pattern to allow excellent error
@@ -31,7 +31,6 @@ does not generate source code, but rather bytecode, which Julia is able to JIT i
 near-optimal machine code on the fly.  PEGs are also far more suitable for scanning,
 captures, and other pattern-recognition tasks than these programs, which are best
 suited to full grammars, a task JLPeg also excels at.
-
 
 ## Patterns
 

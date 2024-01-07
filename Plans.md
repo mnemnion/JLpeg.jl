@@ -33,7 +33,7 @@ The hitlist:
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ]  Add `getfirst`
   - [ ]  TestPatt / headfail optimizations
-  - [X]  [Tail-call elimination](#tail-calls)
+  - [X]  Tail-call elimination
   - [ ]  Intermediate jump elimination
   - [ ]  Set ISpan optimization
   - [?]  fixed-length detection
@@ -325,15 +325,18 @@ a conformant parser for a language which already has one.
 
 In fact, I'm going to start with a complete Set generator which just goes in order.
 This is the easiest way to demonstrate that the Unicode sets aren't producing any
-garbage or characters that obviously don't belong to the set.
+garbage or characters that obviously don't belong to the set (which, as it turns out,
+they were).
 
-- [ ]  Generate Primitives
-  - [ ]  Generate PSets
-    - [ ]  Full generator
+- [#]  Generate Primitives
+  - [X]  Generate PSets
+    - [X]  Full generator
     - [ ]  Random-character generator
   - [ ]  Generate PChar
   - [ ]  Generate PAny(1)
     - [ ]  Random version should produce Unicode characters, some restricted ranges.
+    - [ ]  Careful with this on the instruction level, many/most AnyInst(1) will be
+           following a TestSet or TestChar, which of course we must generate instead.
 - [ ] Generate repetition
   - [ ]  "full reps" can expand every member within a set (when allowed, aka n ≥ 0)
   - [ ]  It would be fun to special case S"AZ"^+n, S"az"^+n, and variations, such
@@ -349,7 +352,3 @@ obvious opcode is obvious) and swap the OpFails with jumps to the next Choice, p
 We're probably going to have to assume that MultiSet codes aren't disjoint with other
 choices though, although.... with the PDiff thing we'll have a way of differing two
 PSets by value, we don't have to examine the bytecode directly.
-
-### Tail calls
-
-My first attempt at this failed and I need to understand why that is.

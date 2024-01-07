@@ -220,7 +220,6 @@ Base.getindex(inst::IVectored, i::Integer) = inst.vec[i]
 function Base.iterate(inst::IASCIISet, i::Integer)
     i = i + 1
     i > 128 && return nothing
-
     if inst.vec[i]
         return UInt8(i-1), i
     else
@@ -253,7 +252,55 @@ Base.iterate(inst::IVectored) = iterate(inst, 0)
 
 Base.count_ones(inst::IVectored) = count_ones(inst.vec.chunk)
 
+#=  Code borrowed from BitPermutations.jl for converting vector instructions
+#   into bit types
 
+"""
+    bitsize(::Type{T})
+    bitsize(obj::T)
+
+Number of bits in the binary representations of any primitive type `T`.
+"""
+function bitsize(x::Type{T}) where {T}
+    isprimitivetype(x) || throw(ArgumentError("Argument of `bitsize` must be a primitive type"))
+    return 8 * sizeof(x)
+end
+
+bitsize(x::T) where {T} = bitsize(T)
+
+"""
+    shift_safe(::Type{T}, s::Integer)
+
+Changes the shifting amount for bitshifts to guarantee to the compiler that the shift
+amount will not exceed `bitsize(T)`.  Because bit shifting behaves slighly
+differently in Julia vs. LLVM, this help the compiler emit less code.
+
+See also: https://github.com/JuliaLang/julia/issues/30674.
+"""
+@inline shift_safe(::Type{T}, s::Integer) where {T} = s & (bitsize(T) - 1)
+
+function Base.getindex(m::Bits{T}, i::Int) where {T}
+    @boundscheck checkbounds(m, i)
+    a = chunk(m)
+    u = one(T) << shift_safe(T, i - 1)
+    return !iszero(a & u)
+end
+
+# Fast iteration
+function Base.iterate(m::Bits)
+    val, rest = _peel(chunk(m))
+    return val, (rest, 1)
+end
+
+function Base.iterate(m::Bits{T}, state::Tuple{T,Int}) where {T}
+    rest, n = state
+    n === length(m) && return nothing
+    val, rest = _peel(rest)
+    return val, (rest, n + 1)
+end
+
+_peel(a::Integer) = (Bool(a & one(a)), a >> 1)
+=# # =#
 
 # ## Compilers
 
@@ -773,6 +820,7 @@ function link!(code::IVector, aux::AuxDict)
         if inst.op == IOpenCall
             site = callsite[inst.rule]
             l = site - i
+            # Tail call?
             if code[i + 1] == OpReturn
                 code[i] = JumpInst(l)
             else

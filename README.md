@@ -100,7 +100,6 @@ julia> match(~P"abc", "abc123")
 PegMatch([""])
 
 julia> match(~P"abc", "123abc") # fails
-
 ```
 
 The operators introduce a pattern 'context', where any `a <op> b` combination where
