@@ -28,6 +28,14 @@ The hitlist:
          complex to get right, but we get one critical and one nice thing out of it: assigning
          several actions to a single grammar, and compile-time compiling grammars then load-time
          providing the Actions.
+- [ ]  Throws could also store the instruction pointer, this is a cheap operation
+       (just one more register after all) and would let us work backward to determine the
+       rule in which the match failed.
+- [ ]  Printing stuff
+  - [ ]  `clipstringat(str, i, len=20)` returns a NamedTuple tuple with the char at i,
+         up to two substrings surrounding it, and booleans telling whether or not we
+         truncated the string in the front or the back.
+  - [ ]  Refactor color printing to use `printstyled`.
 - [ ]  [Mark / Check](#mark-and-check-back-references)
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
@@ -241,6 +249,14 @@ This gives us a fragment parser: something which (in Lua terms) tries to make a
 `:program`, then a `:shebang`, then a `:block`, a `:statement`, etc, all the way down
 to making an `:add` out of `+`.  Very cheap!
 
+#### A Wrinkle
+
+Is whitespace really. What we want is the _longest_ fragment we can match, so that
+e.g. ` :symbol` matches both.  But this is easy: we make the postscript one big
+patt^0 with all the choices.  Literally it's just an additional rule `|(P(:a)...)^0`
+after the end.  This can even give only grammatically-valid results if we insist on
+matching a full string.
+
 ### Mark and Check: Back References
 
 This is the separate mechanism I want to add based on the code I hacked together for
@@ -289,6 +305,10 @@ This is something I wanted to do in Lua, Julia having a canonical Expr format ma
 the idea bearable, but this is a separate VM, or program really, which reparses
 changes to a parsed Expr to see when they remain valid to the specified Grammar.
 Crucial for getting rid of Treesitter.
+
+This doesn't have to be such a huge change, with the fragment parser we can do it
+with strings: walk up the Expr tree, match the substring (conceptually that is, not a
+SubString in this case),
 
 ### Suspend the VM
 
