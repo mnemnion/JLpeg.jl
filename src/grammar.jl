@@ -70,15 +70,11 @@ This simple grammar captures the first string of numbers it finds:
 julia> @grammar capnums begin
             :nums  ←  (:num,) | 1 * :nums
             :num   ←  S"123"^1
-        end
-ERROR: LoadError: UndefVarError: `@grammar` not defined
-in expression starting at none:1
+        end;
+
 
 julia> match(capnums, "abc123abc123")
-ERROR: UndefVarError: `capnums` not defined
-Stacktrace:
- [1] top-level scope
-   @ none:1
+PegMatch(["123"])
 ```
 
 This one also captures the lowercase letters, converting them to uppercase. Because
@@ -93,14 +89,10 @@ julia> @grammar uppernums (upper,) begin
            :num   ←  S"123"^1
            :abc   ←  R"az"^1 |> upper
        end;
-ERROR: LoadError: UndefVarError: `@grammar` not defined
-in expression starting at none:1
+
 
 julia> match(uppernums, "abc123abc123")
-ERROR: UndefVarError: `uppernums` not defined
-Stacktrace:
- [1] top-level scope
-   @ none:1
+PegMatch(["ABC", "123"])
 ```
 
 More extensive examples may be found in the documentation.
@@ -168,14 +160,10 @@ Variable-escaping version of @rule.
 
 ```jldoctest
 julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") |> uppercase;
-ERROR: LoadError: UndefVarError: `@rule` not defined
-in expression starting at none:1
+
 
 julia> match(upfoobar, "foo")
-ERROR: UndefVarError: `upfoobar` not defined
-Stacktrace:
- [1] top-level scope
-   @ none:1
+PegMatch(["FOO"])
 ```
 """
 macro rule(syms, expr)
