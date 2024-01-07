@@ -6,7 +6,7 @@
 The first dialect, intended, among other things, as a useful
 bootstrap of other dialects.
 """
-@grammar! re begin
+@grammar re begin
     :pattern      ←  :exp * !P(1)
     :exp          ←  :S * (:grammar | :alternative)
     :alternative  ←  :seq * ("/" * :S * :seq)^0

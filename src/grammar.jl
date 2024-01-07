@@ -7,13 +7,14 @@ const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 const 🔠 = P  # Won't interfere with user uses of P
 
 const ops = [:*, :|, :^, :~, :¬, :!, :>>, :|>, :>, :(=>), :%, :./,]
+const JPublic = vcat(ops, names(JLpeg))
 
-function wrap_rule_body(rulebody::Expr, rules::Expr)::Expr
-    escapes = rules.args
+function wrap_rule_body(rulebody::Expr)::Expr
     function for_x(x)
         if x isa String || x isa QuoteNode || x isa Char
             return :(🔠($x))
-        elseif x isa Symbol && x ∈ escapes
+        elseif x isa Symbol && !(x ∈ JPublic)
+            print("escaping $x ")
             return esc(x)
         elseif x isa Expr
             if @capture(x, (@S_str(🔠(val_))))
@@ -48,9 +49,9 @@ function wrap_rule_body(rulebody::Expr, rules::Expr)::Expr
     :($(postwalk(for_x, rulebody)))
 end
 
-function wrap_rule(expr::Expr, rules::Expr)::Expr
+function wrap_rule(expr::Expr)::Expr
     @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_)) || error("malformed rule in $(expr)")
-    :($sym ← $(wrap_rule_body(rulebody, rules)))
+    :($sym ← $(wrap_rule_body(rulebody)))
 end
 
 
@@ -105,44 +106,9 @@ macro grammar(name, expr)
     @capture(expr, begin
         rules__
     end)
-    local rs = [wrap_rule(rule, :(())) for rule ∈ rules]
+    local rs = [wrap_rule(rule) for rule ∈ rules]
     :($(esc(name)) = Grammar($(rs...)))
 end
-
-macro grammar(name, syms, expr)
-    if !(syms.head == :tuple)
-        throw(ArgumentError("expression b in `@grammar a (b,) begin ... end` must be a tuple"))
-    elseif !(all(s -> s isa Symbol, syms.args))
-        throw(ArgumentError("all elements of @grammar tuple must be symbols"))
-    end
-    @capture(expr, begin
-        rules__
-    end)
-    local rs = [wrap_rule(rule, syms) for rule ∈ rules]
-    :($(esc(name)) = Grammar($(rs...)))
-end
-
-"""
-    @grammar! name begin
-        # rules...
-    end
-
-Compile-time version of `@grammar`.  This macro creates and compiles the `Grammar`
-during (Julia) compiling, setting `name` directly to the resulting grammar.
-
-Doesn't have a variable-escaping variant, because those variables don't exist at
-the time the grammar is compiled to bytecode.
-"""
-macro grammar!(name, expr)
-    @capture(expr, begin
-        rules__
-    end)
-    local rs = [wrap_rule(rule, :(())) for rule ∈ rules]
-    local gexpr = :(Grammar($(rs...)))
-    local g_now = prepare!(eval(gexpr))
-    :($(esc(name)) = :($$g_now))
-end
-
 
 """
     @rule :name ← pattern...
@@ -158,58 +124,11 @@ name = @rule :name  ←  "foo" | "bar"
 """
 macro rule(expr)
     if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_))
-        local r = wrap_rule(expr, :(()))
+        local r = wrap_rule(expr)
         local name = sym.value
         :($(esc(name)) = $r)
     elseif @capture(expr, (sym_ <--> rulebody_))
-        local body = wrap_rule_body(rulebody, :(()))
-        local name = sym.value
-        :($(esc(name)) = C($sym ← $body, $sym))
-    else
-        error("malformed rule in $(expr)")
-    end
-end
-
-"""
-    @rule (vars,) :name  ←  pattern...
-
-Variable-escaping version of @rule.
-
-```jldoctest
-julia> @rule (uppercase,) :upfoobar  ←  ("foo" | "bar") |> uppercase;
-
-
-julia> match(upfoobar, "foo")
-PegMatch(["FOO"])
-```
-"""
-macro rule(syms, expr)
-    if !(syms isa Expr) || !(syms.head == :tuple)
-        throw(ArgumentError("in `@rule (a,) b`, a must be a tuple, got $(typeof(syms))"))
-    elseif !(all(s -> s isa Symbol, syms.args))
-        throw(ArgumentError("all elements of `@rule (a,) b` tuple must be Symbols"))
-    end
-    @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_)) || error("malformed rule in $(expr)")
-    local r = wrap_rule(expr, syms)
-    local name = sym.value
-    :($(esc(name)) = $r)
-end
-
-
-"""
-    @rule! :name ← patt...
-
-Compile-time version of `@rule`, assigns `name` directly to the fully-compiled
-`Rule(:name, patt)`.  Doesn't have a symbol-escaping form, because the values of
-those symbols aren't known at the time the rule is compiled.
-"""
-macro rule!(expr)
-    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_))
-        local r = wrap_rule(expr, :(()))
-        local name = sym.value
-        :($(esc(name)) = $r)
-    elseif @capture(expr, (sym_ <--> rulebody_))
-        local body = wrap_rule_body(rulebody, :(()))
+        local body = wrap_rule_body(rulebody)
         local name = sym.value
         :($(esc(name)) = C($sym ← $body, $sym))
     else

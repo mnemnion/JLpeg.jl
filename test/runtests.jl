@@ -188,12 +188,12 @@ using InteractiveUtils
     end
     @testset "Macro tests" begin
         upper = uppercase
-        @rule (upper,) :upcase  ←  "abc" |> upper
+        @rule :upcase  ←  "abc" |> upper
         @test match(upcase, "abc")[1] == "ABC"
         @test_throws LoadError @eval @rule [:a, :b, :c] :a ← :b
-        @test_throws ArgumentError begin
+        @test_throws MethodError begin
             try
-                @eval @rule (a, b, 1) :a ← :b
+                @eval @rule :a ← :b "malformed"
             catch e
                 if isa(e, LoadError)
                     throw(e.error)
@@ -202,8 +202,6 @@ using InteractiveUtils
                 end
             end
         end
-        @test_throws "a must be a tuple" @eval @rule 12 :a  ←  :b
-        @test_throws "tuple must be Symbols" @eval @rule (a, b, 12) :a  ←  :b
         @test_throws "malformed rule" @eval @rule :a != :b
         @rule :nums <--> R"09"^1
         @test match(nums, "1234abc")[:nums] == "1234"
