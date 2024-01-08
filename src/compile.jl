@@ -100,6 +100,7 @@ SetInst(vec::Bits{Int128}) = SetInst(vec.chunk::Int128, Int32(1), ISet)
 SetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l)ISet)
 SetInst(set::SetInst, l::Integer) = SetInst(set.vec, Int32(l), ISet,)
 LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l), ILeadSet)
+LeadSetInst(vec::Int128, l::Integer) = SetInst(vec, l, ILeadSet)
 
 struct NotSetInst <: Instruction
     vec::Int128
@@ -638,6 +639,11 @@ end
 
 function addstar!(c::IVector, code::Vector{})
     l = length(code)
+    if l == 1 && code[1].op == ISet
+        # Span instruction
+        push!(c, LeadSetInst(code[1].vec, 0))
+        return
+    end
     push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
     append!(c, code)
     push!(c, PartialCommitInst(-l))

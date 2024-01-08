@@ -46,7 +46,7 @@ const Rule = PRule
 const CapSym = Union{Symbol,AbstractString}
 const CaptureTuple = Union{Tuple{Pattern},Tuple{Pattern,Any}}
 
-P(s::AbstractString) = PSeq(s)
+P(s::AbstractString) = length(s) == 1 ? PChar(first(s)) : PSeq(s)
 P(c::AbstractChar) = PChar(c)
 P(n::Integer) = n ≥ 0 ? PAny(UInt(n)) : PAnd(PAny(UInt(-n)))
 P(b::Bool) = b ? PTrue() : PFalse()
@@ -233,8 +233,8 @@ Base.:*(a::Pattern, b::Vector) = a * Cg(b)
 Base.:|(a::Pattern, b::Pattern) = PChoice(a, b)
 Base.:|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
 Base.:|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
-Base.:|(a::Pattern, b::Union{Integer,String}) = PChoice(a, P(b))
-Base.:|(a::Union{Integer,String}, b::Pattern) = PChoice(P(a), b)
+Base.:|(a::Pattern, b::Union{Integer,String}) =  a | P(b)
+Base.:|(a::Union{Integer,String}, b::Pattern) = P(a) | b
 Base.:|(a::CaptureTuple, b::Pattern) = C(a...) | b
 Base.:|(a::Pattern, b::CaptureTuple) = a | C(b...)
 Base.:|(a::Union{Integer,String}, b::CaptureTuple) = P(a) | C(b...)

@@ -292,6 +292,8 @@ using InteractiveUtils
         @test match(not123, "4") isa PegMatch
         @test match(not123, "3") isa PegFail
         @test match(not123, "🤡") isa PegMatch
+        sphinx0 = (R"az" | " ")^0
+        @test match(sphinx0, "sphinx of black quartz judge my vow").last == 35
     end
 
     @testset "Type tests" begin
