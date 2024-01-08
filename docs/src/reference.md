@@ -78,8 +78,6 @@ the ability to match recursive patterns.  These are constructed out of Rules and
 JLpeg.Grammar
 JLpeg.@rule
 JLpeg.@grammar
-JLpeg.@rule!
-JLpeg.@grammar!
 ```
 
 ## Dialects

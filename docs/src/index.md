@@ -36,8 +36,6 @@ be readily tokenized.  PEGs are also far more suitable for scanning, captures, a
 other pattern-recognition tasks than these programs, which are only well-suited to
 parsing of full grammars, a task JLpeg also excels at.
 
-
-
 ## Patterns
 
 Parsing Expression Grammars are built out of patterns, which begin with atomic units
@@ -52,7 +50,6 @@ that which dialects compile to.
 
 The API of JLpeg hews closely to [Lpeg](http://www.inf.puc-rio.br/~roberto/lpeg/),
 with several extensions, refinements, and a more natively Julian character.
-
 
 ## Combination
 
@@ -117,7 +114,7 @@ julia> match(~P"abc", "abc123")
 PegMatch([""])
 
 julia> match(~P"abc", "123abc") # fails
-PegFail("⟪1⟫23abc", 1)
+PegFail("123abc", 1)
 ```
 
 The operators introduce a pattern 'context', where any `a <op> b` combination where
@@ -169,19 +166,69 @@ grammar which is missing rules will throw a [`PegError`](@ref), but duplicate ru
 are undefined behavior: currently JLpeg will compile the last rule of that name it
 encounters, but this behavior must not be relied upon.
 
-The `@grammar` and `@rule` macros are much prettier ways to make a pattern, however:
+The preferred way to create rules and grammars is with the macros [`@rule`](@ref) and
+[`@grammar`](@ref), which avoid the tedium of decorating expressions with `P`
+entirely.  Any `Number`, `String`, `Symbol`, or `Char`, found on its own, is
+converted into the pattern equivalent.  While this is not true of booleans, the
+idiomatic way to spell `true` and `false` in JLpeg is `""` and `S""` respectively,
+and these are compiled into the same code as `P(true)` and `P(false)`.
+
+Exported variable names from `JLpeg` will always refer to the values they have in the
+module, any other variable will be escaped, so it will have the expected meaning.
+
+To give an example, this rule:
 
 ```julia
-@grammar abc123 begin
-    :a  ←  "abc" * (:b | "")
-    :b  ←  "123"^1 * :a
-end
-
-@rule :a ← ["abc"^0 * "123"]^1
+@rule :a ← "foo" * ["abc"^0 | S"123"]^1
 ```
 
-Always use `R"az"` and `S"abc"` forms for ranges and sets in these macros, or you'll
-get the wrong result.
+Is equivalent to this expression:
+
+```julia
+a = :a ← P("foo") * Cg(P("abc")^0 | S("123"))^1
+```
+
+Although the definitions of the operators and string macros would allow this reduction:
+
+```julia
+a = :a ← P"foo" * Cg("abc"^0 | S"123")^1
+```
+
+Which is admittedly less cumbersome (we try).  Note that the `@rule` form doesn't
+require the importation of `@S_str`, or any other public symbol, thanks to the nature
+of Julia macros.
+
+A classic example of a task forever beyond the reach of regular expressions is balancing parentheses, with JLpeg this is easy:
+
+```jldoctest
+julia> @grammar parens begin
+           :par  ←  :s * !1
+           :s  ← (:b | (!S"()" * 1))^1
+           :b  ← '(' * :s * ')'
+       end;
+
+julia> match(parens, "(these (must) balance")
+PegFail("(these (must) balance", 22)
+
+julia> match(parens, "(these (must) balance)")
+PegMatch(["(these (must) balance)"])
+
+julia> match(parens, "(these (must) balance")
+PegFail("(these (must) balance", 22)
+
+julia> match(parens, "(these (must) balance))")
+PegFail("(these (must) balance))", 24)
+
+julia> match(parens, "(these (must))) balance)")
+PegFail("(these (must))) balance)", 16)
+```
+
+`!1` is our equivalent of `$` in regex, a pattern which only succeeds at the end of
+input.
+
+The `@grammar` macro doesn't define variable names for the rules, only the grammar
+name given before the expression block.  The first rule, as always, is the start
+rule, as you can see, it needn't match the variable name.
 
 ## Captures
 
@@ -230,8 +277,7 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | [✅] | `A(patt, λ)`,         | the returns of `λ` applied to the captures of `patt` |
 | [✅] | `patt \|> λ`          |                                                      |
 | [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return       |
-| [⭕️] | `patt .> λ`           | `nothing` to fail the match                          |
-| [⭕️] | `patt ./ λ`           | fold/reduces captures with `λ`, captures last return |
+| [⭕️] | `patt > λ`            | `nothing` to fail the match                          |
 | [✅] | `T(:label)`,          | fail the match and throw `:label`                    |
 | [✅] | `patt % :label`       | shorthand for `patt \| T(:label)`                    |
 | [⭕️] | `M(patt, :label)`     | mark a the region of `patt` for later reference      |

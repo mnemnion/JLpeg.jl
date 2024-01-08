@@ -14,22 +14,26 @@ The hitlist:
 
 - [#]  Captures
   - [X]  Cc
+  - [ ]  `:key => patt` symbol-captures pattern
   - [ ]  Capture questions
-    - [N]  `Ce`, `=>`: Do I want this syntax for expression captures? I might want
-          that syntax for `:a <-- :acap => :b | :c | :d` for Csymbol.  Probably even.
-    - [Y]  Shorthand: `:a <--> patt` for `:a <-- :a => patt`.  I like this a lot.
+    - [X]  Shorthand: `:a <--> patt` for `:a <-- :a => patt`.  I like this a lot.
     - [?]  Expression caps can just be |> `toexpr`, right? Although what's the
            symbol.  I think having a gazillion capture types is too LPeg for JLpeg...
     - [Y]  Captures in fact should just be Csimple and Csymbol, the rest are
            conceptually Actions according to the distinction I've drawn.
-    - [Y]  Anow: `>`, `.>`? I think I like the dotted form better, the two-character
+    - [N]  Anow: `>`, `.>`? I think I like the dotted form better, the two-character
            pattern and all, it also has very low precedence, which we like for these
-           Actions.
-  - [ ]  `Anow`, `patt .> λ`
+           Actions.  Update: turns out that `.` in `.>` isn't part of the function name,
+           it's specialized broadcast syntax.  I can live with that.
+    - [ ]  Maybe `patt <| λ` is best, I don't want the difference between them to be a
+           matter of dropping a single character.  The mnemonic here is that the return
+           value of `λ` can fail the match, so it's "piped back in", sort of.
+    - [ ]  The more I think about it, a lot of what I thought should go into captures is
+           already provided by SubStrings.
+  - [ ]  `Anow`, `patt > λ`
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
            part of the  stack
     - [ ]  The rest should be fairly simple
-  - [ ]  `Cf`, `./`
   - [ ]  "deferred action" form `patt |> :func` || `patt > :func`.  This one will be rather
          complex to get right, but we get one critical and one nice thing out of it: assigning
          several actions to a single grammar, and compile-time compiling grammars then load-time
@@ -42,14 +46,14 @@ The hitlist:
          up to two substrings surrounding it, and booleans telling whether or not we
          truncated the string in the front or the back.
   - [ ]  Refactor color printing to use `printstyled`.
-- [ ]  Macros
-  - [?]  I think precompilation means that `@grammar!` and `@rule!` are useless
-  - [ ]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
+- [x]  Macros
+  - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
          escaping rules for the macro correct.
 - [ ]  Documenter stuff
   - [X]  Order the pages correctly
   - [ ]  Docstrings for private module names in Internals
   - [ ]  Add a "comparisons.md" page for in-depth comparison of PEGs to other systems.
+  - [ ]  Fix `PegFail` so the fail is visible (again).
 - [ ]  [Mark / Check](#mark-and-check-back-references)
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
