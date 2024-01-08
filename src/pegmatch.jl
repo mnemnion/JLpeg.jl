@@ -1,8 +1,8 @@
 
-const PegKey = Union{Symbol, AbstractString, Integer}
+const PegKey = Union{Symbol,AbstractString,Integer}
 const PegCap = Any
 const PegCapture = Vector{PegCap}
-const PegOffset = Vector{Union{Integer, Vector}}
+const PegOffset = Vector{Union{Integer,Vector}}
 
 """
     PegMatch <: AbstractMatch
@@ -21,7 +21,8 @@ Fields:
 -  `captures` contains any captures from matching `patt` to `subject`.  This Vector
     can in principle contain anything, as captures may call functions, in which case
     the return value of that function becomes the capture.  For more information,
-    consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`, #Todo others
+    consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`, `Cc`, `A`,
+    and `Anow`.
 
 -  `offsets` is a `Vector` of offsets matching the start of these captures, and
     `Vector`s of that vector, such that the same pattern of iterative search will
@@ -101,6 +102,9 @@ function Base.getindex(m::PegMatch, i::PegKey)
     end
 end
 
+# some helper functions
+#
+# this one is for pairs, makes a pair if there isn't one
 function _topair(key, value)
     if value isa Pair
         return value
@@ -108,6 +112,9 @@ function _topair(key, value)
         return key => value
     end
 end
+
+# this is for enumerate, makes pairs into values such that
+# all indices are Integer (and therefore valid)
 
 function _frompair(key, value)
     if value isa Pair

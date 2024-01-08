@@ -58,88 +58,90 @@ OpReturn = MereInst(IReturn)
 OpNoOp = MereInst(INoOp)
 
 struct AnyInst <: Instruction
-    op::Opcode
     n::UInt32
+    op::Opcode
 end
-AnyInst(n::Integer) = n ≥ 0 ? AnyInst(IAny, UInt32(n)) : error("n must be a natural number")
+AnyInst(n::Integer) = n ≥ 0 ? AnyInst(UInt32(n), IAny) : error("n must be a natural number")
 
 struct CharInst{C} <: Instruction where C <: AbstractChar
-    op::Opcode
     c::C
+    op::Opcode
 end
-CharInst(c::AbstractChar) = CharInst(IChar, c)
+CharInst(c::AbstractChar) = CharInst(c, IChar)
 
 struct NotCharInst{C} <: Instruction where C <: AbstractChar
-    op::Opcode
     c::C
+    op::Opcode
 end
-NotCharInst(c::AbstractChar) = NotCharInst(INotChar, c)
+NotCharInst(c::AbstractChar) = NotCharInst(c, INotChar)
 
 struct SetInst <: Instruction
-    op::Opcode
     vec::Int128
     l::Int32
+    op::Opcode
 end
-SetInst(vec::Bits{Int128}) = SetInst(ISet, vec.chunk::Int128, Int32(1))
-SetInst(vec::Bits{Int128}, l::Integer) = SetInst(ISet, vec.chunk::Int128, Int32(l))
-SetInst(set::SetInst, l::Integer) = SetInst(ISet, set.vec, Int32(l))
-LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(ILeadSet, vec.chunk::Int128, Int32(l))
+SetInst(vec::Bits{Int128}) = SetInst(vec.chunk::Int128, Int32(1), ISet)
+SetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l)ISet)
+SetInst(set::SetInst, l::Integer) = SetInst(set.vec, Int32(l), ISet,)
+LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l), ILeadSet)
 
 struct NotSetInst <: Instruction
-    op::Opcode
     vec::Int128
     l::Int32
+    op::Opcode
 end
-NotSetInst(vec::Bits{Int128}, l::Integer) = NotSetInst(vec.chunk, Int32(l))
+NotSetInst(vec::Bits{Int128}, l::Int32) = NotSetInst(vec.chunk::Int128, l, INotSet)
+NotSetInst(vec::Int128, l::Int32) = NotSetInst(vec, l, INotSet)
 
 
 "Not yet in use"
 struct TestSetInst <: Instruction
-    op::Opcode
     vec::Int128
     l::Int32
+    op::Opcode
 end
-TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(ITestSet, vec.chunk, Int32(l))
+TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(vec.chunk, Int32(l), ITestSet)
 
 struct MultiVecInst <: Instruction
-    op::Opcode
     vec::Int64
     l::Int32
+    op::Opcode
 end
-MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(IMultiVec, vec.chunk, Int32(l))
+MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(vec.chunk, Int32(l), IMultiVec)
 
 struct LeadMultiInst <: Instruction
-    op::Opcode
     vec::Int64
     l::Int32
+    op::Opcode
 end
-LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(ILeadMulti, vec.chunk, Int32(l))
+LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(vec.chunk, Int32(l), ILeadMulti)
 
 struct ByteInst <: Instruction
-    op::Opcode
-    b::UInt8
     l::Int32
+    b::UInt8
+    op::Opcode
 end
-ByteInst(b::UInt8, l::Integer) = ByteInst(IByte, b, Int32(l))
+ByteInst(b::UInt8, l::Integer) = ByteInst(Int32(l), b, IByte)
 
 struct BehindInst <: Instruction
-    op::Opcode
     n::UInt32
+    op::Opcode
 end
-BehindInst(n::Integer) = n ≥ 0 ? BehindInst(IBehind, n) : error("n must be a natural number")
+BehindInst(n::Integer) = n ≥ 0 ? BehindInst(n, IBehind) : error("n must be a natural number")
 
 struct LabelInst <: Instruction
-    op::Opcode
     l::Int32
+    op::Opcode
 end
+LabelInst(op::Opcode, l::Integer) = LabelInst(l, op)
 
 struct ChoiceInst <: Instruction
-    op::Opcode
     l::Int32
     n::Int32
+    op::Opcode
 end
-ChoiceInst(l::Integer) = ChoiceInst(IChoice, Int32(l), 0)
-ChoiceInst(l::Integer, n::Integer) = ChoiceInst(IChoice, Int32(l), Int32(n))
+ChoiceInst(l::Integer) = ChoiceInst(Int32(l), 0, IChoice)
+ChoiceInst(l::Integer, n::Integer) = ChoiceInst(Int32(l), Int32(n), IChoice)
 
 PredChoiceInst(l::Integer) = LabelInst(IPredChoice, Int32(l))
 CommitInst(l::Integer) = LabelInst(ICommit, Int32(l))
@@ -542,7 +544,7 @@ function _compile!(patt::PNot)::Pattern
     # We can turn ASCII sets into INotSet, which will
     # therefore match multibyte chars
     if length(code) == 2 && code[1].op == ISet && code[2] == OpEnd
-        push!(c, NotSetInst(INotSet, code[1].vec, code[1].l), OpEnd)
+        push!(c, NotSetInst(code[1].vec, code[1].l), OpEnd)
         return patt
     end
     # We do the same for PChar

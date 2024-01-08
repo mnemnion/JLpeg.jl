@@ -270,10 +270,10 @@ Base.:!(a::Pattern) = PNot(a)
 <-- = ←(a::Symbol, b::Vector) = PRule(a, Cg(b))
 <-- = ←(a::Symbol, b::Patternable) = PRule(a, P(b))
 
-<-->(a::Symbol, b::Pattern) = PRule(a,C(b, a))
-<-->(a::Symbol, b::CaptureTuple) = PRule(a, C(C(b...), a))
-<-->(a::Symbol, b::Vector) = PRule(a, C(Cg(b),a))
-<-->(a::Symbol, b::Patternable) = PRule(a, C(P(b), a))
+<-->(a::Symbol, b::Pattern) = PRule(a, Cg(b, a))
+<-->(a::Symbol, b::CaptureTuple) = PRule(a, Cg(C(b...), a))
+<-->(a::Symbol, b::Vector) = PRule(a, Cg(Cg(b),a))
+<-->(a::Symbol, b::Patternable) = PRule(a, Cg(P(b), a))
 
 
 # This little dance gets around a quirk of how negative powers

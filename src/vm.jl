@@ -4,7 +4,7 @@
 struct StackFrame
     i::Int32   # Instruction pointer
     s::UInt32  # String index
-    c::Int     # Capture level
+    c::UInt32  # Capture level
     p::Bool    # Predicate status
 end
 
@@ -130,7 +130,7 @@ end
 @inline
 "Length/height of the capture stack."
 function lcap(vm::VMState)
-    return length(vm.cap)
+    return UInt16(length(vm.cap))
 end
 
 @inline
