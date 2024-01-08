@@ -637,7 +637,11 @@ function aftermatch(vm::VMState)::PegMatch
                 if isempty(captures)  # the group is the capture
                     push!(captures, _substr(bcap.s, cap.s))
                     push!(offsets, bcap.s)
-                    push!(caps, captures)
+                    if key !== nothing
+                        push!(caps, key => captures)
+                    else
+                        push!(caps, captures)
+                    end
                     push!(offs, offsets)
                     captures, offsets = caps, offs
                     continue

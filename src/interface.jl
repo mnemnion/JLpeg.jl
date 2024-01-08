@@ -26,7 +26,7 @@ julia> match(P(true), "pass")
 PegMatch([""])
 
 julia> match(P(false), "fail")
-PegFail("⟪f⟫ail", 1)
+PegFail("fail", 1)
 
 julia> match(P('👍'), "👍")
 PegMatch(["👍"])

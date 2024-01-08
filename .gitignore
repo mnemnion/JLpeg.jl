@@ -4,3 +4,4 @@ scratch.jl
 start.jl
 src/serialize.jl
 build/*
+.markdownlint.json

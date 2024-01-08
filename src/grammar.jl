@@ -6,7 +6,7 @@ const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 
 const 🔠 = P  # Won't interfere with user uses of P
 
-const ops = Set([:*, :|, :^, :~, :¬, :!, :>>, :|>, :>, :(=>), :%, :./,])
+const ops = Set([:*, :|, :^, :~, :¬, :!, :>>, :|>, :.>, :%, :./,])
 const JPublic = Set(names(JLpeg)) ∪ ops
 
 function wrap_rule_body(rulebody::Expr)::Expr
@@ -80,20 +80,17 @@ julia> @grammar capnums begin
             :nums  ←  (:num,) | 1 * :nums
             :num   ←  S"123"^1
         end;
-JLpeg.PGrammar(val→[JLpeg.PRule,JLpeg.PRule], IVec[]))
 
 julia> match(capnums, "abc123abc123")
 PegMatch(["123"])
 ```
 
-This one also captures the lowercase letters, converting them to uppercase. Because
-`uppercase` is in the list of variables, it is interpreted locally; otherwise the
-`:abc` rule would use `JLpeg.uppercase`, which is seldom what you would want.
+This one also captures the lowercase letters, before converting them to uppercase.
 
 ```jldoctest
-julia> upper = uppercase;  # Creating a synonym with no definition within JLpeg
+julia> upper = uppercase;  # A thoroughly unhygienic macro
 
-julia> @grammar uppernums (upper,) begin
+julia> @grammar uppernums begin
            :nums  ←  (:num,) | :abc * :nums
            :num   ←  S"123"^1
            :abc   ←  R"az"^1 |> upper
