@@ -2,7 +2,7 @@
 
 julia_version = "1.9.4"
 manifest_format = "2.0"
-project_hash = "47c3f6f3e6a939ad8203ddb4e8752d0477c146c4"
+project_hash = "75733d49daaffbbd2cc6c51aa0fe8ecd71fa956b"
 
 [[deps.Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
@@ -21,6 +21,15 @@ version = "1.0.2"
 [[deps.Dates]]
 deps = ["Printf"]
 uuid = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[[deps.DeepDiffs]]
+git-tree-sha1 = "9824894295b62a6a4ab6adf1c7bf337b3a9ca34c"
+uuid = "ab62b9b5-e342-54a8-a765-a90f495de1a6"
+version = "1.2.0"
+
+[[deps.Distributed]]
+deps = ["Random", "Serialization", "Sockets"]
+uuid = "8ba89e20-285c-5b6f-9357-94700520ee1b"
 
 [[deps.InteractiveUtils]]
 deps = ["Markdown"]
@@ -77,6 +86,9 @@ version = "3.4.6"
 [[deps.Serialization]]
 uuid = "9e88b42a-f829-5b0c-bbe9-9e923198166b"
 
+[[deps.Sockets]]
+uuid = "6462fe0b-24de-5631-8697-dd941f90decc"
+
 [[deps.TOML]]
 deps = ["Dates"]
 uuid = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
@@ -85,6 +97,12 @@ version = "1.0.3"
 [[deps.Test]]
 deps = ["InteractiveUtils", "Logging", "Random", "Serialization"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[deps.TestSetExtensions]]
+deps = ["DeepDiffs", "Distributed", "Test"]
+git-tree-sha1 = "3a2919a78b04c29a1a57b05e1618e473162b15d0"
+uuid = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
+version = "2.0.0"
 
 [[deps.Unicode]]
 uuid = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"

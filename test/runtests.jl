@@ -1,8 +1,9 @@
 using JLpeg; import JLpeg as J
 using Test
+using TestSetExtensions
 using InteractiveUtils
 
-@testset "Patterns" begin
+@testset ExtendedTestSet "Patterns" begin
     @testset "Sequences" begin
         a = P("abc")
         b = P("def")

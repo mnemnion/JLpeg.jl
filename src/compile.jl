@@ -96,6 +96,7 @@ struct SetInst <: Instruction
     l::Int32
     op::Opcode
 end
+
 SetInst(vec::Bits{Int128}) = SetInst(vec.chunk::Int128, Int32(1), ISet)
 SetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l)ISet)
 SetInst(set::SetInst, l::Integer) = SetInst(set.vec, Int32(l), ISet,)
