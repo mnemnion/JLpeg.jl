@@ -75,6 +75,15 @@ struct NotCharInst{C} <: Instruction where C <: AbstractChar
 end
 NotCharInst(c::AbstractChar) = NotCharInst(c, INotChar)
 
+
+"Not yet in use"
+struct TestCharInst{C} <: Instruction where C <: AbstractChar
+    l::Int32
+    c::C
+    op::Opcode
+end
+TestCharInst(c::AbstractChar, l::Integer) = TestCharInst( Int32(l), c, ITestChar)
+
 struct SetInst <: Instruction
     vec::Int128
     l::Int32
@@ -152,20 +161,11 @@ BackCommitInst(l::Integer) = LabelInst(IBackCommit, Int32(l))
 
 "Not yet in use"
 struct TestAnyInst <: Instruction
-    op::Opcode
     n::UInt32
     l::Int32
-end
-TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(ITestAny, n, Int32(l))
-
-"Not yet in use"
-struct TestCharInst <: Instruction
     op::Opcode
-    c::AbstractChar
-    l::Int32
 end
-TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(ITestChar, c, Int32(l))
-
+TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(n, Int32(l), ITestAny)
 
 struct OpenCallInst <: Instruction
     op::Opcode
@@ -201,17 +201,17 @@ FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = CaptureInst(IFullCaptu
 
 
 struct ThrowInst <: Instruction
-    op::Opcode
     tag::UInt16
+    op::Opcode
 end
-ThrowInst(tag::UInt16) = ThrowInst(IThrow, tag)
+ThrowInst(tag::UInt16) = ThrowInst(tag, IThrow)
 
 struct ThrowRecInst <: Instruction
-    op::Opcode
-    tag::UInt16
     l::Int32
+    tag::UInt16
+    op::Opcode
 end
-ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(IThrowRec, tag, Int32(l))
+ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(Int32(l), tag, IThrowRec)
 
 
 """
