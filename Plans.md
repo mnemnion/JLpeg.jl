@@ -70,6 +70,9 @@ The hitlist:
   - [ ]  Set ISpan optimization
     - [ ]  Do we even want this? All Sets have jumps now, we could code it as
            `[TestSet(3), Any(1), Jump(-2), ...]`.
+    - [ ]  Even better: Since Set has `:l`, we just make it `SetInst(vec, 0)`.
+           Special-casing `iszero(inst.l)` as a while loop will make it the same as
+           Book ISpan.
   - [?]  fixed-length detection
   - [ ]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
@@ -114,7 +117,9 @@ The hitlist:
 - [ ]  Add beginning index or `UnitRange` as optional third argument for `match`.
        The way the VM is structured we don't even need to make a SubString, we cache
        the last index string set the subject pointer to 1, so both of those are mutable
-       things.
+       things.  Note that the VM works correctly on SubStrings already, although we should
+       special-case them because this implies that all the indexing is going through an offset
+       we only need to calculate once.
 - [ ]  Suspendable VM [discussion](#suspend-the-vm)
 - [ ]  Pure Code Bumming (need to be able to check if it even matters)
   - [ ]  StaticArray for prepared programs.
@@ -124,6 +129,10 @@ The hitlist:
            accordingly.  It's a major operation from my perspective, we'd need to obtain a pointer to the Vector somehow and correct all the instruction labels, but probably
            worth the most speedup after a type-stable dispatch.
   - [ ]  SetInst may not need a `:l`.
+  - [X]  Struct packing
+  - [ ]  I'm surely losing cycles converting non-ASCII Chars into UInt32, should add
+         Char1Inst..Char4Inst.  With NotChar and TestChar, that's 12 instructions, which is
+         fine I think.
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
@@ -410,3 +419,11 @@ PSets by value, we don't have to examine the bytecode directly.
 ### Notes on Full Parsing
 
 `match` is all well and good, but I'm going to want a separate system for parsing, one which returns something more useful than a `PegMatch`.
+
+What I have so far: the basic mechanism in bridge was decent, the main lack was a way
+to get back leaf nodes which were elided by suppression.  The proposal is to store
+meaningful tokens as SubString pairs with the symbol as key, and "shadow tokens" as
+UnitRange, with a (separate?) dictionary of offsets to obtain the rule name when needed.
+
+Ordinary iterators and tree walkers will ignore these, but in contexts where they're
+useful (syntax highlighting in particular), they're there.

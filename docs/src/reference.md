@@ -54,7 +54,7 @@ JLpeg.B
 ## Captures and Actions
 
 PEG patterns are recognizers, matching the longest prefix of the string which they're
-able.  [Captures](index.md#captures) allow for substrings to be captured within the
+able.  [Captures](index.md#Captures) allow for substrings to be captured within the
 match, [Actions](index.md#Actions) perform actions at the index of the match, or on a
 capture.
 
