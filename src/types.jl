@@ -9,9 +9,9 @@ The possible struct fields have consistent meanings:
 | Field | Type                | Meaning                     |
 | ----- | ------------------- | --------------------------- |
 | `op`  | @enum `UInt8`       | The `Opcode`                |
-| `l`   | `Int32`             | An instruction offset       |
+| `l`   | `Int32|16`          | An instruction offset       |
 | `n`   | `UInt32`            | A subject index             |
-| `c`   | `AbstractChar`      | A character to match        |
+| `c`   | `Char`              | A character to match        |
 | `b`   | `UInt8`             | A test byte                 |
 | `tag` | `UInt32`            | Key in a capture/throw Dict |
 | `vec` | `BitVector` (kinda) | A set's test `BitVector`    |

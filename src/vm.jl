@@ -158,6 +158,16 @@ function thischar(vm::VMState)
 end
 
 @inline
+"Return the byte at `vm.s`."
+function thisbyte(vm::VMState)
+    if vm.s > vm.top
+        nothing
+    else
+        codeunit(vm.subject, vm.s)
+    end
+end
+
+@inline
 """
     updatesfar!(vm)
 
@@ -320,10 +330,10 @@ end
 "onSet"
 function onInst(inst::SetInst, vm::VMState)::Bool
     match = false
-    this = thischar(vm)
-    if this !== nothing
-        if this ≤ '\x7f' && inst[UInt8(this) + 1]
-            vm.s = nextind(vm.subject, vm.s)
+    byte = thisbyte(vm)
+    if byte !== nothing
+        if byte < 0x80 && inst[byte + 1]
+            vm.s += 1
             match = true
         end
     end
@@ -339,6 +349,7 @@ end
 
 "onTestSet"
 function onInst(inst::TestSetInst, vm::VMState)::Bool
+    # TODO add, test, then refactor with thisbyte(vm)
     this = thischar(vm)
     if this === nothing
         vm.i += 1
@@ -376,11 +387,11 @@ end
 
 "onByte"
 function onInst(inst::ByteInst, vm::VMState)::Bool
-    if vm.s > vm.top
+    byte = thisbyte(vm)
+    if byte === nothing
         updatesfar!(vm)
         return false
     end
-    byte = codeunit(vm.subject, vm.s)
     if byte == inst.b
         vm.i += inst.l
         vm.s += 1
@@ -394,7 +405,7 @@ end
 "onMultiVec"
 function onInst(inst::MultiVecInst, vm::VMState)::Bool
     if vm.s ≤ vm.top
-        byte = codeunit(vm.subject, vm.s)
+        byte = thisbyte(vm)::UInt8
         # check in valid continuation byte range
         if 0b10000000 ≤ byte ≤ 0b10111111
             # Mask high bit, + 1 for Julia indexing
@@ -404,19 +415,18 @@ function onInst(inst::MultiVecInst, vm::VMState)::Bool
                 return true
             end
         end
-    end # Unwind the subject pointer for an accurate sfar
-    vm.s = prevind(vm.subject, vm.s)
+    end
     updatesfar!(vm)
     return false
 end
 
 "onLeadMulti"
 function onInst(inst::LeadMultiInst, vm::VMState)::Bool
-    if vm.s > vm.top
+    byte = thisbyte(vm)
+    if byte === nothing
         updatesfar!(vm)
         return false
     end
-    byte = codeunit(vm.subject, vm.s)
     # Must check for 0b11xxxxxx or false positives from malformed data
     if (byte & 0xc0 == 0xc0) && @inbounds inst[(byte & 0b00111111) + UInt8(1)]
         vm.i += 1
@@ -436,7 +446,7 @@ end
 
 "onChoice"
 function onInst(inst::ChoiceInst, vm::VMState)
-    pushframe!(vm, vm.i + inst.l, vm.s + inst.n)
+    pushframe!(vm, vm.i + inst.l, vm.s)
     vm.i += 1
     return true
 end

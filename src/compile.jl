@@ -14,7 +14,6 @@
     ITestSet    # if char not in buff, jump to 'offset'
     INotSet     # Predicate, fails if set matches, doesn't advance s
     INotChar    # Predicate instruction for !P'char'
-    ISpan       # read a span of chars in buff
     IBehind     # walk back 'aux' characters (fail if not possible)
     IReturn     # return from a rule
     IEnd        # end of pattern
@@ -63,26 +62,34 @@ struct AnyInst <: Instruction
 end
 AnyInst(n::Integer) = n ≥ 0 ? AnyInst(UInt32(n), IAny) : error("n must be a natural number")
 
-struct CharInst{C} <: Instruction where C <: AbstractChar
-    c::C
+"Not yet in use"
+struct TestAnyInst <: Instruction
+    l::Int32
+    n::UInt16
     op::Opcode
 end
-CharInst(c::AbstractChar) = CharInst(c, IChar)
+TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(Int32(l), UInt16(n), ITestAny)
 
-struct NotCharInst{C} <: Instruction where C <: AbstractChar
-    c::C
+struct CharInst <: Instruction
+    c::Char
     op::Opcode
 end
-NotCharInst(c::AbstractChar) = NotCharInst(c, INotChar)
+CharInst(c::AbstractChar) = CharInst(Char(c), IChar)
+
+struct NotCharInst <: Instruction
+    c::Char
+    op::Opcode
+end
+NotCharInst(c::AbstractChar) = NotCharInst(Char(c), INotChar)
 
 
 "Not yet in use"
-struct TestCharInst{C} <: Instruction where C <: AbstractChar
+struct TestCharInst{C} <: Instruction
     l::Int32
-    c::C
+    c::Char
     op::Opcode
 end
-TestCharInst(c::AbstractChar, l::Integer) = TestCharInst( Int32(l), c, ITestChar)
+TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(Int32(l),Char(c), ITestChar)
 
 struct SetInst <: Instruction
     vec::Int128
@@ -146,11 +153,9 @@ LabelInst(op::Opcode, l::Integer) = LabelInst(l, op)
 
 struct ChoiceInst <: Instruction
     l::Int32
-    n::Int32
     op::Opcode
 end
-ChoiceInst(l::Integer) = ChoiceInst(Int32(l), 0, IChoice)
-ChoiceInst(l::Integer, n::Integer) = ChoiceInst(Int32(l), Int32(n), IChoice)
+ChoiceInst(l::Integer) = ChoiceInst(Int32(l), IChoice)
 
 PredChoiceInst(l::Integer) = LabelInst(IPredChoice, Int32(l))
 CommitInst(l::Integer) = LabelInst(ICommit, Int32(l))
@@ -158,14 +163,6 @@ CallInst(l::Integer) = LabelInst(ICall, Int32(l))
 JumpInst(l::Integer) = LabelInst(IJump, Int32(l))
 PartialCommitInst(l::Integer) = LabelInst(IPartialCommit, Int32(l))
 BackCommitInst(l::Integer) = LabelInst(IBackCommit, Int32(l))
-
-"Not yet in use"
-struct TestAnyInst <: Instruction
-    n::UInt32
-    l::Int32
-    op::Opcode
-end
-TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(n, Int32(l), ITestAny)
 
 struct OpenCallInst <: Instruction
     op::Opcode
