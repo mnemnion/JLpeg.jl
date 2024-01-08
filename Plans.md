@@ -33,11 +33,11 @@ The hitlist:
            matches don't need the offsets at all, those are literally present in the
            SubString, I can always get rid of that code if I decide I don't want it.
            It would be nice to turn it into a property instead of a field though.
-    - [ ]  As I think about it, I have a use for range captures, even though that's
-           basically what a SubString is.  They can be token captures, we don't want to
-           see them when walking a parse tree or iterating, but it's important to know
-           where they are and categorize them for tasks like syntax highlighting and
-           formatting.  The LPeg tree format I was using was a right pain for that.
+    - [ ]  I do have a use for range captures, even though that's basically what a
+           SubString is.  They can be token captures, we don't want to see them when
+           walking a parse tree or iterating, but it's important to know where they
+           are and categorize them for tasks like syntax highlighting and formatting.
+           The LPeg tree format I was using was a right pain for that.
   - [ ]  `Anow`, `patt > λ`
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
            part of the  stack
@@ -63,16 +63,13 @@ The hitlist:
 - [ ]  [Mark / Check](#mark-and-check-back-references)
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
-  - [ ]  Add `getfirst`
+  - [ ]  Add `getfirst`: used to optimize Seq
+    - [ ]  `needfollow`: used in `getfirst`
   - [ ]  TestPatt / headfail optimizations
   - [X]  Tail-call elimination
   - [ ]  Intermediate jump elimination
-  - [ ]  Set ISpan optimization
-    - [ ]  Do we even want this? All Sets have jumps now, we could code it as
-           `[TestSet(3), Any(1), Jump(-2), ...]`.
-    - [ ]  Even better: Since Set has `:l`, we just make it `SetInst(vec, 0)`.
-           Special-casing `iszero(inst.l)` as a while loop will make it the same as
-           Book ISpan.
+  - [X]  Set ISpan optimization
+    - [X]  Even better: Since Set has `:l`, we just make it `LeadSetInst(vec, 0)`.
   - [?]  fixed-length detection
   - [ ]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
@@ -104,6 +101,8 @@ The hitlist:
          describes a method for implementing left recursion, by Roberto's team (!),
          describing how to do it for the LPeg VM (!!), but LPeg has not been extended to allow
          this.  I'd like to ask the Lua list why before trying it myself...
+    - [This repo](https://github.com/sacek/LPeg) is an LPeg fork with left recursion
+       added, I can diff this with its source (LPeg 1.0.0) and learn things.
   - [ ]  Choice-sequence prefix matching.  This is something regex automatons do
          automatically, which would be nice for us to have.  Basically, it work with
          head sequences (including sets, and maybe predicates, but not repetition)
@@ -121,7 +120,7 @@ The hitlist:
        special-case them because this implies that all the indexing is going through an offset
        we only need to calculate once.
 - [ ]  Suspendable VM [discussion](#suspend-the-vm)
-- [ ]  Pure Code Bumming (need to be able to check if it even matters)
+- [ ]  Pure [Code Bumming](#optimal-vm) (need to be able to check if it even matters)
   - [ ]  StaticArray for prepared programs.
     - [ ]  This might have to be custom because of indexing, it's likely to be a dip
            down into C.  Lpeg labels are jiggered based on some instructions (entirely charsets I believe) being extra-length, when I print pcode there are gaps in the numbers
@@ -197,13 +196,9 @@ Make a special `PSetDiff` which has a second Settable value, such that those
 characters and ranges are excluded from the construct.  This is just to defer
 the expensive operation until we compile, it should return itself as a PSet.
 
-- Algorithm:
-  - Separate ranges and characters in a sort, characters (ofc) lexicographically,
-      ranges by first member. so we have `pluschar`, `plusrange`, `minuschar`,
-      `minusrange`.
-  - Diff the ranges first, then the characters: remove them if they're in the charset,
-    split any range containing them.
-  - Merge what's left.
+Which I don't have to do myself!  How luxurious.  There's a
+[UnitRangesSortedSet](https://juliahub.com/ui/Packages/General/UnitRangesSortedSets)
+which will do the needful.
 
 ### Capture closing
 
@@ -427,3 +422,29 @@ UnitRange, with a (separate?) dictionary of offsets to obtain the rule name when
 
 Ordinary iterators and tree walkers will ignore these, but in contexts where they're
 useful (syntax highlighting in particular), they're there.
+
+### Optimal VM
+
+For Ultimate Performance, we're going to have to do some C-isms.  This is after all
+the inlining and casting is out of the way, it's about code layout.
+
+The size of instructions ranges from 1 byte to 32, now that I packed in the structs.
+All the instructions except for the ones with Int128 vectors will fit in two words,
+those take four, the vector being itself two words.  The way to go is to pack all the
+skinny instructions into two words, with padding such that the `.op` field is the
+last byte, and then put the Set bitvecs as a fake instruction after each opcoded
+instruction.  Fake in the sense that reading the .op field (which the struct will of
+course not have) would be undefined behavior.
+
+With that layout I can probably convince Julia to lay out program vectors
+contiguously and directly, because they'll have a consistent size.  The offsets will
+work natively because the stride length will be known.  I'll need to do some fuckery
+to get the opcode byte out on dispatch, because we want to cast instructions to their
+type using that byte, and if we try to read it from a field, Julia will have to look
+up the type for us, so we're back to type instability.
+
+All of this is at the end of the working document and will stay there because I don't
+even have profiling set up and it's asinine to optimize on this level until I've put
+in all the other optimizations and features, have wide-ranging tests, and so on.
+
+I needed to get this out of my head so I can get on with all that.
