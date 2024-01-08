@@ -14,22 +14,30 @@ The hitlist:
 
 - [#]  Captures
   - [X]  Cc
+  - [?]  Refactor Cg to use tuples, not Vectors.
   - [ ]  `:key => patt` symbol-captures pattern
   - [ ]  Capture questions
-    - [X]  Shorthand: `:a <--> patt` for `:a <-- :a => patt`.  I like this a lot.
+    - [X]  Shorthand: `:a <--> patt` for `:a <-- [patt, :a]`.  I like this a lot.
+           Ends up being equivalent to suppressed and included rules in the PEG
+           format.  Needs to be a group capture though, to get the recursive
+           shape correct.
     - [?]  Expression caps can just be |> `toexpr`, right? Although what's the
            symbol.  I think having a gazillion capture types is too LPeg for JLpeg...
     - [Y]  Captures in fact should just be Csimple and Csymbol, the rest are
            conceptually Actions according to the distinction I've drawn.
-    - [N]  Anow: `>`, `.>`? I think I like the dotted form better, the two-character
-           pattern and all, it also has very low precedence, which we like for these
-           Actions.  Update: turns out that `.` in `.>` isn't part of the function name,
-           it's specialized broadcast syntax.  I can live with that.
     - [ ]  Maybe `patt <| λ` is best, I don't want the difference between them to be a
            matter of dropping a single character.  The mnemonic here is that the return
            value of `λ` can fail the match, so it's "piped back in", sort of.
-    - [ ]  The more I think about it, a lot of what I thought should go into captures is
-           already provided by SubStrings.
+    - [ ]  The more I think about it, a lot of what I thought should go into captures
+           is already provided by SubStrings.  I'm increasingly convinced that our
+           matches don't need the offsets at all, those are literally present in the
+           SubString, I can always get rid of that code if I decide I don't want it.
+           It would be nice to turn it into a property instead of a field though.
+    - [ ]  As I think about it, I have a use for range captures, even though that's
+           basically what a SubString is.  They can be token captures, we don't want to
+           see them when walking a parse tree or iterating, but it's important to know
+           where they are and categorize them for tasks like syntax highlighting and
+           formatting.  The LPeg tree format I was using was a right pain for that.
   - [ ]  `Anow`, `patt > λ`
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
            part of the  stack
@@ -38,13 +46,11 @@ The hitlist:
          complex to get right, but we get one critical and one nice thing out of it: assigning
          several actions to a single grammar, and compile-time compiling grammars then load-time
          providing the Actions.
-- [ ]  Throws could also store the instruction pointer, this is a cheap operation
-       (just one more register after all) and would let us work backward to determine the
-       rule in which the match failed.
 - [ ]  Printing stuff
   - [ ]  `clipstringat(str, i, len=20)` returns a NamedTuple tuple with the char at i,
          up to two substrings surrounding it, and booleans telling whether or not we
-         truncated the string in the front or the back.
+         truncated the string in the front or the back.  There are always substrings,
+         but if `i` is the first or last character, one of them will be empty.
   - [ ]  Refactor color printing to use `printstyled`.
 - [x]  Macros
   - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
