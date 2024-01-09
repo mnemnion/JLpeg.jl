@@ -483,4 +483,33 @@ function substr_at_i(str::String, i::UInt32)
     return graphemes(str, start:at-1), graphemes(str, at:at), graphemes(str, at+1:finish)
 end
 
-return
+# Printing defaults
+#
+# Macros use `string`, which calls `print`, so we need default printers for all our
+# structs.
+
+# We can do that. We have the technology.
+
+function defaultprinter(T::Union{DataType,UnionAll})
+    isabstracttype(T) && return
+
+    exprs = [:(print(io, $T, '(');)]
+    for field in fieldnames(T)
+        push!(exprs, :(print(io, t.$field, ", ");))
+    end
+    push!(exprs, :(print(io, ')')))
+    eval(:(Base.print(io::IO, t::$T) = $(exprs...)))
+end
+
+
+defaultprinter(PegMatch)
+defaultprinter(PegFail)
+
+for P in subtypes(Pattern)
+    print(P)
+    defaultprinter(P)
+end
+
+for I in subtypes(Instruction)
+    defaultprinter(I)
+end

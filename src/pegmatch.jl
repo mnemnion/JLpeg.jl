@@ -157,14 +157,14 @@ function showcaptures(io::IO, caps::Vector)
     print(io, "]")
 end
 
+Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
+Base.length(m::PegMatch) = length(m.captures)
+
 function Base.show(io::IO, m::PegMatch)
     print(io, "PegMatch(")
     showcaptures(io, m.captures)
     print(io, ")")
 end
-
-Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
-Base.length(m::PegMatch) = length(m.captures)
 
 """
     PegFail
