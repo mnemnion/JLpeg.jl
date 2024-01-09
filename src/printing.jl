@@ -3,12 +3,12 @@
 using Unicode
 
 "Show an Instruction."
-function Base.show(io::IO, inst::Instruction)
+function Base.show(io::IO, ::MIME"text/plain", inst::Instruction)
     print(io, inst_str(inst, Int32(0)))
 end
 
 "Show a CapEntry"
-function Base.show(io::IO, cap::CapEntry)
+function Base.show(io::IO, ::MIME"text/plain", cap::CapEntry)
     print(io, "s:$(Int(cap.s)) $(cap.inst)}")
 end
 
@@ -33,8 +33,6 @@ function Base.show(io::IO, ::MIME"text/plain", code::IVector)
     end
     print(io, join(lines, "\n"))
 end
-
-Base.show(io::IO, code::IVector) = show(io, "text/plain", code)
 
 "Show a vector of patterns."
 function Base.show(io::IO, ::MIME"text/plain", patts::Vector{Pattern})
@@ -121,10 +119,6 @@ function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
         print(io, vm_to_str(vm))
     end
 end
-
-Base.show(io::IO, vm::VMState) = show(io, MIME("text/plain"), vm)
-
-
 
 # Pattern Printer
 
@@ -481,35 +475,4 @@ function substr_at_i(str::String, i::UInt32)
     end
     finish = at + after
     return graphemes(str, start:at-1), graphemes(str, at:at), graphemes(str, at+1:finish)
-end
-
-# Printing defaults
-#
-# Macros use `string`, which calls `print`, so we need default printers for all our
-# structs.
-
-# We can do that. We have the technology.
-
-function defaultprinter(T::Union{DataType,UnionAll})
-    isabstracttype(T) && return
-
-    exprs = [:(print(io, $T, '(');)]
-    for field in fieldnames(T)
-        push!(exprs, :(print(io, t.$field, ", ");))
-    end
-    push!(exprs, :(print(io, ')')))
-    eval(:(Base.print(io::IO, t::$T) = $(exprs...)))
-end
-
-
-defaultprinter(PegMatch)
-defaultprinter(PegFail)
-
-for P in subtypes(Pattern)
-    print(P)
-    defaultprinter(P)
-end
-
-for I in subtypes(Instruction)
-    defaultprinter(I)
 end

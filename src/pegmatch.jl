@@ -160,7 +160,7 @@ end
 Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
 Base.length(m::PegMatch) = length(m.captures)
 
-function Base.show(io::IO, m::PegMatch)
+function Base.show(io::IO, ::MIME"text/plain", m::PegMatch)
     print(io, "PegMatch(")
     showcaptures(io, m.captures)
     print(io, ")")
@@ -182,11 +182,13 @@ end
 
 # TODO some way to promote this to an Exception?
 
-function Base.show(io::IO, pfail::PegFail)
+function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
     print(io, "PegFail(")
     subject, errpos, label = pfail.subject, pfail.errpos, pfail.label
     # we'll need more for long strings, but as a start
-    if errpos == 1
+    if isempty(subject)
+        print(io, "\"\"")
+    elseif errpos == 1
         err = subject[1:1]
         print(io, '"')
         printstyled(io, err, color=:red)

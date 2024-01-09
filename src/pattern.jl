@@ -39,6 +39,7 @@ struct PChar <: Pattern
     val::AbstractChar
     code::IVector
     PChar(val::AbstractChar) = new(val, Inst())
+    PChar(val::AbstractChar, code::IVector) = new(val, code)
 end
 
 const Settable = Vector{Union{AbstractChar, Tuple{AbstractChar,AbstractChar}}}
@@ -51,6 +52,7 @@ struct PSet <: Pattern
     PSet(val::Tuple{AbstractChar,AbstractChar}) = new([val], Inst())
     PSet(val::Settable) = new(val, Inst())
     PSet(inst::IVector) = new([], inst)
+    PSet(val::Settable, inst::IVector) = new(val, inst)
 end
 
 struct PBehind <: Pattern
@@ -58,12 +60,14 @@ struct PBehind <: Pattern
     code::IVector
     aux::AuxDict
     PBehind(val::Pattern) = new([val], Inst(), Dict())
+    PBehind(val::Pattern, code::IVector, aux::AuxDict) = new([val], code, aux)
 end
 
 struct PAny <: Pattern
     val::UInt32
     code::IVector
     PAny(val::UInt) = new(val, Inst())
+    PAny(val::UInt, code::IVector) = new(val, code)
 end
 
 struct PAnd <: Pattern
@@ -78,6 +82,7 @@ struct PNot <: Pattern
     code::IVector
     aux::AuxDict
     PNot(val::Pattern) = new([val], Inst(), Dict())
+    PNot(val::Pattern, code::IVector, aux::AuxDict) = new([val], code, aux)
 end
 
 struct PDiff <: Pattern
@@ -85,6 +90,7 @@ struct PDiff <: Pattern
     code::IVector
     aux::AuxDict
     PDiff(a::Pattern, b::Pattern) = new([a, b], Inst(), Dict())
+    PDiff(val::Pattern, code::IVector, aux::AuxDict) = new([val], code, aux)
 end
 
 "Includes n, dictating the sort of repetition"
@@ -94,6 +100,7 @@ struct PStar <: Pattern
     aux::AuxDict
     n::Int
     PStar(patt::Pattern, n::Int) = new([patt], Inst(), Dict(), n)
+    PStar(val::Pattern, code::IVector, aux::AuxDict, n) = new([val], code, aux, n)
 end
 
 struct PSeq <: Pattern
@@ -112,19 +119,21 @@ struct PTrue <: Pattern
    val::Nothing
    code::IVector
    PTrue() = new(nothing, Inst())
+   PTrue(val::Nothing, code::IVector) = new(val, code)
 end
 
 struct PFalse <: Pattern
     val::Nothing
     code::IVector
     PFalse() = new(nothing, Inst())
+    PFalse(val::Nothing, code::IVector) = new(val, code)
  end
 
 struct POpenCall <: Pattern
     val::Symbol
     code::IVector
-    POpenCall(sym::Symbol) = new(sym, Inst())
 end
+POpenCall(sym::Symbol) = POpenCall(sym, Inst())
 
 POpenCall(s::AbstractString) = POpenCall(Symbol(s))
 # Make sure the macros work as often as possible:
@@ -135,16 +144,15 @@ struct PCall <: Pattern
     code::IVector
     aux::AuxDict
     ref::Pattern
-    """
-    PCall(patt::POpenCall, ref::Pattern)
-
-    Create a PCall from a POpenCall once the reference is established.
-    """
-    function PCall(patt::POpenCall, ref::Pattern)
-        new(patt.val, patt.code, AuxDict(), ref)
-    end
 end
+"""
+PCall(patt::POpenCall, ref::Pattern)
 
+Create a PCall from a POpenCall once the reference is established.
+"""
+function PCall(patt::POpenCall, ref::Pattern)
+    PCall(patt.val, patt.code, AuxDict(), ref)
+end
 struct PRule <: Pattern
     val::PVector
     code::IVector
@@ -182,12 +190,11 @@ struct PCapture <: Pattern
     aux::AuxDict
     cap::Any
     tag::UInt16
-    function PCapture(a::Pattern, k::CapKind, cap::Any)
-        global capcounter += 1
-        new([a], Inst(), k, AuxDict(), cap, capcounter)
-    end
 end
-# TODO the rest of these need to be concrete:
+function PCapture(a::Pattern, k::CapKind, cap::Any)
+    global capcounter += 1
+    PCapture([a], Inst(), k, AuxDict(), cap, capcounter)
+end
 
 """
 Global count of throw label tags.
@@ -199,10 +206,10 @@ struct PThrow <: Pattern
     val::Symbol
     code::IVector
     tag::UInt16
-    function PThrow(val::Symbol)
-        global throwcounter += 1
-        new(val, Inst(), throwcounter)
-    end
+end
+function PThrow(val::Symbol)
+    global throwcounter += 1
+    PThrow(val, Inst(), throwcounter)
 end
 
 abstract type PRunTime <:Pattern end
