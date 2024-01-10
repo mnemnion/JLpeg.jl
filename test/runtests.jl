@@ -189,7 +189,7 @@ using InteractiveUtils
     end
     @testset "Macro tests" begin
         upper = uppercase
-        @rule :upcase  ←  "abc" |> upper
+        @rule :upcase  ←  "abc" <| upper
         @test match(upcase, "abc")[1] == "ABC"
         @test_throws LoadError @eval @rule [:a, :b, :c] :a ← :b
         @test_throws MethodError begin
@@ -205,7 +205,7 @@ using InteractiveUtils
         end
         @test_throws "malformed rule" @eval @rule :a != :b
         @rule :nums <--> R"09"^1
-        @test match(nums, "1234abc")[:nums] == "1234"
+        @test match(nums, "1234abc")[:nums] == ["1234"]
     end
     @testset "Captures" begin
         cap1 = C("123")
@@ -233,7 +233,7 @@ using InteractiveUtils
         @test match(poscap, "123abc").offsets[1] == 4
         func = A("" >> P"func", uppercase)
         @test match(func, "Make my func the Pfunc")[1] == "MAKE MY FUNC"
-        funky = "" >> C("func") |> uppercase
+        funky = "" >> C("func") <| uppercase
         @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
         caprange = (Cr("123") | P(1))^1
         @test match(caprange, "abc123abc123abc").captures == [[4:6], [10:12]]
@@ -247,6 +247,8 @@ using InteractiveUtils
         @test match(capnums, "abc123abc123").captures == ["123", "123"]
         @rule :ccap ← "abc" * Cc(12, "string", :symbol)
         @test match(ccap, "abc")[1] == (12, "string", :symbol)
+        @rule :capABC <--> ((S"ABC"^1,) | R"az"^1)^1
+        @test match(capABC, "abcBCAzyzCCCd")[:capABC] == ["BCA", "CCC"]
     end
 
     @testset "PegMatch Interface" begin
@@ -277,6 +279,8 @@ using InteractiveUtils
         end
         @test match(throwrec, "foobar")[1] == "foobar"
         @test match(throwrec, "fooba").label == :nobar
+        @rule :selfcall ← "123" * :selfcall
+        @test_throws PegError match(selfcall, "1234")
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[:string] == "string"

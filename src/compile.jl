@@ -719,6 +719,8 @@ end
 
 Compiles _and prepares_ a Grammar.
 """
+compile!(patt::PGrammar)::Pattern = _compile!(patt)
+
 function _compile!(patt::PGrammar)::Pattern
     # TODO we want to cache this eventually but the code is... in flux
     empty!(patt.code)

@@ -6,7 +6,7 @@ const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
 
 const 🔠 = P  # Won't interfere with user uses of P
 
-const ops = Set([:*, :|, :^, :~, :¬, :!, :>>, :|>, :.>, :%, :./,])
+const ops = Set([:*, :|, :^, :~, :¬, :!, :>>, :<|, :%,])
 const JPublic = Set(names(JLpeg)) ∪ ops
 
 function wrap_rule_body(rulebody::Expr)::Expr
@@ -52,7 +52,7 @@ function wrap_rule(expr::Expr)::Expr
         return wrap_rule_body(expr)
     elseif @capture(expr, (sym_ <--> rulebody_))
         local body = wrap_rule_body(rulebody)
-        :(C($sym ← $body, $sym))
+        :(Cg($sym ← $body, $sym))
     else
         error("malformed rule in $(expr)")
     end
@@ -93,7 +93,7 @@ julia> upper = uppercase;  # A thoroughly unhygienic macro
 julia> @grammar uppernums begin
            :nums  ←  (:num,) | :abc * :nums
            :num   ←  S"123"^1
-           :abc   ←  R"az"^1 |> upper
+           :abc   ←  R"az"^1 <| upper
        end;
 
 
@@ -131,7 +131,7 @@ macro rule(expr)
     elseif @capture(expr, (sym_ <--> rulebody_))
         local body = wrap_rule_body(rulebody)
         local name = sym.value
-        :($(esc(name)) = C($sym ← $body, $sym))
+        :($(esc(name)) = Cg($sym ← $body, $sym))
     else
         error("malformed rule in $(expr)")
     end

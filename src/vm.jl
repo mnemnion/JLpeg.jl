@@ -582,6 +582,11 @@ function onFailTwice(vm::VMState)
     return false
 end
 
+"Catch OpenCallInst"
+function onInst(::OpenCallInst, ::VMState)
+    throw(PegError("Undefined rule while matching Pattern"))
+end
+
 """
     oncapmatch(vm::VMState)
 
