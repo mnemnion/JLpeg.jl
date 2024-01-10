@@ -14,8 +14,6 @@ The hitlist:
 
 - [#]  Captures
   - [X]  Cc
-  - [?]  Refactor Cg to use tuples, not Vectors.
-  - [ ]  `:key => patt` symbol-captures pattern
   - [ ]  Capture questions
     - [X]  Shorthand: `:a <--> patt` for `:a <-- [patt, :a]`.  I like this a lot.
            Ends up being equivalent to suppressed and included rules in the PEG
@@ -25,7 +23,7 @@ The hitlist:
            symbol.  I think having a gazillion capture types is too LPeg for JLpeg...
     - [Y]  Captures in fact should just be Csimple and Csymbol, the rest are
            conceptually Actions according to the distinction I've drawn.
-    - [ ]  Maybe `patt <| λ` is best, I don't want the difference between them to be a
+    - [Y]  Maybe `patt <| λ` is best, I don't want the difference between them to be a
            matter of dropping a single character.  The mnemonic here is that the return
            value of `λ` can fail the match, so it's "piped back in", sort of.
     - [ ]  The more I think about it, a lot of what I thought should go into captures
@@ -39,6 +37,7 @@ The hitlist:
            are and categorize them for tasks like syntax highlighting and formatting.
            The LPeg tree format I was using was a right pain for that.
   - [ ]  `Anow`, `patt > λ`
+    - [ ]  `patt >: λ`?  I think this is the best one actually
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
            part of the  stack
     - [ ]  The rest should be fairly simple
@@ -55,13 +54,16 @@ The hitlist:
 - [x]  Macros
   - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
          escaping rules for the macro correct.
+- [ ]  `patt^[n:m]` for fixed repetition.  The `Vector` is a nice way of avoiding precedence
+       problems, probably better than requiring `patt^(n:m)`.
 - [ ]  Documenter stuff
   - [X]  Order the pages correctly
   - [ ]  Docstrings for private module names in Internals
   - [ ]  Add a "comparisons.md" page for in-depth comparison of PEGs to other systems.
   - [ ]  Fix `PegFail` so the fail is visible (again).
 - [ ]  [Mark / Check](#mark-and-check-back-references)
-- [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`
+- [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`.  Left recursion
+       may obviate this.
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ]  Add `getfirst`: used to optimize Seq
     - [ ]  `needfollow`: used in `getfirst`
@@ -75,13 +77,14 @@ The hitlist:
   - [ ]  disjoint-PChoice optimization
   - [ ]  Capture-closing optimization (vm)
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
-- [ ]  Proposed optimizations not found in LPeg
-  - [ ]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
+- [ ]  Un-pirate: shadow operators with a definition which falls back to Base,
+       don't extend Base for operators directly.
+  - [ ]  Separate module JLpeg.Combinators for exporting the operators directly.
+         They'll still work in `@rule` and `@grammar`.
+- [#]  Proposed optimizations not found in LPeg
+  - [X]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
   - [ ]  MultiSetTest [conversion](#multiset-test-conversion)
   - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
-  - [ ]  Fail optimization: only update the register once when returning from calls.
-         this one should be deferred until we have real profiling on the hot loop.
-         Technically this _is_ found in LPeg...
   - [ ]  Inlining: short rules with no captures, "short" is like, 5 instructions? 10?
   - [ ]  CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
          Very nice for capture-heavy workflows, like parsing full grammars (where we very often
@@ -89,7 +92,7 @@ The hitlist:
   - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common patterns
          like whitespace, where the {\t\n } is very frequent and the comment part is not, lets
          us use ISpan for a leading set.  Note: there's some bytecode trickery needed here to
-         make sure it doesn't infinite loop.
+         make sure it doesn't infinite loop, or maybe left recursion gets us out of this one.
   - [ ]  Follow sets for TestSet and Span.  These have the additional advantage that they can
          jump immediately if they fail (for TestSet) or recurse to the start instruction after
          a match (for a SpanSet).
@@ -121,17 +124,19 @@ The hitlist:
        we only need to calculate once.
 - [ ]  Suspendable VM [discussion](#suspend-the-vm)
 - [ ]  Pure [Code Bumming](#optimal-vm) (need to be able to check if it even matters)
-  - [ ]  StaticArray for prepared programs.
+  - [ ]  Vector in contiguous memory for prepared programs.
     - [ ]  This might have to be custom because of indexing, it's likely to be a dip
            down into C.  Lpeg labels are jiggered based on some instructions (entirely charsets I believe) being extra-length, when I print pcode there are gaps in the numbers
   - [ ]  Optimal VM dispatch, the current system is aggressively not-type-stable.
            accordingly.  It's a major operation from my perspective, we'd need to obtain a pointer to the Vector somehow and correct all the instruction labels, but probably
            worth the most speedup after a type-stable dispatch.
-  - [ ]  SetInst may not need a `:l`.
   - [X]  Struct packing
   - [ ]  I'm surely losing cycles converting non-ASCII Chars into UInt32, should add
          Char1Inst..Char4Inst.  With NotChar and TestChar, that's 12 instructions, which is
          fine I think.
+  - [ ]  Fail optimization: only update the register once when returning from calls.
+         this one should be deferred until we have real profiling on the hot loop.
+         Technically this _is_ found in LPeg...
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
@@ -290,10 +295,13 @@ to making an `:add` out of `+`.  Very cheap!
 #### A Wrinkle
 
 Is whitespace really. What we want is the _longest_ fragment we can match, so that
-e.g. ` :symbol` matches both.  But this is easy: we make the postscript one big
-patt^0 with all the choices.  Literally it's just an additional rule `|(P(:a)...)^0`
-after the end.  This can even give only grammatically-valid results if we insist on
-matching a full string.
+e.g. `:symbol` matches both.  But this is easy: we make the postscript one big
+`patt` with all the choices, and a `!P(1)` at the end of each.  Not much more than
+just `|(P(:a)...)^0` as a postscript.
+
+We might in fact want to do this in a more sophisticated way, we can sort the rules
+so that longer patterns match before shorter ones, giving a fragment parser which
+doesn't have to complete the string, but I'm not convinced that's as useful, actually.
 
 ### Mark and Check: Back References
 
@@ -422,6 +430,9 @@ UnitRange, with a (separate?) dictionary of offsets to obtain the rule name when
 
 Ordinary iterators and tree walkers will ignore these, but in contexts where they're
 useful (syntax highlighting in particular), they're there.
+
+I think I'll find that making an Expr is a special case that doesn't make a lot of
+sense if I'm not parsing Julia, which of course, I do intend to do.
 
 ### Optimal VM
 

@@ -72,13 +72,36 @@ The basic operations are as follows:
 | `!patt`, `¬patt`        | negative lookahead, succeeds if `patt` fails                |
 | `~patt`                 | lookahead, match `patt` without advancing                   |
 | `patt1 >> patt2`        | match `patt1`, then search the string for the next `patt2`. |
-| `P(true)` or `ϵ`        | always succeed                                              |
+| `P(true)`               | always succeed                                              |
 | `P(false)` or `∅`       | always fail                                                 |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
 this is true for `S` and `R` as well.  These basic operations are not recursive, and
 without further modification merely match the longest substring recognized by the
-pattern, but suffice to match all regular languages.
+pattern.  This is sufficient to match all regular languages.
+
+### A Brief Note About Piracy #TODO make real
+
+You will note that combining Patterns involves a great deal of operator overloading.
+In Julian circles, operators are presumed to have a certain contract, although this
+is informal and has a certain lattitude.  Some of our operators comply with this
+expectation: `*` and `^` are used for concatenation and repetition for
+`AbstractString`s, as they are with `Pattern`s, although the meaning of repetition is
+somewhat different in our context.  Others do not: particularly egregious is `!`,
+which is expected to always return a `Bool`, and `>:` (an [`Action`](#Actions)),
+which has no relationship to supertypes whatsoever.  `|` and `-` are in the main
+justified, in my opinion: `|` is firmly grounded in tradition and `a | b` would be
+pronounced "a or b", subtraction has a huge variety of meanings mathematically and
+here is neither commutative nor associative. `~` and `>>` bear little resemblance to
+their ordinary meanings.
+
+Broadly speaking, the combinator operators in JLpeg are a combination of
+availability, operator precedence, and mnemnonic weight, in that order.
+
+In any case, we shadow operators, rather than overloading the ones found in `Base`,
+and they aren't exported; we provide `JLpeg.Combinators` as an easy way to bring them
+into scope if desired.  Most users will stick to the [`@rule`](@ref) and
+[`@grammar`](@ref) macros, which don't require bringing operators into scope.
 
 ## Matching
 
@@ -259,6 +282,35 @@ that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
 | [🔶️] | `Ce(patt, :key)`,       | groups the captures of`patt` and creates an Expr       |
 | [🔶] | `patt => :key`          | with head `:key` and args `[patt]...`                  |
 
+Some more examples:
+
+```jldoctest
+julia> @rule :cap123 ← [((S"123"^1,) | R"az"^1)^1];
+
+julia> match(cap123, "abc123zyz123def")
+PegMatch([["123", "123"]])
+
+julia> @rule :cap_pos ← [((S"123"^1,) | R"az"^1 * Cp())^1];
+
+julia> match(cap_pos, "abc123zyz123def")
+PegMatch([["", "123", "", "123", ""]])
+
+julia> @rule :capABC ← [((S"ABC"^1,) | R"az"^1)^1, :capABC];
+
+julia> match(capABC, "abcBCAzyzCCCdef")
+PegMatch([:capABC => ["BCA", "CCC"]])
+```
+
+The form in `:capABC`, where the rule is grouped as a capture and given a symbol
+which is the same as the rule name, is extremely common and gets its own shorthand:
+
+```jldoctest
+julia> @rule :capABC <--> ((S"ABC"^1,) | R"az"^1)^1;
+
+julia> match(capABC, "abcBCAzyzCCCdef")
+PegMatch([:capABC => ["BCA", "CCC"]])
+```
+
 ## Actions
 
 A pattern may be modified with an action to be taken, either at runtime, or, more
@@ -275,13 +327,17 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | [❓] | Action                | Consequence                                          |
 | --- | --------------------- | ---------------------------------------------------- |
 | [✅] | `A(patt, λ)`,         | the returns of `λ` applied to the captures of `patt` |
-| [✅] | `patt \|> λ`          |                                                      |
+| [✅] | `patt <\| λ`          |                                                      |
 | [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return       |
-| [⭕️] | `patt > λ`            | `nothing` to fail the match                          |
+| [⭕️] | `patt >: λ`           | `nothing` to fail the match                          |
 | [✅] | `T(:label)`,          | fail the match and throw `:label`                    |
 | [✅] | `patt % :label`       | shorthand for `patt \| T(:label)`                    |
 | [⭕️] | `M(patt, :label)`     | mark a the region of `patt` for later reference      |
 | [⭕️] | `K(patt, :label, op)` | checK `patt` against the last mark with `op`         |
+
+The use of `<|` is meant to be mnemonic of `|>` for ordinary piping (and share
+precedence), without pirating the meaning of the pipe operator; this way `patt |> λ`
+will do the expected thing, `λ(patt)`.
 
 ## Dialects
 
