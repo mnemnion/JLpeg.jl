@@ -16,6 +16,8 @@ export re
 include("types.jl")
 include("pattern.jl")
 include("interface.jl")
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, inv
+
 include("compile.jl")
 include("generator.jl")
 include("pegmatch.jl")
