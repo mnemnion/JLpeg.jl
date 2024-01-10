@@ -214,7 +214,88 @@ function T(label::Symbol)
     PThrow(label)
 end
 
-# Operators
+"""
+    P"str"
+
+Calls P(str) on the String, in close imitation of Lua's calling convention.
+"""
+macro P_str(str)
+    P(compile_raw_string(str))
+end
+
+"""
+    R"str"
+
+Calls R(str) on the String, in close imitation of Lua's calling convention.
+"""
+macro R_str(str)
+    R(compile_raw_string(str))
+end
+
+"""
+    S"str"
+
+Calls S(str) on the String, in close imitation of Lua's calling convention.
+"""
+macro S_str(str)
+    S(compile_raw_string(str))
+end
+
+"""Helper for macros"""
+function compile_raw_string(str::String)::String
+    # Mapping of C escape sequences to their Julia equivalents
+    c_escapes = Dict(
+        "\\a" => "\a", "\\b" => "\b", "\\f" => "\f",
+        "\\n" => "\n", "\\r" => "\r", "\\t" => "\t",
+        "\\v" => "\v", "\\\\" => "\\", "\\'" => "'",
+        "\\\"" => "\"", "\\?" => "?", "\\0" => "\0"
+    )
+
+    # Replace each C escape sequence with its Julia equivalent
+
+    str = replace(str, c_escapes...)
+
+    str = replace(str, r"\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\u[0-9a-fA-F]{1,4}|\\U[0-9a-fA-F]{1,8}" =>
+    s -> begin
+        esc = s[2]
+        base = (esc == 'u' || esc == 'U' || esc == 'x') ? 16 : 8
+        Char(parse(UInt32, s[3:end], base=base))
+    end)
+
+    return str
+end
+
+"""
+    JLpeg.Combinators
+
+Exports all the combinators used to combine Patterns.  These shadow Base,
+providing a fallback, and are designed not to break existing code; whether any
+of these uses rise to the level of piracy is debatable.
+
+That said, we've walled them off so that debate is not necessary.
+"""
+module Combinators
+
+# First we define fallbacks:
+
+@inline
++(args::Any...) = Base.:+(any...)
+@inline
+*(args::Any...) = Base.:*(any...)
+@inline
+-(args::Any...) = Base.:-(any...)
+@inline
+%(a::Any, b::Any) = Base.:%(a, b)
+@inline
+^(a::Any, b::Any) = Base.:^(a, b)
+@inline
+~(a::Any) = Base.:~(a)
+@inline
+!(a::Any) = Base.:!(a)
+@inline
+>>(a::Any, b::Any) = Base.:>>(a, b)
+@inline
+inv(a::Any) = Base.inv(a)
 
 Base.:*(a::Pattern, b::Pattern) = PSeq(a, b)
 Base.:*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
@@ -255,7 +336,7 @@ Base.:-(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
 
 
 <|(a::Pattern, b::Function) = A(a, b)
-Base.:>(a::Pattern, b::Function) = Anow(a, b)
+# Base.:(a::Pattern, b::Function) = Anow(a, b)
 Base.:%(a::Pattern, b::Symbol) = a | T(b)
 # Hack that should probably be in the @grammar macro
 Base.:%(a::Pattern, b::POpenCall) = a | T(b.val)
@@ -290,54 +371,4 @@ Base.:>>(a::Pattern, b::CaptureTuple) = a >> C(b...)
 Base.:>>(a::Patternable, b::CaptureTuple) = P(a) >> C(b...)
 Base.:>>(a::Pattern, b::Vector) = a >> Cg(b)
 
-"""Helper for macros"""
-function compile_raw_string(str::String)::String
-    # Mapping of C escape sequences to their Julia equivalents
-    c_escapes = Dict(
-        "\\a" => "\a", "\\b" => "\b", "\\f" => "\f",
-        "\\n" => "\n", "\\r" => "\r", "\\t" => "\t",
-        "\\v" => "\v", "\\\\" => "\\", "\\'" => "'",
-        "\\\"" => "\"", "\\?" => "?", "\\0" => "\0"
-    )
-
-    # Replace each C escape sequence with its Julia equivalent
-
-    str = replace(str, c_escapes...)
-
-    str = replace(str, r"\\x[0-9a-fA-F]{1,2}|\\[0-7]{1,3}|\\u[0-9a-fA-F]{1,4}|\\U[0-9a-fA-F]{1,8}" =>
-    s -> begin
-        esc = s[2]
-        base = (esc == 'u' || esc == 'U' || esc == 'x') ? 16 : 8
-        Char(parse(UInt32, s[3:end], base=base))
-    end)
-
-
-    return str
-end
-
-"""
-    P"str"
-
-Calls P(str) on the String, in close imitation of Lua's calling convention.
-"""
-macro P_str(str)
-    P(compile_raw_string(str))
-end
-
-"""
-    R"str"
-
-Calls R(str) on the String, in close imitation of Lua's calling convention.
-"""
-macro R_str(str)
-    R(compile_raw_string(str))
-end
-
-"""
-    S"str"
-
-Calls S(str) on the String, in close imitation of Lua's calling convention.
-"""
-macro S_str(str)
-    S(compile_raw_string(str))
-end;
+end; # module Combinators
