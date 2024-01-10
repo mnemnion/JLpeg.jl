@@ -1,4 +1,5 @@
 using JLpeg; import JLpeg as J
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, inv
 using Test
 using TestSetExtensions
 using InteractiveUtils

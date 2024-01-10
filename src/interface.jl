@@ -277,7 +277,7 @@ end
 <-->(a::Symbol, b::CaptureTuple) = PRule(a, Cg(C(b...), a))
 <-->(a::Symbol, b::Vector) = PRule(a, Cg(Cg(b),a))
 <-->(a::Symbol, b::Patternable) = PRule(a, Cg(P(b), a))
-
+<|(a::Pattern, b::Function) = A(a, b)
 
 """
     JLpeg.Combinators
@@ -312,19 +312,30 @@ import ..JLpeg: CaptureTuple, Patternable, PSet, PSeq, POpenCall, PChoice, PDiff
 @inline
 inv(a::Any) = Base.inv(a)
 
+*(a::Pattern, b::Pattern)            = PSeq(a, b)
 *(a::Pattern, b::Pattern, c::Any...) = PSeq(a, *(b, c...))
-*(a::Pattern, b::Pattern) = PSeq(a, b)
-*(a::Pattern, b::Symbol)  = PSeq(a, POpenCall(b))
-*(a::Symbol, b::Pattern)  = PSeq(POpenCall(a), b)
-*(a::Pattern, b::Union{Integer,String}) = PSeq(a, P(b))
-*(a::Union{Integer,String}, b::Pattern) = PSeq(P(a), b)
-*(a::CaptureTuple, b::Pattern) = C(a...) * b
-*(a::Pattern, b::CaptureTuple) = a * C(b...)
-*(a::Union{Integer,String}, b::CaptureTuple) = P(a) * C(b...)
-*(a::CaptureTuple, b::Union{Integer,String}) = C(a...) * P(b)
-*(a::CaptureTuple, b::CaptureTuple) = C(a...) * C(b...)
-*(a::Vector, b::Pattern) = Cg(a) * b
-*(a::Pattern, b::Vector) = a * Cg(b)
+*(a::Pattern, b::Symbol)             = PSeq(a, POpenCall(b))
+*(a::Pattern, b::Symbol, c::Any...)  = PSeq(a, *(POpenCall(b), c...))
+*(a::Symbol, b::Pattern)             = PSeq(POpenCall(a), b)
+*(a::Symbol, b::Pattern, c::Any...)  = PSeq(POpenCall(a), *(b, c...))
+*(a::Pattern, b::Union{Integer,String})            = PSeq(a, P(b))
+*(a::Pattern, b::Union{Integer,String}, c::Any...) = PSeq(a, *(P(b), c...))
+*(a::Union{Integer,String}, b::Pattern)            = PSeq(P(a), b)
+*(a::Union{Integer,String}, b::Pattern, c::Any...) = *(PSeq(P(a), b), c...)
+*(a::CaptureTuple, b::Pattern)            = C(a...) * b
+*(a::CaptureTuple, b::Pattern, c::Any...) = *(C(a...), b, c...)
+*(a::Pattern, b::CaptureTuple)            = a * C(b...)
+*(a::Pattern, b::CaptureTuple, c::Any...) = *(a, C(b...), c...)
+*(a::Union{Integer,String}, b::CaptureTuple)            = P(a) * C(b...)
+*(a::Union{Integer,String}, b::CaptureTuple, c::Any...) = *(P(a), C(b...), c...)
+*(a::CaptureTuple, b::Union{Integer,String})            = C(a...) * P(b)
+*(a::CaptureTuple, b::Union{Integer,String}, c::Any...) = *(C(a...), P(b), c...)
+*(a::CaptureTuple, b::CaptureTuple)            = C(a...) * C(b...)
+*(a::CaptureTuple, b::CaptureTuple, c::Any...) = *(C(a...), C(b...), c...)
+*(a::Vector, b::Pattern)            = Cg(a) * b
+*(a::Vector, b::Pattern, c::Any...) = *(Cg(a), b, c...)
+*(a::Pattern, b::Vector)            = a * Cg(b)
+*(a::Pattern, b::Vector, c::Any...) = *(a, Cg(b), c...)
 
 |(a::Pattern, b::Pattern) = PChoice(a, b)
 |(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
@@ -343,15 +354,17 @@ inv(a::Any) = Base.inv(a)
 |(a::PChar, b::PSet) = PSet(append!(Settable([b.val]), a.val))
 |(a::PSet, b::PChar) = PSet(push!(copy(a.val), b.val))
 
--(a::Pattern, b::Pattern) = PDiff(a, b)
--(a::Pattern, b::Any, c::Any...) = PDiff(a, b - c)
--(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))
--(a::Union{Integer,String}, b::Pattern) = PDiff(P(a), b)
--(a::Pattern, b::Symbol)  = PDiff(a, POpenCall(b))
--(a::Symbol, b::Pattern)  = PDiff(POpenCall(a), b)
+-(a::Pattern, b::Pattern)        = PDiff(a, b)
+-(a::Pattern, b::Any, c::Any...) = PDiff(a, -(b, c...))
+-(a::Pattern, b::Union{Integer,String})            = PDiff(a, P(b))
+-(a::Pattern, b::Union{Integer,String}, c::Any...) = PDiff(a, -(P(b), c...))
+-(a::Union{Integer,String}, b::Pattern)            = PDiff(P(a), b)
+-(a::Union{Integer,String}, b::Pattern, c::Any...) = PDiff(P(a), -(b, c...))
+-(a::Pattern, b::Symbol)             = PDiff(a, POpenCall(b))
+-(a::Pattern, b::Symbol, c::Any...)  = PDiff(a, -(POpenCall(b), c...))
+-(a::Symbol, b::Pattern)             = PDiff(POpenCall(a), b)
+-(a::Symbol, b::Pattern, c::Any...)  = PDiff(POpenCall(a), -(b, c...))
 
-
-<|(a::Pattern, b::Function) = A(a, b)
 # Base.:(a::Pattern, b::Function) = Anow(a, b)
 %(a::Pattern, b::Symbol) = a | T(b)
 # Hack that should probably be in the @grammar macro
