@@ -69,6 +69,7 @@ The basic operations are as follows:
 | `B(patt)`               | match `patt` behind the cursor, without advancing           |
 | `patt^n`                | match at least `n` repetitions of `patt`                    |
 | `patt^-n`               | match at most `n` repetitions of `patt`                     |
+| `patt^[n:m]`            | match between `n` and `m` repetitions of `patt`             |
 | `patt1 * patt2`         | match the sequence `patt1` , `patt2`                        |
 | `patt1 \| patt2`        | match `patt1` or `patt2`, in that order                     |
 | `patt1 - patt2`         | match `patt1` if `patt2` does not match                     |
@@ -356,7 +357,7 @@ methods provided for more complex scenarios.  Let's consider a simple rule with 
 captures.
 
 ```jldoctest baddate
-julia> @rule :baddate ← (R"09"^1, :year) * "-" * (R"09"^1,) * "-" * (R"09"^1, :day);
+julia> @rule :baddate ← (R"09"^[4:4], :year) * "-" * (R"09"^[2:2],) * "-" * (R"09"^[2:2], :day);
 
 julia> date = match(baddate, "2024-01-10")
 PegMatch([:year => "2024", "01", :day => "10"])

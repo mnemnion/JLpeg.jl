@@ -129,6 +129,10 @@ using InteractiveUtils
         @test match(afew, "aa")[1] == "aa"
         @test match(afew, "aaaa")[1] == "aaaa"
         @test match(afew, "aaaaaaa")[1] == "aaaa"
+        four = P"a"^[4:4]
+        @test match(four, "aaaa")[1] == "aaaa"
+        @test match(four, "aaa") isa PegFail
+        @test match(four, "aaaaa")[1] == "aaaa"
     end
     @testset "Predicates" begin
         pand = ~P"abc" * S"abcd"^1

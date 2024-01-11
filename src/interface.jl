@@ -427,7 +427,13 @@ inv(a::Any) = Base.inv(a)
 function ^(a::Pattern, b::Vector{UnitRange{T}} where T <: Integer)
     isempty(b) && error("empty Vector in a^[n:m]")
     length(b) > 1 && error("a^[n:m] can take only one UnitRange, not $(length(b))")
-    _repseq(a, b[1].start) * a^(b[1].start - b[1].stop)
+    r = b[1]
+    r.start > r.stop && error("invalid range [n:m] = [$(r.start):$(r.stop)]")
+    if r.start == r.stop
+        return _repseq(a, r.start)
+    else
+        return _repseq(a, r.start) * a^(r.start - r.stop)
+    end
 end
 
 ~(a::Pattern) = PAnd(a)
