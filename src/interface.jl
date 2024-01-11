@@ -436,6 +436,12 @@ function ^(a::Pattern, b::Vector{UnitRange{T}} where T <: Integer)
     end
 end
 
+function ^(a::Pattern, b::Vector{T} where T <: Integer)
+    isempty(b) && error("empty Vector in a^[n]")
+    length(b) > 1 && error("a^[n] can take only one Integer, not $(length(b))")
+    return _repseq(a, b[1])
+end
+
 ~(a::Pattern) = PAnd(a)
 !(a::Pattern) = PNot(a)
 
