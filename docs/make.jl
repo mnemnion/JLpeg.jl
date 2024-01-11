@@ -18,7 +18,7 @@ makedocs(
 
 
 deploydocs(
-    repo = "github.com/mnemion/JLpeg.jl.git",
+    repo = "github.com/mnemnion/JLpeg.jl.git",
     branch="gh-pages",
 )
 
