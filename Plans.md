@@ -51,12 +51,11 @@ The hitlist:
          truncated the string in the front or the back.  There are always substrings,
          but if `i` is the first or last character, one of them will be empty.
   - [ ]  Refactor color printing to use `printstyled`.
+- [ ]  "Modularize" the @grammar code so that users don't get unexpected results if they
+       define, say, `compile!` (humorous example) and try to use it as a variable name.
 - [x]  Macros
   - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
          escaping rules for the macro correct.
-- [ ]  `patt^[n:m]` for fixed repetition.  The `Vector` is a nice way of avoiding precedence
-       problems, probably better than requiring `patt^(n:m)`.  This simply decomposes into
-       `patt^n * patt^(n - m)`, which we can do in the constructor.
 - [ ]  Documenter stuff
   - [X]  Order the pages correctly
   - [ ]  Docstrings for private module names in Internals
@@ -68,6 +67,7 @@ The hitlist:
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`.  Left recursion
        may obviate this.
 - [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
+  - [ ]  Also we can virtualize .offsets into a property and JIT it when requested.
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ]  Add `getfirst`: used to optimize Seq
     - [ ]  `needfollow`: used in `getfirst`
@@ -145,7 +145,8 @@ The hitlist:
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
 - [ ]  [PDiff](#pdiff)
-- [ ] - [X] Done:
+- [ ]  [Generators](#string-generate)
+- [X] Done:
   - [X] Handle the other PStar cases
   - [X] `P(-n)` for n bytes remaining
   - [X] And and Not predicates
@@ -198,6 +199,9 @@ The hitlist:
     - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
     - [X]  Multiset Rewrite
     - [X]  Clean Up
+  - [X]  `patt^[n:m]` for fixed repetition.  The `Vector` is a nice way of avoiding precedence
+         problems, probably better than requiring `patt^(n:m)`.  This simply decomposes into
+         `patt(n times) * patt^(n - m)`, which we can do in the constructor.
 
 [Trees]: https://github.com/JuliaCollections/AbstractTrees.jl
 
@@ -380,15 +384,31 @@ This has been on the long-term plan for a long time, and debugging the MultiSets
 me thinking about it again.  It's very simple: a different VM which interprets the
 opcodes as rules for generating a string.
 
+I think I'll hate it if I try to interpret the bytecode itself, so we're talking
+about a second compiler and a looser VM where "instructions" are mutable so they can
+hold state, and the code is flattened but not unrolled into commits etc.  No need to
+overthink the format at this stage, just note that it isn't a direct Pattern interpreter
+or a VM bytecode interpreter, it uses its own format which it derives from Patterns
+
 Easy: Chars, Sets, repetition, these are all done with a random number generator.
 Choices should maintain a modulus and produce a different choice each time they're
 visited, recursive self-calls are treated as a sort of repetition (which of course
 they are).  I think we can ignore throws which don't have a recovery rule, and any
 sequence before one (this is very uncommon anyway).
 
-The only tricky part is predicates, and it isn't that tricky, just brute-force it:
+One tricky part is predicates, and it isn't that tricky, just brute-force it:
 for `!`, generate a token, test it, continue, for `~`, use the lookahead as the
 generator, then apply the second rule.
+
+Another, trickier one, is `Anow` and Checks with a lambda, those can call for
+backtracking.  I might insist on extra data being provided for these, captures
+weren't intended to be executed (no need) but it's tractable to provide input to a
+Check (or, with more work, an Anow) which it will accept, and restrict emission of
+that pattern to acceptable strings (no need at that point to include the checks,
+marks, or action).  The idea is to be able to generate valid strings which another
+parser will accept, so it's important to support this kind of out-of-band business,
+even if it calls for extra work on the part of the user.  Run-time checks are
+supposed to be unusual, so I can punt on this a bit.
 
 I just think it would be funny to build a cheesy math parser in the demo, and then
 instead of parsing an expression, generate one. There are actually useful things to

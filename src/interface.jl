@@ -279,6 +279,11 @@ end
 <-->(a::Symbol, b::Patternable) = PRule(a, Cg(P(b), a))
 <|(a::Pattern, b::Function) = A(a, b)
 
+# Defined but not exported, for macro-availability
+
+ε = P(true)
+∅ = P(false)
+
 """
     JLpeg.Combinators
 

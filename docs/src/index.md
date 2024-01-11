@@ -42,10 +42,9 @@ parsing of full grammars, a task JLpeg also excels at.
 Parsing Expression Grammars are built out of patterns. These begin with atomic units
 of recognition, and are combined into complex rules, which can call other rules,
 recursively, recognizing context free, and some context sensitive, languages.  LPeg,
-JLpeg's inspiration, uses a [SNOBOL][0]-style set of operator overloads as the basic tool
-for building up patterns, a practice we also follow.
-
-[0]: https://en.wikipedia.org/wiki/SNOBOL
+JLpeg's inspiration, uses a [SNOBOL](https://en.wikipedia.org/wiki/SNOBOL)-style set
+of operator overloads as the basic tool for building up patterns, a practice we also
+follow.
 
 Although many users of JLpeg may prefer to use one of the [Dialects](#Dialects),
 patterns and their combination are the building block of JLpeg recognition engines,
@@ -77,8 +76,8 @@ The basic operations are as follows:
 | `!patt`, `¬patt`        | negative lookahead, succeeds if `patt` fails                |
 | `~patt`                 | lookahead, match `patt` without advancing                   |
 | `patt1 >> patt2`        | match `patt1`, then search the string for the next `patt2`. |
-| `P(true)`               | always succeed                                              |
-| `P(false)` or `∅`       | always fail                                                 |
+| `P(true)`, `ε`          | always succeed                                              |
+| `P(false)`, `∅`         | always fail                                                 |
 
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
 this is true for `S` and `R` as well.  These basic operations are not recursive, and
@@ -101,10 +100,12 @@ should expect, is neither commutative nor associative. `~` and `>>` bear little
 resemblance to their ordinary meanings.
 
 Broadly speaking, the combinator operators in JLpeg are a combination of
-availability, operator precedence, and mnemnonic weight, in that order.
+availability, operator precedence, and mnemnonic weight, in that order.  For example,
+`&patt` is the signifier for lookahead in the PEG definition, we use `~` because it's
+unary, and Julia has but few unary operators.
 
 In any case, we shadow operators, rather than overloading the ones found in `Base`,
-and they aren't exported; we provide [`JLpeg.Combinators`](@ref) as an easy way to
+and they aren't exported.  We provide [`JLpeg.Combinators`](@ref) as an easy way to
 bring them into scope if desired.  Most users will stick to the [`@rule`](@ref) and
 [`@grammar`](@ref) macros, which don't require bringing operators into scope.
 
@@ -200,7 +201,10 @@ The preferred way to create rules and grammars is with the macros [`@rule`](@ref
 entirely.  Any `Number`, `String`, `Symbol`, or `Char`, found on its own, is
 converted into the pattern equivalent.  While this is not true of booleans, the
 idiomatic way to spell `true` and `false` in JLpeg is `""` and `S""` respectively,
-and these are compiled into the same code as `P(true)` and `P(false)`.
+and these are compiled into the same code as `P(true)` and `P(false)`.  JLpeg also
+defines, but does not export, `ε` for `P(true)` and `∅` for `P(false)`, and these may
+be used in grammars and rules as well, with `\varepsilon` (`\vare[TAB]`) and
+`\emptyset` (`\emp[TAB]`) respectively.
 
 Exported variable names from `JLpeg` will always refer to the values they have in the
 module, any other variable will be escaped, so it will have the expected meaning.
