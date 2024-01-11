@@ -424,9 +424,14 @@ inv(a::Any) = Base.inv(a)
 # Base.:(a::Pattern, b::Function) = Anow(a, b)
 %(a::Pattern, b::Symbol) = a | T(b)
 ^(a::Pattern, b::Integer)  = PStar(a, b)
+function ^(a::Pattern, b::Vector{UnitRange{T}} where T <: Integer)
+    isempty(b) && error("empty Vector in a^[n:m]")
+    length(b) > 1 && error("a^[n:m] can take only one UnitRange, not $(length(b))")
+    _repseq(a, b[1].start) * a^(b[1].start - b[1].stop)
+end
+
 ~(a::Pattern) = PAnd(a)
 !(a::Pattern) = PNot(a)
-
 
 # This little dance gets around a quirk of how negative powers
 # are handled by Julia:
@@ -441,5 +446,13 @@ end
 >>(a::Pattern, b::CaptureTuple) = a >> C(b...)
 >>(a::Patternable, b::CaptureTuple) = P(a) >> C(b...)
 >>(a::Pattern, b::Vector) = a >> Cg(b)
+
+function _repseq(a::Pattern, i::Integer)::Pattern
+    patt = a
+    for i ∈ 2:i
+        patt *= a
+    end
+    return patt
+end
 
 end; # module Combinators

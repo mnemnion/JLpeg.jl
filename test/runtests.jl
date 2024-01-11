@@ -123,6 +123,12 @@ using InteractiveUtils
         @test match(ab4minus, "ab")[1] == "ab"
         @test match(ab4minus, "abababab")[1] == "abababab"
         @test match(ab4minus, "abababababab")[1] == "abababab"
+        # Tests a^[n:m]
+        afew = P"a"^[2:4]
+        @test match(afew, "a") isa PegFail
+        @test match(afew, "aa")[1] == "aa"
+        @test match(afew, "aaaa")[1] == "aaaa"
+        @test match(afew, "aaaaaaa")[1] == "aaaa"
     end
     @testset "Predicates" begin
         pand = ~P"abc" * S"abcd"^1
