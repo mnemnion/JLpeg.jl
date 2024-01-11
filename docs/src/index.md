@@ -70,6 +70,7 @@ The basic operations are as follows:
 | `patt^n`                | match at least `n` repetitions of `patt`                    |
 | `patt^-n`               | match at most `n` repetitions of `patt`                     |
 | `patt^[n:m]`            | match between `n` and `m` repetitions of `patt`             |
+| `patt^[n]`              | match exactly `n` repetitions of `patt`                     |
 | `patt1 * patt2`         | match the sequence `patt1` , `patt2`                        |
 | `patt1 \| patt2`        | match `patt1` or `patt2`, in that order                     |
 | `patt1 - patt2`         | match `patt1` if `patt2` does not match                     |
@@ -357,7 +358,7 @@ methods provided for more complex scenarios.  Let's consider a simple rule with 
 captures.
 
 ```jldoctest baddate
-julia> @rule :baddate ← (R"09"^[4:4], :year) * "-" * (R"09"^[2:2],) * "-" * (R"09"^[2:2], :day);
+julia> @rule :baddate ← (R"09"^[4], :year) * "-" * (R"09"^[2],) * "-" * (R"09"^[2], :day);
 
 julia> date = match(baddate, "2024-01-10")
 PegMatch([:year => "2024", "01", :day => "10"])
@@ -429,12 +430,3 @@ julia> collect(pairs(letters))
 As you can see, the _first_ match with that name is the indexable one, and therefore,
 is the only time `:abc` appears in `keys`, while all matches have their name in
 `pairs`, or, if anonymous, their index.
-
-## Dialects
-
-The operator-combining pattern primitives are the basis of JLpeg. Being ordinary
-Julia code, they offer the maximum level of flexibility and power, and are the basis
-of the rest of the system.
-
-For many uses, users may prefer one of the several dialects provided. These are
-parsers written in, of course, JLpeg itself, which compile down to ordinary patterns.

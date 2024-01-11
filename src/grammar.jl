@@ -29,6 +29,8 @@ function wrap_rule_body(rulebody::Expr)::Expr
                 :($val^$sym3)
             elseif @capture(x, val_ % 🔠(sym4_))
                 :($val % $sym4)
+            elseif @capture(x, val_^[🔠(sym5_)])
+                :($val^[$sym5])
             elseif @capture(x, fn_(params__))
                 if fn ∈ ops
                     return x
