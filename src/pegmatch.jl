@@ -48,8 +48,8 @@ end
     Base.keys(m::PegMatch)::Vector
 
 Return a vector of keys for all captures from the pattern.  This is as similar to
-`keys(::RegexMatch)`, given the greater power of PEGs to match strings, and
-therefore, the greater complexity of a PegMatch.
+`keys(::RegexMatch)` as it can be, given the greater power of PEGs to match strings,
+and therefore, the greater complexity of a PegMatch.
 
 Captures are only included if they succeed, and only the first capture of a given
 name may be indexed with the corresponding symbol or string.  Therefore, the key for
@@ -87,14 +87,14 @@ as integer.  If so, the first capture by that name, if any, is returned.
 """
 function Base.getindex(m::PegMatch, i::PegKey)
     if i isa Integer
-        elem =  m.captures[i]
+        elem = m.captures[i]
         if elem isa Pair
             return elem.second
         else
             return elem
         end
     else
-        for cap in m.captures
+        for cap ∈ m.captures
             if cap isa Pair && cap.first == i
                 return cap.second
             end

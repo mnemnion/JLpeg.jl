@@ -27,6 +27,8 @@ function wrap_rule_body(rulebody::Expr)::Expr
                 :(Cg($val, $sym2))
             elseif @capture(x, val_^🔠(sym3_))
                 :($val^$sym3)
+            elseif @capture(x, val_ % 🔠(sym4_))
+                :($val % $sym4)
             elseif @capture(x, fn_(params__))
                 if fn ∈ ops
                     return x
@@ -52,7 +54,7 @@ function wrap_rule(expr::Expr)::Expr
         return wrap_rule_body(expr)
     elseif @capture(expr, (sym_ <--> rulebody_))
         local body = wrap_rule_body(rulebody)
-        :(Cg($sym ← $body, $sym))
+        :($sym ← Cg($body, $sym))
     else
         error("malformed rule in $(expr)")
     end
@@ -60,16 +62,13 @@ end
 
 
 """
-    @grammar(name, rules), @grammar(name, vars, rules)
+    @grammar(name, rules)
 
 Syntax sugar for defining a set of rules as a single grammar. Expects a block
 `rules`, each of which is a rule-pair as can be created with `←`, or, if you must,
 `<=`.  `"string"` will be interpolated as `P("string")`, and `:symbol` as
 `P(:symbol)`.  Be sure to use the macro forms `S"123"` and `R"az"` for sets and
 ranges, which will otherwise be transformed into `S(P("123"))`, which is invalid.
-
-The three-expression form of `@grammar` takes a tuple of variable names, which are to
-be escaped, that is, interpreted as what they mean in the local scope.
 
 ## Example use
 
@@ -123,16 +122,20 @@ name = @rule :name  ←  "foo" | "bar"
 @rule :name ← "foo" | "bar"
 ```
 """
-macro rule(expr)
-    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_))
+macro rule(expr::Expr)
+    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_) | (sym_ <--> rulebody_))
         local r = wrap_rule(expr)
         local name = sym.value
         :($(esc(name)) = $r)
-    elseif @capture(expr, (sym_ <--> rulebody_))
-        local body = wrap_rule_body(rulebody)
-        local name = sym.value
-        :($(esc(name)) = Cg($sym ← $body, $sym))
     else
         error("malformed rule in $(expr)")
+    end
+end
+
+macro rule(expr::Expr, erest::Expr...)
+    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_) | (sym_ <--> rulebody_))
+        error("extra expression in $(sym) :  $(erest...)")
+    else
+        error("malformed rule: $(expr) $(erest...)")
     end
 end

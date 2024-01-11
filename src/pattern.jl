@@ -159,7 +159,16 @@ struct PRule <: Pattern
     name::Symbol
     aux::AuxDict
 end
-PRule(name::Symbol, val::Pattern) = PRule([val], Inst(), name, AuxDict())
+
+"""
+    Rule(name::Symbol, patt::Pattern)
+
+Un-sugared form of [`@rule`](@ref), creates a rule from `patt`, assigning it
+the name `name`.
+"""
+function PRule(name::Symbol, val::Pattern)
+    PRule([val], Inst(), name, AuxDict())
+end
 
 struct PGrammar <: Pattern
     val::PVector

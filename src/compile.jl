@@ -297,7 +297,7 @@ Base.keys(::IVec128) = 1:128
 function Base.iterate(inst::IASCIISet, i::Integer)
     i = i + 1
     i > 128 && return nothing
-    if inst.vec[i]
+    if inst[i]
         return UInt8(i-1), i
     else
         return false, i
@@ -308,7 +308,7 @@ function Base.iterate(inst::LeadMultiInst, i::Integer)
     i = i + 1
     i > 128 && return nothing
 
-    if @inbounds inst.vec[i]
+    if @inbounds inst[i]
         return UInt8(i-1) | 0b11000000, i
     else
         return false, i
@@ -318,7 +318,7 @@ end
 function Base.iterate(inst::MultiVecInst, i::Integer)
     i = i + 1
     i > 64 && return nothing
-    if @inbounds inst.vec[i]
+    if @inbounds inst[i]
         return UInt8(i-1) | 0b10000000, i
     else
         return false, i
@@ -605,7 +605,7 @@ function _compile!(patt::PStar)::Pattern
     end
     # Nullables: pointless for patt.n < 0, infinite loop otherwise, fail:
     if nullable(p)
-        error("repetition on $(typeof(p)) is not allowed")
+        error("this $(typeof(p)) is nullable, repetition is not allowed")
     end
     c = patt.code
     code = hoist!(patt, p)

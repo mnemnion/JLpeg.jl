@@ -1,5 +1,5 @@
 using JLpeg; import JLpeg as J
-import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, inv
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
 using Test
 using TestSetExtensions
 using InteractiveUtils
@@ -282,6 +282,7 @@ using InteractiveUtils
         @test match(throwrec, "fooba").label == :nobar
         @rule :selfcall ← "123" * :selfcall
         @test_throws PegError match(selfcall, "1234")
+        @test_throws "extra expression" @eval @rule :baddate ← (R"09"^1, :year) * "-" * (R"09"^1,) * "-" (R"09"^1, :day)
     end
     @testset "`re` dialect" begin
         @test match(re, "'string'")[:string] == "string"

@@ -282,35 +282,76 @@ end
 """
     JLpeg.Combinators
 
-Exports all the combinators used to combine Patterns.  These shadow Base,
-providing a fallback, and are designed not to break existing code; whether any
-of these uses rise to the level of piracy is debatable.
+Contains all the combinator operators which shadow definitions in Base.  The module
+redefines these symbols, providing a fallback to the Base, and are designed not to
+break existing code.  The Julia compiler handles this kind of redirection well during
+inference, this technique is used by several packages which specialize operators for
+numerically-demanding tasks, without issue; we even transfer the Base docstrings.
 
-That said, we've walled them off so that debate is not necessary.
+Whether or not these overloads rise to the level of piracy is debatable.  That said,
+we've walled them off, so that debate is not necessary.
+
+# Use
+
+The [`@grammar`](@ref) and [`@rule`](@ref) macros are able to use these operators, so
+you may not need them.  To import them, add this to your module:
+
+```julia
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
+```
 """
 module Combinators
 
 using ..JLpeg
-import ..JLpeg: CaptureTuple, Patternable, PSet, PSeq, POpenCall, PChoice, PDiff, PAnd, PNot, PChar, PStar
+import ..JLpeg: CaptureTuple, Patternable, Settable,
+                PSet, PSeq, POpenCall, PChoice, PDiff, PAnd, PNot, PChar, PStar
 
-# First we define fallbacks:
+# Fallbacks to Base
+# These are well-understood by the compiler and will not
+# slow down your code with extra calls.  We even put the
+# documentation back.
 
 @inline
 *(args::Any...) = Base.:*(args...)
+@doc (@doc Base.:*) :*
+
+@inline
+|(args::Any...) = Base.:|(args...)
+@doc (@doc Base.:|) :|
+
 @inline
 -(args::Any...) = Base.:-(args...)
+@doc (@doc Base.:-) :-
+
 @inline
-%(a::Any, b::Any) = Base.:%(a, b)
+%(a::Any, b::Any...) = Base.:%(a, b...)
+@doc (@doc Base.:%) :%
+
 @inline
 ^(a::Any, b::Any) = Base.:^(a, b)
+@doc (@doc Base.:^) :^
+
 @inline
 ~(a::Any) = Base.:~(a)
+@doc (@doc Base.:~) :~
+
 @inline
 !(a::Any) = Base.:!(a)
+@doc (@doc Base.:!) :!
+
 @inline
 >>(a::Any, b::Any) = Base.:>>(a, b)
+@doc (@doc Base.:>>) :>>
+
 @inline
 inv(a::Any) = Base.inv(a)
+@doc (@doc Base.inv) inv
+
+@inline
+(>:)(a::Any, b::Any) = Base.>:(a, b)
+@doc (@doc Base.:(>:)) :(>:)
+
+# Now a whole bunch of overloads.
 
 *(a::Pattern, b::Pattern)            = PSeq(a, b)
 *(a::Pattern, b::Pattern, c::Any...) = PSeq(a, *(b, c...))
@@ -337,22 +378,37 @@ inv(a::Any) = Base.inv(a)
 *(a::Pattern, b::Vector)            = a * Cg(b)
 *(a::Pattern, b::Vector, c::Any...) = *(a, Cg(b), c...)
 
-|(a::Pattern, b::Pattern) = PChoice(a, b)
-|(a::Pattern, b::Symbol)  = PChoice(a, POpenCall(b))
-|(a::Symbol, b::Pattern)  = PChoice(POpenCall(a), b)
-|(a::Pattern, b::Union{Integer,String}) =  a | P(b)
-|(a::Union{Integer,String}, b::Pattern) = P(a) | b
-|(a::CaptureTuple, b::Pattern) = C(a...) | b
-|(a::Pattern, b::CaptureTuple) = a | C(b...)
-|(a::Union{Integer,String}, b::CaptureTuple) = P(a) | C(b...)
-|(a::CaptureTuple, b::Union{Integer,String}) = C(a...) | P(b)
-|(a::CaptureTuple, b::CaptureTuple) = C(a...) | C(b...)
-|(a::Vector, b::Pattern) = Cg(a) | b
+|(a::Pattern, b::Pattern)            = PChoice(a, b)
+|(a::Pattern, b::Pattern, c::Any...) = PChoice(a, |(b, c...))
+|(a::Pattern, b::Symbol)             = PChoice(a, POpenCall(b))
+|(a::Pattern, b::Symbol, c::Any...)  = PChoice(a, |(POpenCall(b), c...))
+|(a::Symbol, b::Pattern)             = PChoice(POpenCall(a), b)
+|(a::Symbol, b::Pattern, c::Any...)  = PChoice(POpenCall(a), |(b, c...))
+|(a::Pattern, b::Union{Integer,String})            =  a | P(b)
+|(a::Pattern, b::Union{Integer,String}, c::Any...) =  |(a, P(b), c...)
+|(a::Union{Integer,String}, b::Pattern)            = P(a) | b
+|(a::Union{Integer,String}, b::Pattern, c::Any...) = |(P(a), b, c...)
+|(a::CaptureTuple, b::Pattern)            = C(a...) | b
+|(a::CaptureTuple, b::Pattern, c::Any...) = |(C(a...), b, c...)
+|(a::Pattern, b::CaptureTuple)            = a | C(b...)
+|(a::Pattern, b::CaptureTuple, c::Any...) = |(a, C(b...), c...)
+|(a::Union{Integer,String}, b::CaptureTuple)            = P(a) | C(b...)
+|(a::Union{Integer,String}, b::CaptureTuple, c::Any...) = |(P(a), C(b...), c...)
+|(a::CaptureTuple, b::Union{Integer,String})            = C(a...) | P(b)
+|(a::CaptureTuple, b::Union{Integer,String}, c::Any...) = |(C(a...), P(b), c...)
+|(a::CaptureTuple, b::CaptureTuple)            = C(a...) | C(b...)
+|(a::CaptureTuple, b::CaptureTuple, c::Any...) = |(C(a...), C(b...), c...)
+|(a::Vector, b::Pattern)            = Cg(a) | b
+|(a::Vector, b::Pattern, c::Any...) = |(Cg(a), b, c...)
 |(a::Pattern, b::Vector) = a | Cg(b)
+|(a::Pattern, b::Vector, c::Any...) = |(a, Cg(b), c...)
 # Conversions
-|(a::PSet, b::PSet) = PSet(vcat(a.val, b.val))
-|(a::PChar, b::PSet) = PSet(append!(Settable([b.val]), a.val))
-|(a::PSet, b::PChar) = PSet(push!(copy(a.val), b.val))
+|(a::PSet, b::PSet)            = PSet(vcat(a.val, b.val))
+|(a::PSet, b::PSet, c::Any...) = |(PSet(vcat(a.val, b.val)), c...)
+|(a::PChar, b::PSet)            = PSet(append!(Settable([b.val]), a.val))
+|(a::PChar, b::PSet, c::Any...) = |(PSet(append!(Settable([b.val]), a.val)), c...)
+|(a::PSet, b::PChar)            = PSet(push!(copy(a.val), b.val))
+|(a::PSet, b::PChar, c::Any...) = |(PSet(push!(copy(a.val), b.val)), c...)
 
 -(a::Pattern, b::Pattern)        = PDiff(a, b)
 -(a::Pattern, b::Any, c::Any...) = PDiff(a, -(b, c...))
@@ -367,9 +423,6 @@ inv(a::Any) = Base.inv(a)
 
 # Base.:(a::Pattern, b::Function) = Anow(a, b)
 %(a::Pattern, b::Symbol) = a | T(b)
-# Hack that should probably be in the @grammar macro
-%(a::Pattern, b::POpenCall) = a | T(b.val)
-
 ^(a::Pattern, b::Integer)  = PStar(a, b)
 ~(a::Pattern) = PAnd(a)
 !(a::Pattern) = PNot(a)
