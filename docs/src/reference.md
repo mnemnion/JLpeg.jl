@@ -6,9 +6,8 @@ Pages = ["reference.md"]
 
 ```@index
 Pages = ["reference.md"]
-Modules = [JLpeg]
+Modules = [JLpeg, JLpeg.Combinators]
 ```
-
 
 ## Core API
 
@@ -35,7 +34,7 @@ match
 JLpeg.compile!
 ```
 
-## Pattern Constructors
+## Constructing Patterns
 
 Patterns are built by [combining](index.md#Combination) the products of these constructors
 into more complex Patterns.
@@ -49,6 +48,12 @@ R(::AbstractString)
 R(::AbstractChar, ::AbstractChar)
 JLpeg.@R_str
 JLpeg.B
+```
+
+## JLpeg.Combinators
+
+```@docs
+JLpeg.Combinators
 ```
 
 ## Captures and Actions
@@ -76,6 +81,7 @@ the ability to match recursive patterns.  These are constructed out of Rules and
 
 ```@docs
 JLpeg.Grammar
+JLpeg.Rule
 JLpeg.@rule
 JLpeg.@grammar
 ```

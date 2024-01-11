@@ -55,15 +55,19 @@ The hitlist:
   - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
          escaping rules for the macro correct.
 - [ ]  `patt^[n:m]` for fixed repetition.  The `Vector` is a nice way of avoiding precedence
-       problems, probably better than requiring `patt^(n:m)`.
+       problems, probably better than requiring `patt^(n:m)`.  This simply decomposes into
+       `patt^n * patt^(n - m)`, which we can do in the constructor.
 - [ ]  Documenter stuff
   - [X]  Order the pages correctly
   - [ ]  Docstrings for private module names in Internals
   - [ ]  Add a "comparisons.md" page for in-depth comparison of PEGs to other systems.
   - [ ]  Fix `PegFail` so the fail is visible (again).
 - [ ]  [Mark / Check](#mark-and-check-back-references)
+  - [ ]  `MC(patt, :sym)`: Mark `patt` with `:sym` and capture with the same name.
+  - [ ]  By analogy `KC(patt, :sym)` for checking-with-capture.
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`.  Left recursion
        may obviate this.
+- [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
   - [ ]  Add `getfirst`: used to optimize Seq
     - [ ]  `needfollow`: used in `getfirst`
@@ -194,6 +198,8 @@ The hitlist:
     - [X]  Fix bug with emoji 🫠.  Appears to work?  This problem may reappear though.
     - [X]  Multiset Rewrite
     - [X]  Clean Up
+
+[Trees]: https://github.com/JuliaCollections/AbstractTrees.jl
 
 ### PDiff
 

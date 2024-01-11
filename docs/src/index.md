@@ -4,6 +4,7 @@
 CurrentModule = JLpeg
 DocTestSetup = quote
     using JLpeg
+    import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
 end
 ```
 
@@ -38,11 +39,13 @@ parsing of full grammars, a task JLpeg also excels at.
 
 ## Patterns
 
-Parsing Expression Grammars are built out of patterns, which begin with atomic units
-of recognition and are combined into complex rules, which can recognize context free,
-and some context sensitive, languages.  LPeg, JLpeg's inspiration, uses a
-SNOBOL-style set of operator overloads as the basic tool for building up patterns, a
-practice we also follow.
+Parsing Expression Grammars are built out of patterns. These begin with atomic units
+of recognition, and are combined into complex rules, which can call other rules,
+recursively, recognizing context free, and some context sensitive, languages.  LPeg,
+JLpeg's inspiration, uses a [SNOBOL][0]-style set of operator overloads as the basic tool
+for building up patterns, a practice we also follow.
+
+[0]: https://en.wikipedia.org/wiki/SNOBOL
 
 Although many users of JLpeg may prefer to use one of the [Dialects](#Dialects),
 patterns and their combination are the building block of JLpeg recognition engines,
@@ -80,27 +83,27 @@ this is true for `S` and `R` as well.  These basic operations are not recursive,
 without further modification merely match the longest substring recognized by the
 pattern.  This is sufficient to match all regular languages.
 
-### A Brief Note About Piracy #TODO make real
+### A Brief Note About Piracy
 
 You will note that combining Patterns involves a great deal of operator overloading.
 In Julian circles, operators are presumed to have a certain contract, although this
-is informal and has a certain lattitude.  Some of our operators comply with this
+is informal and has a certain latitude.  Some of our operators comply with this
 expectation: `*` and `^` are used for concatenation and repetition for
 `AbstractString`s, as they are with `Pattern`s, although the meaning of repetition is
 somewhat different in our context.  Others do not: particularly egregious is `!`,
 which is expected to always return a `Bool`, and `>:` (an [`Action`](#Actions)),
-which has no relationship to supertypes whatsoever.  `|` and `-` are in the main
-justified, in my opinion: `|` is firmly grounded in tradition and `a | b` would be
-pronounced "a or b", subtraction has a huge variety of meanings mathematically and
-here is neither commutative nor associative. `~` and `>>` bear little resemblance to
-their ordinary meanings.
+which has no relationship to supertypes whatsoever.  `|` and `-` are justifiable, in
+my opinion: `|` is firmly grounded in tradition and `a | b` would be pronounced "a or
+b", subtraction has a huge variety of meanings mathematically and our use, as one
+should expect, is neither commutative nor associative. `~` and `>>` bear little
+resemblance to their ordinary meanings.
 
 Broadly speaking, the combinator operators in JLpeg are a combination of
 availability, operator precedence, and mnemnonic weight, in that order.
 
 In any case, we shadow operators, rather than overloading the ones found in `Base`,
-and they aren't exported; we provide `JLpeg.Combinators` as an easy way to bring them
-into scope if desired.  Most users will stick to the [`@rule`](@ref) and
+and they aren't exported; we provide [`JLpeg.Combinators`](@ref) as an easy way to
+bring them into scope if desired.  Most users will stick to the [`@rule`](@ref) and
 [`@grammar`](@ref) macros, which don't require bringing operators into scope.
 
 ## Matching
@@ -141,11 +144,12 @@ PegFail("123abc", 1)
 ```
 
 The operators introduce a pattern 'context', where any `a <op> b` combination where
-`a` or `b` is a Pattern will attempt to cast the other argument to a Pattern.
-Generally, a `MethodError` may be repaired by using `P` on the left side of the the
-operator, although we can't guarantee that other method overloads for those operators
-might apply. Notably, `*` is used for concatenation of strings; , although in the
-JLpeg context, `P"abc" * P"123"` is in fact the same as `P("abc" * "123")`.
+`a` or `b` is a Pattern will attempt to cast the other argument to a Pattern when
+appropriate.  Generally, a `MethodError` may be repaired by using `P` on the left
+side of the the operator, although we can't guarantee that other method overloads for
+those operators might apply.  Notably, `*` is used for concatenation of strings,
+although in the JLpeg context, `P"abc" * P"123"` is in fact the same as `P("abc" *
+"123")`.
 
 This UI is adequate for light work, but the [macros](#Rules-and-Grammars) discussed
 later are cleaner to work with, defined such that `P` should never be necessary,
@@ -174,7 +178,7 @@ As is the PEG convention, a rule reduction uses the left arrow `←`, which you 
 type as `\leftarrow` (or in fact `\lef[TAB]`), also defined as `<--`.  A simple
 grammar can look like this:
 
-```jldoctest
+```jldoctest; output=false
 abc_and = :a <-- P"abc" * (:b | P"")
 _123s   = :b ← P"123"^1 * :a
 abc123  = Grammar(abc_and, _123s)
@@ -214,7 +218,7 @@ a = :a ← P("foo") * Cg(P("abc")^0 | S("123"))^1
 Although the definitions of the operators and string macros would allow this reduction:
 
 ```julia
-a = :a ← P"foo" * Cg("abc"^0 | S"123")^1
+a = :a ← P"foo" * Cg(P"abc"^0 | S"123")^1
 ```
 
 Which is admittedly less cumbersome (we try).  Note that the `@rule` form doesn't
@@ -225,9 +229,9 @@ A classic example of a task forever beyond the reach of regular expressions is b
 
 ```jldoctest
 julia> @grammar parens begin
-           :par  ←  :s * !1
-           :s  ← (:b | (!S"()" * 1))^1
-           :b  ← '(' * :s * ')'
+           :par ← :s * !1
+           :s ← (:b | (!S"()" * 1))^1
+           :b ← '(' * :s * ')'
        end;
 
 julia> match(parens, "(these (must) balance")
@@ -258,7 +262,7 @@ rule, as you can see, it needn't match the variable name.
 A `PegMatch` defaults to the longest `SubString` when no captures are provided, or
 when the pattern succeeds but all captures within fail.  To capture only the
 substring of interest, use `C(patt)` or just make a tuple `(patt,)`.  Don't forget
-the comma or Julia will interpret this as a group.
+the comma, or Julia will interpret this as a group.
 
 ```jldoctest
 julia> match("" >> (P"56",), "1234567")
@@ -328,8 +332,8 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | --- | --------------------- | ---------------------------------------------------- |
 | [✅] | `A(patt, λ)`,         | the returns of `λ` applied to the captures of `patt` |
 | [✅] | `patt <\| λ`          |                                                      |
-| [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time, return       |
-| [⭕️] | `patt >: λ`           | `nothing` to fail the match                          |
+| [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time,              |
+| [⭕️] | `patt >: λ`           | return `nothing` to fail the match                   |
 | [✅] | `T(:label)`,          | fail the match and throw `:label`                    |
 | [✅] | `patt % :label`       | shorthand for `patt \| T(:label)`                    |
 | [⭕️] | `M(patt, :label)`     | mark a the region of `patt` for later reference      |
@@ -338,6 +342,92 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 The use of `<|` is meant to be mnemonic of `|>` for ordinary piping (and share
 precedence), without pirating the meaning of the pipe operator; this way `patt |> λ`
 will do the expected thing, `λ(patt)`.
+
+## Working With Matched Data
+
+`PegMatch` implements the interface of AbstractMatch, and as such, it is
+intentionally structured to be similar to `RegexMatch` from the standard library.
+PEGs are a far richer and more sophisticated tool than regexen, however: a named
+capture might appear many times, captures can be grouped, those groups may have
+groups, with captures, having names, and so on.
+
+Our intention is that simple matching will behave in a familiar way, with additional
+methods provided for more complex scenarios.  Let's consider a simple rule with some
+captures.
+
+```jldoctest baddate
+julia> @rule :baddate ← (R"09"^1, :year) * "-" * (R"09"^1,) * "-" * (R"09"^1, :day);
+
+julia> date = match(baddate, "2024-01-10")
+PegMatch([:year => "2024", "01", :day => "10"])
+```
+
+The rule name is because this is certainly not how you should parse a date!
+
+Let's illustrate how to work with this:
+
+```jldoctest baddate
+julia> date[:day]
+"10"
+
+julia> date[3]
+"10"
+
+julia> keys(date)
+3-element Vector{Any}:
+  :year
+ 2
+  :day
+
+julia> collect(pairs(date))
+3-element Vector{Pair{A, SubString{String}} where A}:
+ :year => "2024"
+     2 => "01"
+  :day => "10"
+
+julia> collect(enumerate(date))
+3-element Vector{Pair{Int64, SubString{String}}}:
+ 1 => "2024"
+ 2 => "01"
+ 3 => "10"
+```
+
+So far so good, what happens if a named capture matches more than once?
+
+```jldoctest
+julia> @rule :abcs ← ((R"az"^1, :abc) | "123")^1;
+
+julia> match(abcs, "abc123def123ghi123")
+PegMatch([:abc => "abc", :abc => "def", :abc => "ghi"])
+
+julia> keys(ans)
+3-element Vector{Any}:
+  :abc
+ 2
+ 3
+
+julia> letters = match(abcs, "abc123def123ghi123")
+PegMatch([:abc => "abc", :abc => "def", :abc => "ghi"])
+
+julia> letters[:abc]
+"abc"
+
+julia> keys(letters)
+3-element Vector{Any}:
+  :abc
+ 2
+ 3
+
+julia> collect(pairs(letters))
+3-element Vector{Pair{Symbol, SubString{String}}}:
+ :abc => "abc"
+ :abc => "def"
+ :abc => "ghi"
+```
+
+As you can see, the _first_ match with that name is the indexable one, and therefore,
+is the only time `:abc` appears in `keys`, while all matches have their name in
+`pairs`, or, if anonymous, their index.
 
 ## Dialects
 
