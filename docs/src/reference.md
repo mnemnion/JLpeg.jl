@@ -4,11 +4,6 @@
 Pages = ["reference.md"]
 ```
 
-```@index
-Pages = ["reference.md"]
-Modules = [JLpeg, JLpeg.Combinators]
-```
-
 ## Core API
 
 The basic structure of recognition in JLPeg is a `Pattern`.
