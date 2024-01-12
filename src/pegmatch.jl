@@ -24,9 +24,10 @@ Fields:
     consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`, `Cc`, `A`,
     and `Anow`.
 
--  `offsets` is a `Vector` of offsets matching the start of these captures, and
-    `Vector`s of that vector, such that the same pattern of iterative search will
-    produce the offset and its substring.
+-  `offsets` is a property provided for compatibility with AbstractMatch.  SubStrings
+   contain their own offsets, so this is unnecessary for normal work, but we JIT it
+   for `math.offsets`.  It then consists of the indices at which the outer layer of
+   captures may be found within the subject.
 
 - `patt` is the `Pattern` matched against the subject.
 """
@@ -34,15 +35,45 @@ struct PegMatch <: AbstractMatch
     subject::AbstractString
     last::Integer
     captures::PegCapture
-    offsets::PegOffset
     patt::Pattern
     PegMatch(subject::AbstractString,
              last::Integer,
              captures::PegCapture,
-             offsets::PegOffset,
-             patt::Pattern) = new(subject, last, captures, offsets, patt)
+             patt::Pattern) = new(subject, last, captures, patt)
 end
 
+function Base.getproperty(match::PegMatch, field::Symbol)
+    if field == :offsets
+        offs = []
+        for cap in match
+            if cap isa SubString
+                push!(offs, cap.offset + 1)
+            elseif cap isa Vector
+                push!(offs, _getidx(cap))
+            elseif cap isa Integer
+                push!(offs, cap)
+            else
+                push!(offs, nothing)
+            end
+        end
+        return offs
+    end
+    return getfield(match, field)
+end
+
+function _getidx(cap::Vector)
+    while true
+        if cap[1] isa SubString
+            return cap.offset + 1
+        elseif cap[1] isa Vector
+            cap = cap[1]
+        elseif cap isa Integer
+            return cap
+        else
+            return nothing
+        end
+    end
+end
 
 """
     Base.keys(m::PegMatch)::Vector

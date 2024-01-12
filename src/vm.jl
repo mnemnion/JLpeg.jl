@@ -601,14 +601,12 @@ function aftermatch(vm::VMState)::PegMatch
     end
     last = prevind(vm.subject, vm.s)
     captures = PegCapture()
-    offsets = PegOffset()
     patt = vm.patt
     # there may not be any captures, in which case the whole
     # matched string is the capture:
     if lcap(vm) == 0
         push!(captures, @views vm.subject[1:last])
-        push!(offsets, 1)
-        return PegMatch(vm.subject, last, captures, offsets, patt)
+        return PegMatch(vm.subject, last, captures, patt)
     end
     # Otherwise:
     # To handle nested captures of all sorts we use a stack
@@ -622,8 +620,8 @@ function aftermatch(vm::VMState)::PegMatch
             push!(capstack, cap)
             if cap.inst.kind == Cgroup
                 # Push our current captures and offsets onto the group stack
-                push!(groupstack, (captures, offsets))
-                captures, offsets = PegCapture(), PegOffset()
+                push!(groupstack, captures)
+                captures = PegCapture()
             end
             continue
         end
@@ -638,9 +636,6 @@ function aftermatch(vm::VMState)::PegMatch
         ikey = cap.inst
         key = capsdict[cap.inst.tag]
         if bcap.inst.kind == ikey.kind
-            # TODO if there are non-capturing captures (possible), we
-            # check for those here.  I think the rule is a capture gets an offset.
-            push!(offsets, Int(bcap.s))
             if ikey.kind == Csimple
                 push!(captures, _substr(bcap.s, cap.s))
             elseif ikey.kind == Csymbol
@@ -648,17 +643,15 @@ function aftermatch(vm::VMState)::PegMatch
                 push!(captures, key => sub)
             elseif ikey.kind == Cgroup
                 # grab the outer captures and offsets
-                caps, offs = pop!(groupstack)
+                caps = pop!(groupstack)
                 if isempty(captures)  # the group is the capture
                     push!(captures, _substr(bcap.s, cap.s))
-                    push!(offsets, bcap.s)
                     if key !== nothing
                         push!(caps, key => captures)
                     else
                         push!(caps, captures)
                     end
-                    push!(offs, offsets)
-                    captures, offsets = caps, offs
+                    captures = caps
                     continue
                 end
                 if key !== nothing
@@ -666,10 +659,13 @@ function aftermatch(vm::VMState)::PegMatch
                 else
                     push!(caps, captures)
                 end
-                push!(offs, offsets)
-                captures, offsets = caps, offs
+                captures= caps
             elseif ikey.kind == Cposition
-                push!(captures, _substr(bcap.s, cap.s))
+                # Note: the original intention was to capture an empty SubString,
+                # Those are unfortunately broken (they set the offset to 0) so
+                # I'm going to use a numbered position capture for now and
+                # maybe write a whole package which does this one thing correctly
+                push!(captures, bcap.s)
             elseif ikey.kind == Crange
                 if key !== nothing
                     push!(captures, key => [bcap.s:prevind(vm.subject, cap.s)])
@@ -690,27 +686,21 @@ function aftermatch(vm::VMState)::PegMatch
                         push!(captures, λ(arg))
                     elseif isempty(captures) && !isempty(groupstack)
                         # We had to use an OpenCap Action, captures is discarded
-                        # but we need the offset we just put in it
-                        off = offsets[end]
-                        captures, offsets = pop!(groupstack)
-                        push!(offsets, off)
+                        captures = pop!(groupstack)
                         push!(captures, λ(arg))
                     end
                 else  # all of captures is our arguments
                     args = captures
-                    off = offsets[1]
                     if isempty(groupstack)
-                        captures, offsets = PegCapture(), PegOffset()
+                        captures = PegCapture()
                     else
-                        captures, offsets = pop!(groupstack)
+                        captures = pop!(groupstack)
                     end
-                    push!(offsets, off)
                     push!(captures, λ(args...))
                 end
                 # remove `nothing` matches
                 if captures[end] === nothing
                     pop!(captures)
-                    pop!(offsets)
                 end
             else
                 @warn "doesn't handle the case of $(ikey.kind) yet!"
@@ -724,7 +714,7 @@ function aftermatch(vm::VMState)::PegMatch
     if !isempty(capstack)
         @warn "left entries on the capture stack: $(capstack)"
     end
-    return PegMatch(vm.subject, last, captures, offsets, patt)
+    return PegMatch(vm.subject, last, captures, patt)
 end
 
 function afterfail(vm::VMState)::PegFail
