@@ -437,14 +437,14 @@ function ^(a::Pattern, b::Vector{UnitRange{T}} where T <: Integer)
     if r.start == r.stop
         return _repseq(a, r.start)
     else
-        return _repseq(a, r.start) * a^(r.start - r.stop)
+        return reduce(*, Iterators.repeated(a, r.start)) * a^(r.start - r.stop)
     end
 end
 
 function ^(a::Pattern, b::Vector{T} where T <: Integer)
     isempty(b) && error("empty Vector in a^[n]")
     length(b) > 1 && error("a^[n] can take only one Integer, not $(length(b))")
-    return _repseq(a, b[1])
+    return reduce(*, Iterators.repeated(a, b[1]))
 end
 
 ~(a::Pattern) = PAnd(a)
@@ -463,13 +463,5 @@ end
 >>(a::Pattern, b::CaptureTuple) = a >> C(b...)
 >>(a::Patternable, b::CaptureTuple) = P(a) >> C(b...)
 >>(a::Pattern, b::Vector) = a >> Cg(b)
-
-function _repseq(a::Pattern, i::Integer)::Pattern
-    patt = a
-    for i ∈ 2:i
-        patt *= a
-    end
-    return patt
-end
 
 end; # module Combinators
