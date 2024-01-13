@@ -1,6 +1,14 @@
 using Documenter
+using DocumenterInterLinks
 using JLpeg
 DocMeta.setdocmeta!(JLpeg, :DocTestSetup, :(using JLpeg); recursive=true)
+
+links = InterLinks(
+    "Julia" => (
+        "https://docs.julialang.org/en/v1/",
+        joinpath(@__DIR__, "src/inventories", "Julia.toml")
+    ),
+)
 
 makedocs(
     sitename  =  "JLpeg",
@@ -14,6 +22,7 @@ makedocs(
     checkdocs =  :exports,
     # , checkdocs = :none
     # , doctest = :fix
+    plugins = [links, ],
 )
 
 

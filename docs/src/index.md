@@ -87,17 +87,17 @@ pattern.  This is sufficient to match all regular languages.
 ### A Note About Piracy
 
 You will note that combining Patterns involves a great deal of operator overloading.
-In Julian circles, operators are presumed to have a certain contract, although this
-is informal and has a certain latitude.  Some of our operators comply with this
-expectation: `*` and `^` are used for concatenation and repetition for
-`AbstractString`s, as they are with `Pattern`s, although the meaning of repetition is
-somewhat different in our context.  Others do not: particularly egregious is `!`,
-which is expected to always return a `Bool`, and `>:` (an [`Action`](#Actions)),
-which has no relationship to supertypes whatsoever.  `|` and `-` are justifiable, in
-my opinion: `|` is firmly grounded in tradition and `a | b` would be pronounced "a or
-b", while subtraction has a huge variety of meanings in mathematics; our use, as one
-should expect, is neither commutative nor associative. `~` and `>>` bear little
-resemblance to their ordinary meanings.
+In Julian circles, operators are presumed to have [a certain contract](@extref
+`Avoid-type-piracy`), although this is informal and has a certain latitude.  Some of
+our operators comply with this expectation: `*` and `^` are used for concatenation
+and repetition for `AbstractString`s, as they are with `Pattern`s, although the
+meaning of repetition is broader for patterns.  Others do not: particularly egregious
+is `!`, which is expected to always return a [`Bool`](@extref `Core.Bool`), and `>:`
+(an [`Action`](#Actions)), which has no relationship to supertypes whatsoever.  `|`
+and `-` are justifiable, in my opinion: `|` is firmly grounded in tradition and `a |
+b` would be pronounced "a or b", while subtraction has a huge variety of meanings in
+mathematics; our use, as one should expect, is neither commutative nor associative.
+`~` and `>>` bear little resemblance to their ordinary meanings.
 
 Broadly speaking, the combinator operators in JLpeg are a combination of
 availability, operator precedence, and mnemnonic weight, in that order.  For example,
@@ -111,14 +111,15 @@ bring them into scope if desired.  Most users will stick to the [`@rule`](@ref) 
 
 ## Matching
 
-[`match`](@ref)`(pattern::`[`Pattern`](@ref), `string::String)` will
-attempt to match the pattern against the string, returning a [`PegMatch`](@ref) `<:
-AbstractMatch`. In the event of a failure, it returns a [`PegFail`](@ref), with the
-index of the failure at `.errpos`.  Note that unlike regular expressions, JLpeg will
-not skip ahead to find a pattern in a string, unless the pattern is so constructed.
-We offer the easy shorthand `"" >> patt` to convert a pattern into its searching
-equivalent; `P""` matches the empty string, and JLPeg will convert strings and
-numbers (but not booleans) into patterns when able.
+[`match`](@ref)`(pattern::`[`Pattern`](@ref), `string`::[AbstractString](@extref
+`Core.AbstractString`)) will attempt to match the pattern against the string,
+returning a [`PegMatch`](@ref) `<:` [AbstractMatch](@extref `Base.RegexMatch`). In
+the event of a failure, it returns a [`PegFail`](@ref), with the index of the failure
+at `.errpos`.  Note that unlike regular expressions, JLpeg will not skip ahead to
+find a pattern in a string, unless the pattern is so constructed.  We offer the easy
+shorthand `"" >> patt` to convert a pattern into its searching equivalent; `P""`
+matches the empty string, and JLPeg will convert strings and numbers (but not
+booleans) into patterns when able.
 
 ```jldoctest
 julia> match(P"123", "123456")
@@ -198,14 +199,15 @@ are undefined behavior: currently JLpeg will compile the last rule of that name 
 encounters, but this behavior must not be relied upon.
 
 The preferred way to create rules and grammars is with the macros [`@rule`](@ref) and
-[`@grammar`](@ref), which avoid the tedium of decorating expressions with `P`
-entirely.  Any `Number`, `String`, `Symbol`, or `Char`, found on its own, is
-converted into the pattern equivalent.  While this is not true of booleans, the
-idiomatic way to spell `true` and `false` in JLpeg is `""` and `S""` respectively,
-and these are compiled into the same code as `P(true)` and `P(false)`.  JLpeg also
-defines, but does not export, `ε` for `P(true)` and `∅` for `P(false)`, and these may
-be used in grammars and rules as well, with `\varepsilon` (`\vare[TAB]`) and
-`\emptyset` (`\emp[TAB]`) respectively.
+[`@grammar`](@ref), which avoid the tedium of decorating expressions with [`P`](@ref)
+entirely.  Any [`Integer`](@extref `Core.Integer`), [`String`](@extref
+`manual/strings`), [`Symbol`](@extref `Symbols`), or [`Char`](@extref
+`man-characters`), found on its own, is converted into the pattern equivalent.  While
+this is not true of booleans, the idiomatic way to spell `true` and `false` in JLpeg
+is `""` and `S""` respectively, and these are compiled into the same code as
+`P(true)` and `P(false)`.  JLpeg also defines, but does not export, `ε` for `P(true)`
+and `∅` for `P(false)`, and these may be used in grammars and rules as well, with
+`\varepsilon` (`\vare[TAB]`) and `\emptyset` (`\emp[TAB]`) respectively.
 
 Exported variable names from `JLpeg` will always refer to the values they have in the
 module, any other variable will be escaped, so it will have the expected meaning.
@@ -228,9 +230,9 @@ Although the definitions of the operators and string macros would allow this red
 a = :a ← P"foo" * Cg(P"abc"^0 | S"123")^1
 ```
 
-Which is admittedly less cumbersome (we try).  Note that the `@rule` form doesn't
-require the importation of `@S_str`, or any other public symbol, thanks to the nature
-of Julia macros.
+Which is a bit less cumbersome (we try).  Note that the `@rule` form doesn't require
+the importation of `@S_str`, or any other public symbol, thanks to the nature of
+Julia macros.
 
 A classic example of a task forever beyond the reach of regular expressions is balancing parentheses, with JLpeg this is easy:
 
@@ -241,11 +243,11 @@ julia> @grammar parens begin
            :b ← '(' * :s * ')'
        end;
 
-julia> match(parens, "(these (must) balance")
-PegFail("(these (must) balance", 22)
-
 julia> match(parens, "(these (must) balance)")
 PegMatch(["(these (must) balance)"])
+
+julia> match(parens, "(these (must) balance")
+PegFail("(these (must) balance", 22)
 
 julia> match(parens, "(these (must) balance")
 PegFail("(these (must) balance", 22)
@@ -266,10 +268,10 @@ rule, as you can see, it needn't match the variable name.
 
 ## Captures
 
-A `PegMatch` defaults to the longest `SubString` when no captures are provided, or
-when the pattern succeeds but all captures within fail.  To capture only the
-substring of interest, use `C(patt)` or just make a tuple `(patt,)`.  Don't forget
-the comma, or Julia will interpret this as a group.
+A [`PegMatch`](@ref) defaults to the longest [`SubString`](@extref `Base.SubString`)
+when no captures are provided, or when the pattern succeeds but all captures within
+fail.  To capture only the substring of interest, use `C(patt)` or just make a tuple
+`(patt,)`.  Don't forget the comma, or Julia will interpret this as a group.
 
 ```jldoctest
 julia> match("" >> (P"56",), "1234567")
@@ -304,7 +306,7 @@ PegMatch([["123", "123"]])
 julia> @rule :cap_pos ← [((S"123"^1,) | R"az"^1 * Cp())^1];
 
 julia> match(cap_pos, "abc123zyz123def")
-PegMatch([["", "123", "", "123", ""]])
+PegMatch([[4, "123", 10, "123", 16]])
 
 julia> @rule :capABC ← [((S"ABC"^1,) | R"az"^1)^1, :capABC];
 
@@ -346,17 +348,18 @@ is reserved by JLpeg for reporting failure of patterns which didn't otherwise th
 | [⭕️] | `M(patt, :label)`     | mark a the region of `patt` for later reference |
 | [⭕️] | `K(patt, :label, op)` | checK `patt` against the last mark with `op`    |
 
-The use of `<|` is meant to be mnemonic of `|>` for ordinary piping (and shares its
+The use of `<|` is meant to be mnemonic of [`|>`](@extref
+`Function-composition-and-piping`) for ordinary piping (and shares its
 usefully low precedence), without pirating the meaning of the pipe operator.  This way
 `patt |> λ` will do the expected thing, `λ(patt)`.
 
 ## Working With Matched Data
 
-`PegMatch` implements the interface of AbstractMatch, and as such, it is
-intentionally structured to be similar to `RegexMatch` from the standard library.
-PEGs are a far richer and more sophisticated tool than regexen, however: a named
-capture might appear many times, captures can be grouped, those groups may have
-groups, with captures, having names, and so on.
+[`PegMatch`](@ref) implements the interface of AbstractMatch, and as such, it is
+intentionally structured to be similar to [`RegexMatch`](@extref `Base.RegexMatch`)
+from the standard library.  PEGs are a far richer and more sophisticated tool than
+regexen, however: a named capture might appear many times, captures can be grouped,
+those groups may have groups, with captures, having names, and so on.
 
 Our intention is that simple matching will behave in a familiar way, with additional
 methods provided for more complex scenarios.  Let's consider a simple rule with some
