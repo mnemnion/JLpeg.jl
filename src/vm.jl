@@ -665,7 +665,7 @@ function aftermatch(vm::VMState)::PegMatch
                 # Those are unfortunately broken (they set the offset to 0) so
                 # I'm going to use a numbered position capture for now and
                 # maybe write a whole package which does this one thing correctly
-                push!(captures, bcap.s)
+                push!(captures, Int(bcap.s))
             elseif ikey.kind == Crange
                 if key !== nothing
                     push!(captures, key => [bcap.s:prevind(vm.subject, cap.s)])
