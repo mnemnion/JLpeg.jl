@@ -61,6 +61,10 @@ function Base.getproperty(match::PegMatch, field::Symbol)
     return getfield(match, field)
 end
 
+function Base.propertynames(match::PegMatch)
+    return (fieldnames(PegMatch)..., :offsets)
+end
+
 function _getidx(cap::Vector)
     while true
         if cap[1] isa SubString
