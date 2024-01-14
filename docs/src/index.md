@@ -236,27 +236,23 @@ Julia macros.
 
 A classic example of a task forever beyond the reach of regular expressions is balancing parentheses, with JLpeg this is easy:
 
-```jldoctest
-julia> @grammar parens begin
-           :par ← :s * !1
-           :s ← (:b | (!S"()" * 1))^1
-           :b ← '(' * :s * ')'
-       end;
+```@repl
+using JLpeg # hide
+@grammar parens begin
+    :par ← :s * !1
+    :s ← (:b | (!S"()" * 1))^1
+    :b ← '(' * :s * ')'
+end;
 
-julia> match(parens, "(these (must) balance)")
-PegMatch(["(these (must) balance)"])
+match(parens, "(these (must) balance)")
 
-julia> match(parens, "(these (must) balance")
-PegFail("(these (must) balance", 22)
+match(parens, "(these (must) balance")
 
-julia> match(parens, "(these (must) balance")
-PegFail("(these (must) balance", 22)
+match(parens, "(these (must) balance")
 
-julia> match(parens, "(these (must) balance))")
-PegFail("(these (must) balance))", 24)
+match(parens, "(these (must) balance))")
 
-julia> match(parens, "(these (must))) balance)")
-PegFail("(these (must))) balance)", 16)
+match(parens, "(these (must))) balance)")
 ```
 
 `!1` is our equivalent of `$` in regex, a pattern which only succeeds at the end of

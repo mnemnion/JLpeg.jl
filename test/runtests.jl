@@ -338,4 +338,12 @@ using InteractiveUtils
         capn = ((P"a",) | R"az")^1
         @test match(capn, "sdfdasfarewaaawerwr").offsets == [5, 8, 12, 13, 14]
     end
+    @testset "Preface Checks" begin
+    prefix1 = P"abc" | P"abd" | P"abf"
+    @test match(prefix1, "abc")[1] == "abc"
+    @test match(prefix1, "abd")[1] == "abd"
+    @test match(prefix1, "abf")[1] == "abf"
+    @test match(prefix1, "abg") isa PegFail
+    @test repr(prefix1.code) == "JLpeg.Instruction[JLpeg.ChoiceInst(5, JLpeg.IChoice), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('c', JLpeg.IChar), JLpeg.LabelInst(9, JLpeg.ICommit), JLpeg.ChoiceInst(5, JLpeg.IChoice), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('d', JLpeg.IChar), JLpeg.LabelInst(4, JLpeg.ICommit), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('f', JLpeg.IChar), JLpeg.MereInst(JLpeg.IEnd)]"
+    end
 end

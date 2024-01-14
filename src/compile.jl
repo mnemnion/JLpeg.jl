@@ -651,6 +651,8 @@ function addstar!(c::IVector, code::Vector{})
     # Choice Target
 end
 
+# TODO Change PChoice to use Ends, write hoist! for child::PChoice which makes them CommitInst
+
 function _compile!(patt::PChoice)::Pattern
     c = patt.code
     for (idx, p) in enumerate(patt)
@@ -675,8 +677,6 @@ function _compile!(patt::PChoice)::Pattern
 
     return patt
 end
-
-# TODO Change PChoice to use Ends, write hoist! for child::PChoice which makes them CommitInst
 
 function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
@@ -922,24 +922,21 @@ function nofail(patt::Pattern)::Bool
         else return false
         end
     elseif isof(patt, PChar, PAny, PSet, PFalse, PThrow) return false
-    # POpenCall needs checked later TODO raise error here?
+    # TODO raise error here, we've resolved all of these
     elseif patt isa POpenCall return false
+    # TODO this should be nofail(patt.ref) but we need to watch for recursion
     elseif patt isa PCall return false
-    # should be nofail(patt.ref) but we need to watch for recursion
     # aka patt.aux[:nofailcheck] = true, top check for no-failability, set it
     # back to nothing/remove the key
 
     # !nofail but nullable (circumstances differ, e.g. inherent vs. body)
     elseif isof(patt, PNot, PBehind, PRunTime) return false
     # PSeq nofail if entire sequence is nofail
-    elseif patt isa PSeq return all(p -> nofail(p), patt.val)
+    elseif patt isa PSeq return all(nofail, patt.val)
     # PChoice nofail if any branch is nofail
-    elseif patt isa PChoice return any(p -> nofail(p), patt.val)
-    # Wrapped patterns nofail based on the pattern they enclose
+    elseif patt isa PChoice return any(nofail, patt.val)
+    # Wrapped patterns which nofail based on the pattern they enclose
     elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return nofail(patt.val[1])
-    # Why is this true of PCall?
-    # TODO Check this assumption when we implement it
-    # elseif patt isa PCall return nofail(patt.val[2])
     else @error "nofail not defined for $(typeof(patt))"
     end
 end

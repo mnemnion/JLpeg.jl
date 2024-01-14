@@ -435,7 +435,7 @@ function ^(a::Pattern, b::Vector{UnitRange{T}} where T <: Integer)
     r = b[1]
     r.start > r.stop && error("invalid range [n:m] = [$(r.start):$(r.stop)]")
     if r.start == r.stop
-        return _repseq(a, r.start)
+        return reduce(*, Iterators.repeated(a, r.start))
     else
         return reduce(*, Iterators.repeated(a, r.start)) * a^(r.start - r.stop)
     end

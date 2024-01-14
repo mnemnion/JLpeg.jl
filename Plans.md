@@ -69,6 +69,9 @@ The hitlist:
 - [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
   - [ ]  Also we can virtualize .offsets into a property and JIT it when requested.
 - [ ]  Optimizations from The Book (paper and/or lpeg C code):
+  - [ ]  Instrument the latest `LPeg` to report optimizations of interest, to get
+         usable test cases and gain clarity on some thorny parts.  I'm done cribbing
+         `lpeglabel` for the forked bits, I believe.
   - [ ]  Add `getfirst`: used to optimize Seq
     - [ ]  `needfollow`: used in `getfirst`
   - [ ]  TestPatt / headfail optimizations
@@ -90,13 +93,14 @@ The hitlist:
   - [ ]  MultiSetTest [conversion](#multiset-test-conversion)
   - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
   - [ ]  Inlining: short rules with no captures, "short" is like, 5 instructions? 10?
-  - [ ]  CaptureCommitInst: it's a commit which create a full capture from its paired Choice.
-         Very nice for capture-heavy workflows, like parsing full grammars (where we very often
-         want a full rule).
-  - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common patterns
-         like whitespace, where the {\t\n } is very frequent and the comment part is not, lets
-         us use ISpan for a leading set.  Note: there's some bytecode trickery needed here to
-         make sure it doesn't infinite loop, or maybe left recursion gets us out of this one.
+  - [ ]  [CaptureCommitInst](CaptureCommitInst): it's a commit which create a full
+         capture from its paired Choice.  Very nice for capture-heavy workflows, like
+         parsing full grammars (where we very often want a full rule).
+  - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common
+         patterns like whitespace, where the {\t\n } is very frequent and the comment
+         part is not, lets us use ISpan for a leading set.  Note: there's some
+         bytecode trickery needed here to make sure it doesn't infinite loop, or
+         maybe left recursion gets us out of this one.
   - [ ]  Follow sets for TestSet and Span.  These have the additional advantage that they can
          jump immediately if they fail (for TestSet) or recurse to the start instruction after
          a match (for a SpanSet).
@@ -110,11 +114,12 @@ The hitlist:
          this.  I'd like to ask the Lua list why before trying it myself...
     - [This repo](https://github.com/sacek/LPeg) is an LPeg fork with left recursion
        added, I can diff this with its source (LPeg 1.0.0) and learn things.
-  - [ ]  Choice-sequence prefix matching.  This is something regex automatons do
-         automatically, which would be nice for us to have.  Basically, it work with
-         head sequences (including sets, and maybe predicates, but not repetition)
-         such that choices which share a prefix are collapsed into a single choice
-         sequence, this limits backtracking.  It ties into the next one:
+  - [ ]  Choice-sequence [prefix matching](#prefix-matching).  This is something
+         regex automatons do automatically, which would be nice for us to have.
+         Basically, it work with head sequences (including sets, and maybe
+         predicates, but not repetition) such that choices which share a prefix are
+         collapsed into a single choice sequence, this limits backtracking.  It ties
+         into the next one:
   - [ ]  Choice shadow detection.  This is just a nice thing I'd like to do for my
          users.  In many circumstances the compiler could detect when an earlier ordered choice means that a later choice can't be matched, this is always a bug and should be brought to the user's attention.  The easy cases all involve fixed-length later choices, but
          a certain amount of detection can be performed with predicates and repetition in the mi as well.  For literal sequences it's as simple as applying the earlier rule to the string form of the later rule and seeing if there's a match.
@@ -235,7 +240,8 @@ We can use this whenever a `PCapture` is enclosing a `PChoice`, but it's a sligh
 tricky optimization to get right.  What we do is go through the copied bytecode and
 replace every Commit (not Partial Commit) _which belongs to the `PChoice`_ with a
 `CaptureCommitInst`.  This is best accomplished by re-synthesizing the choice code
-from parts.
+from parts.  The last patttern in a PChoice doesn't get choice/commit bracketed,
+if it's fixedlen we can use a full capture, if not we wrap it in an open/close.
 
 `onCaptureCommit` looks like this:
 
@@ -253,6 +259,39 @@ end
 
 This saves us a frame in both the VM stack and (more importantly) the capture stack,
 in a common workload.
+
+### Prefix Matching
+
+This is an optimization performed on choices, which can be used (perhaps further
+analysis is needed) to detect bad choice ordering.
+
+- Precepts:
+  - PChar, PTrue, PFalse, PSet, PThrow, match literally
+  - PAny matches up to the shortest `n` value
+  - PStar matches if the body is the same and n is the same
+  - PAnd, PNot, match if: same predicate, both bodies prefix-match
+  - PChoice: matches up to the longest prefix of the choices (recursive)
+    - A PChoice directly within another would be flattened during construction, but
+      e.g. predicate choices can be lifted: `!("abc" | "abd")` can be `!("ab" ("c" |
+      "d"))`.
+  - PCall: matches if the rule is the same
+    - If only one is a PCall, we can try prefix-matching the referenced rule, but
+      this has too much potential for surprising behavior, I'd say.  I'm reluctant to
+      inline rules for the same reason.
+  - PCapture: matches if same kind, same tag, and same body
+
+I note there's basically no leeway at all, which makes sense, the different patterns
+exist because there are a finite number of element of recognition, and if any such
+differ, they match a different string, except for.... prefix and suffix matching!
+
+When prefix matching is completed, we may attempt suffix matching on the remaining
+choice bodies. It works the same way but backward.
+
+If an earlier rule matches a later rule completely, we've found a bug: the later rule
+can never be reached, due to ordered choice. The rules for shadowing are somewhat
+different, for example, patt^1 shadows patt^0, a superset shadows a subset, the
+principle is that a pattern shadows another pattern if it can match everything that
+pattern recognizes.
 
 ### Relabeling Bytecode
 
