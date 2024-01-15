@@ -1,5 +1,7 @@
 # Grammar macro module
 
+# TODO Make this a real module, don't forget ε and ∅ !
+
 using MacroTools
 
 const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk

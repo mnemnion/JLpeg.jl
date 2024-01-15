@@ -6,7 +6,7 @@ using OrderedCollections
 using InteractiveUtils
 
 export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Anow, T, Rule, Grammar, Pattern
-export <--, ←, ¬, <|, <-->
+export <--, ←, ¬, <|, <-->, ⟷, ↔
 export PegMatch, PegFail, PegError
 export match, compile!, generate
 export @P_str, @R_str, @S_str, @grammar, @grammar!, @rule, @rule!

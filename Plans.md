@@ -68,18 +68,19 @@ The hitlist:
        may obviate this.
 - [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
   - [ ]  Also we can virtualize .offsets into a property and JIT it when requested.
-- [ ]  Optimizations from The Book (paper and/or lpeg C code):
-  - [ ]  Instrument the latest `LPeg` to report optimizations of interest, to get
-         usable test cases and gain clarity on some thorny parts.  I'm done cribbing
-         `lpeglabel` for the forked bits, I believe.
-  - [ ]  Add `getfirst`: used to optimize Seq
-    - [ ]  `needfollow`: used in `getfirst`
+- [#]  Optimizations from The Book (paper and/or lpeg C code):
+  - [X]  Instrument `lpeglabel` to report optimizations of interest, to get usable
+         test cases and gain clarity on some thorny parts.  I tried the latest LPeg
+         but was unable to get it to load without SIGKILL.  Rifle is fine.
+  - [ ]  `set_disjoint` I can and should switch to UnitRangeSets, makes this easy.
+  - [ ]  Add `getfirst`: used to optimize a bunch of patterns
+  - [ ]  `needfollow`: used in coding Seqs (add last, computing the followset is harmless)
   - [ ]  TestPatt / headfail optimizations
   - [X]  Tail-call elimination
   - [ ]  Intermediate jump elimination
   - [X]  Set ISpan optimization
     - [X]  Even better: Since Set has `:l`, we just make it `LeadSetInst(vec, 0)`.
-  - [?]  fixed-length detection
+  - [X]  fixed-length detection
   - [ ]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
   - [ ]  Capture-closing optimization (vm)
