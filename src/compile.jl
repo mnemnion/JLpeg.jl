@@ -966,11 +966,11 @@ function fixedlen(patt::Pattern, seen=IdDict())::Union{Integer,Bool}
     end
     if isof(patt, PChar, PSet)
         return 1
-    elseif isa.(patt, PAny)
+    elseif isa(patt, PAny)
         return patt.val
-    elseif isa.(patt, PTrue, PFalse, PAnd, PNot, PBehind)
+    elseif isof(patt, PTrue, PFalse, PAnd, PNot, PBehind)
         return 0
-    elseif isa.(patt, PStar, PRunTime, POpenCall, PThrow)
+    elseif isof(patt, PStar, PRunTime, POpenCall, PThrow)
         return false
     elseif isa(patt, PCapture)
         return fixedlen(patt[1], seen)

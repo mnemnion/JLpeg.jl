@@ -632,6 +632,11 @@ function aftermatch(vm::VMState)::PegMatch
             bcap = CapEntry(cap.s + cap.inst.l, cap.inst)
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
+            if bcap.inst.tag ≠ cap.inst.tag
+                open, close = capsdict[bcap.inst.tag], capsdict[bcap.inst.tag]
+                otag, ctag = Int(bcap.inst.tag), Int(cap.inst.tag)
+                @warn "mismatched tags: open: $open #$otag, close $close #$ctag"
+            end
         end
         ikey = cap.inst
         key = capsdict[cap.inst.tag]
@@ -712,7 +717,8 @@ function aftermatch(vm::VMState)::PegMatch
         end
     end
     if !isempty(capstack)
-        @warn "left entries on the capture stack: $(capstack)"
+        amount = length(capstack) == 1 ? "entry" : "entries"
+        @warn "left $(length(capstack)) $amount on the capture stack: $(capstack)"
     end
     return PegMatch(vm.subject, last, captures, patt)
 end

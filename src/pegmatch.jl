@@ -124,6 +124,9 @@ function Base.getindex(m::PegMatch, i::PegKey)
     if i isa Integer
         elem = m.captures[i]
         if elem isa Pair
+            if elem.second isa Vector
+                return PegMatch(m.subject, m.last, elem.second, m.patt)
+            end
             return elem.second
         else
             return elem
@@ -131,6 +134,9 @@ function Base.getindex(m::PegMatch, i::PegKey)
     else
         for cap ∈ m.captures
             if cap isa Pair && cap.first == i
+                if cap.second isa Vector
+                    return PegMatch(m.subject, m.last, cap.second, m.patt)
+                end
                 return cap.second
             end
         end

@@ -9,16 +9,17 @@ bootstrap of other dialects.
 @grammar re begin
     :pattern      ←  :exp * !P(1)
     :exp          ←  :S * (:grammar | :alternative)
-    :alternative  ←  :seq * !(:S * "|") | [:seq * ("|" * :S * :seq)^0, :alt]
-    :seq          ←  [:prefix^1, :seq] | P(true)
+    :alternative  ←  ([:seq * :S * ("|" * :S * :alternative)^1, :alt] | :seq * :S)^1
+    :seq          ←  [(:prefix * :S)^2, :seq] | :prefix * :S
 
     :prefix       ←  "&" * :S * :prefix | "!" * :S * :prefix | :suffix
-    :suffix       ←  :primary * :S * (((S"+*?", :kleene)
-                                 | "^" *(S"+-"^-1 * :num, :rep)
-                                 | ("|>" | "<|") * :S * (:name, :action)
-                                 | ">:" * :S * (:name, :runtime)) * :S)^0
+    :suffix       ←  ( :primary * :S * !S"+*?^|<:"
+                     | [:primary * :S * ( (S"+*?", :kleene)
+                                         | "^" * (( S"+-"^-1,) * (:num,), :rep)
+                                         | ("|>" | "<|") * :S * (:name, :action)
+                                         | ">:" * :S * (:name, :runtime) * :S)^1, :suffixed])
 
-    :primary      ← ( "(" * :exp * ")" | :string | :class | :defined
+    :primary      ← ( "(" * [:exp] * ")" | :string | :class | :defined
                       | ["{:" * :exp * ":" * :name^-1 * "}", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("{}", :positioncapture)
