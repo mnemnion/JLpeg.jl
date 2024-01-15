@@ -960,23 +960,29 @@ end
 If a pattern matches a fixed length, return that length,
 otherwise return `false`.
 """
-function fixedlen(patt::Pattern)::Union{Integer,Bool}
+function fixedlen(patt::Pattern, seen=IdDict())::Union{Integer,Bool}
+    if haskey(seen, patt) # Recursive patterns cannot be fixedlen
+        return 0
+    end
     if isof(patt, PChar, PSet)
         return 1
-    elseif isof(patt, PAny)
+    elseif isa.(patt, PAny)
         return patt.val
-    elseif isof(patt, PTrue, PFalse, PAnd, PNot, PBehind)
+    elseif isa.(patt, PTrue, PFalse, PAnd, PNot, PBehind)
         return 0
-    elseif isof(patt, PStar, PRunTime, POpenCall, PThrow)
+    elseif isa.(patt, PStar, PRunTime, POpenCall, PThrow)
         return false
-    elseif isof(patt, PCapture, PRule)
-        return fixedlen(patt[1])
+    elseif isa(patt, PCapture)
+        return fixedlen(patt[1], seen)
+    elseif isa(patt, PRule)
+        seen[patt] = true
+        return fixedlen(patt[1], seen)
     elseif patt isa PCall
-        error("fixedlen not yet implemented for PCall")
+        return fixedlen(patt.ref, seen)
     elseif patt isa PSeq
         len = 0
         for p in patt.val
-            l = fixedlen(p)
+            l = fixedlen(p, seen)
             if l === false
                 return false
             else
@@ -985,12 +991,12 @@ function fixedlen(patt::Pattern)::Union{Integer,Bool}
         end
         return len
     elseif patt isa PChoice
-        len = fixedlen(patt.val[1])
+        len = fixedlen(patt.val[1], seen)
         if len === false
             return false
         end
         for i = 2:length(patt.val)
-            l = fixedlen(patt.val[i])
+            l = fixedlen(patt.val[i], seen)
             if l === false || len != l
                 return false
             end
