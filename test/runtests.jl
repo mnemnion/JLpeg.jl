@@ -1,10 +1,10 @@
 using JLpeg; import JLpeg as J
 import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
 using Test
-using TestSetExtensions
+# using TestSetExtensions
 using InteractiveUtils
 
-@testset ExtendedTestSet "Patterns" begin
+@testset "Patterns" begin
     @testset "Sequences" begin
         a = P("abc")
         b = P("def")
@@ -339,11 +339,17 @@ using InteractiveUtils
         @test match(capn, "sdfdasfarewaaawerwr").offsets == [5, 8, 12, 13, 14]
     end
     @testset "Preface Checks" begin
-    prefix1 = P"abc" | P"abd" | P"abf"
-    @test match(prefix1, "abc")[1] == "abc"
-    @test match(prefix1, "abd")[1] == "abd"
-    @test match(prefix1, "abf")[1] == "abf"
-    @test match(prefix1, "abg") isa PegFail
-    @test repr(prefix1.code) == "JLpeg.Instruction[JLpeg.ChoiceInst(5, JLpeg.IChoice), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('c', JLpeg.IChar), JLpeg.LabelInst(9, JLpeg.ICommit), JLpeg.ChoiceInst(5, JLpeg.IChoice), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('d', JLpeg.IChar), JLpeg.LabelInst(4, JLpeg.ICommit), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('f', JLpeg.IChar), JLpeg.MereInst(JLpeg.IEnd)]"
+        prefix1 = P"abc" | P"abd" | P"abf"
+        @test match(prefix1, "abc")[1] == "abc"
+        @test match(prefix1, "abd")[1] == "abd"
+        @test match(prefix1, "abf")[1] == "abf"
+        @test match(prefix1, "abg") isa PegFail
+        @test repr(prefix1.code) == "JLpeg.Instruction[JLpeg.ChoiceInst(5, JLpeg.IChoice), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('c', JLpeg.IChar), JLpeg.LabelInst(9, JLpeg.ICommit), JLpeg.ChoiceInst(5, JLpeg.IChoice), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('d', JLpeg.IChar), JLpeg.LabelInst(4, JLpeg.ICommit), JLpeg.CharInst('a', JLpeg.IChar), JLpeg.CharInst('b', JLpeg.IChar), JLpeg.CharInst('f', JLpeg.IChar), JLpeg.MereInst(JLpeg.IEnd)]"
+        presetfix = P"12" * S"ab" * P"xy" | P"12" * S"ab" * P"xz"
+        @test match(presetfix, "12axy")[1] == "12axy"
+        @test match(presetfix, "12bxy")[1] == "12bxy"
+        @test match(presetfix, "12bxz")[1] == "12bxz"
+        @test match(presetfix, "12axz")[1] == "12axz"
+        @test repr(presetfix.code) ==  "JLpeg.Instruction[JLpeg.ChoiceInst(7, JLpeg.IChoice), JLpeg.CharInst('1', JLpeg.IChar), JLpeg.CharInst('2', JLpeg.IChar), JLpeg.SetInst(475368975085586025561263702016, 1, JLpeg.ISet), JLpeg.CharInst('x', JLpeg.IChar), JLpeg.CharInst('y', JLpeg.IChar), JLpeg.LabelInst(6, JLpeg.ICommit), JLpeg.CharInst('1', JLpeg.IChar), JLpeg.CharInst('2', JLpeg.IChar), JLpeg.SetInst(475368975085586025561263702016, 1, JLpeg.ISet), JLpeg.CharInst('x', JLpeg.IChar), JLpeg.CharInst('z', JLpeg.IChar), JLpeg.MereInst(JLpeg.IEnd)]"
     end
 end

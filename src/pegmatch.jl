@@ -61,7 +61,7 @@ function Base.getproperty(match::PegMatch, field::Symbol)
     return getfield(match, field)
 end
 
-function Base.propertynames(match::PegMatch)
+function Base.propertynames(::PegMatch)
     return (fieldnames(PegMatch)..., :offsets)
 end
 

@@ -11,11 +11,10 @@ OrderedCollections = "bac558e1-5e72-5ebc-8fee-abe8a469f55d"
 PositionStrings = "1c265b60-6274-4f93-86db-040771a8aeda"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TestSetExtensions = "98d24dd4-01ad-11ea-1b02-c9a08f80db04"
-ToggleMenus = "6dfc96c8-e1b7-449c-9871-5de18f44e5a6"
 Unicode = "4ec0a83e-493e-50e2-b9ac-8f72acf5a8f5"
 
 [compat]
-julia = "1"
+julia = "1.7"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
