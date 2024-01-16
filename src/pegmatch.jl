@@ -12,7 +12,7 @@ the [`match`](@ref) function.  [`PegFail`](@ref) is the atypical return value.
 
 A `PegMatch` is equal (`==`) to a `Vector` if the captures are equal to the `Vector`.
 
-Fields:
+Properties:
 
 -  `subject` stores the string matched.
 
@@ -26,10 +26,10 @@ Fields:
     consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`, `Cc`, `A`,
     and `Anow`.
 
--  `offsets` is a property provided for compatibility with AbstractMatch.  SubStrings
-   contain their own offsets, so this is unnecessary for normal work, but we JIT it
-   for `math.offsets`.  It then consists of the indices at which the outer layer of
-   captures may be found within the subject.
+-  `offsets` is a `Vector{Int}`, provided for compatibility with `AbstractMatch`.
+   `SubString`s contain their own offsets, so this is unnecessary for normal work,
+   but we JIT it for `match.offsets`.  It then consists of the indices at which the
+   outer layer of captures may be found within the subject.
 
 - `patt` is the `Pattern` matched against the subject.
 """
@@ -44,11 +44,11 @@ struct PegMatch <: AbstractMatch
              patt::Pattern) = new(subject, last, captures, patt)
 end
 
-function Base.:(==)(match::PegMatch, other::Vector)
+function Base.:(==)(match::PegMatch, other::AbstractVector)
     return match.captures == other
 end
 
-function Base.:(==)(other::Vector, match::PegMatch)
+function Base.:(==)(other::AbstractVector, match::PegMatch)
     return other == match.captures
 end
 

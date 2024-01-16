@@ -362,7 +362,7 @@ methods provided for more complex scenarios.  Let's consider a simple rule with 
 captures.
 
 ```jldoctest baddate
-julia> @rule :baddate ← (R"09"^[4], :year) * "-" * (R"09"^[2],) * "-" * (R"09"^[2], :day);
+julia> @rule :baddate ← (R"09"^[4], :year) * "-" * (R"09"^[2:2],) * "-" * (R"09"^[2], :day);
 
 julia> date = match(baddate, "2024-01-10")
 PegMatch([:year => "2024", "01", :day => "10"])
@@ -370,7 +370,29 @@ PegMatch([:year => "2024", "01", :day => "10"])
 
 The rule name is because this is certainly not how you should parse a date!
 
-Let's illustrate how to work with this:
+Let's illustrate how to work with this.
+
+```jldoctest baddate
+julia> date == [:year => "2024", "01", :day => "10"]
+true
+
+julia> [:year => "2024", "01", :day => "10"] == date
+true
+```
+
+A [`PegMatch`](@ref) is [`==`](@extref `Base.:==`) to a [`Vector`](@extref
+`Base.AbstractVector`) with the same contents.  However, note that a `PegMatch` uses
+default hash equality:
+
+```jldoctest baddate
+julia> hash(date) == hash([:year => "2024", "01", :day => "10"])
+false
+```
+
+This is somewhat at variance with [doctrine](@extref `Base.hash`), but we feel it's
+the correct choice here.
+
+Let's trying indexing our match:
 
 ```jldoctest baddate
 julia> date[:day]
@@ -402,15 +424,6 @@ So far so good, what happens if a named capture matches more than once?
 
 ```jldoctest
 julia> @rule :abcs ← ((R"az"^1, :abc) | "123")^1;
-
-julia> match(abcs, "abc123def123ghi123")
-PegMatch([:abc => "abc", :abc => "def", :abc => "ghi"])
-
-julia> keys(ans)
-3-element Vector{Any}:
-  :abc
- 2
- 3
 
 julia> letters = match(abcs, "abc123def123ghi123")
 PegMatch([:abc => "abc", :abc => "def", :abc => "ghi"])

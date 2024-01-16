@@ -20,7 +20,7 @@ bootstrap of other dialects.
                                          | ">:" * :S * (:name, :runtime) * :S)^1, :suffixed])
 
     :primary      ← ( "(" * [:exp] * ")" | :string | :class | :defined
-                      | ["{:" * :exp * ":" * :name^-1 * "}", :groupcapture]
+                      | ["{:" * :exp * ":" * (:name^-1, :groupname) * "}", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("{}", :positioncapture)
                       | ["{"  * :exp *  "}", :capture]
