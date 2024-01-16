@@ -10,6 +10,8 @@ const PegOffset = Vector{Union{Integer,Vector}}
 A type representing a single match to a [`Pattern`](@ref).  Typically returned from
 the [`match`](@ref) function.  [`PegFail`](@ref) is the atypical return value.
 
+A `PegMatch` is equal (`==`) to a `Vector` if the captures are equal to the `Vector`.
+
 Fields:
 
 -  `subject` stores the string matched.
@@ -40,6 +42,14 @@ struct PegMatch <: AbstractMatch
              last::Integer,
              captures::PegCapture,
              patt::Pattern) = new(subject, last, captures, patt)
+end
+
+function Base.:(==)(match::PegMatch, other::Vector)
+    return match.captures == other
+end
+
+function Base.:(==)(other::Vector, match::PegMatch)
+    return other == match.captures
 end
 
 function Base.getproperty(match::PegMatch, field::Symbol)
