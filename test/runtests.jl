@@ -101,6 +101,9 @@ using InteractiveUtils
         @test match(opt, "abababab")[1] == "ab"
         @test match(opt, "abc")[1] == "ab"
         @test match(opt, "bc")[1] == ""
+        setopt = S"+-"^-1
+        @test match(setopt, "")[1] == ""
+        @test match(setopt, "+")[1] == "+"
         # Makes sure recursive reps don't hang
         inside = ((P("ab")^0))^0
         @test match(inside, "abab")[1] == "abab"
@@ -303,7 +306,7 @@ using InteractiveUtils
         @test match(re, "[a-z]")[:range].captures == ["a", "z"]
         @test match(re, "sym")[:call] == "sym"
         @test match(re, "a <- b c*")[:grammar] isa PegMatch
-        # @test_skip match(re, "a <- c^1") isa PegMatch
+        @test_skip match(re, "a <- c^1") isa PegMatch
     end
     @testset "MultiSet refactor tests" begin
         emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)

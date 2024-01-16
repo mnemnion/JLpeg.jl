@@ -619,8 +619,9 @@ function _compile!(patt::PStar)::Pattern
         end
         addstar!(c, code)
     elseif patt.n == -1
-        addstar!(c, code)
-        c[end] = CommitInst(1)
+        push!(c, ChoiceInst(length(code) + 2))
+        append!(c, code)
+        push!(c, CommitInst(1))
     elseif patt.n < -1
         _choice = length(c) + 1
         push!(c, OpNoOp)
