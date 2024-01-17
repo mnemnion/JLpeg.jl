@@ -338,9 +338,16 @@ function onInst(inst::SetInst, vm::VMState)::Bool
         end
     end
     if !match
-        updatesfar!(vm)
         vm.i += 1
-        return inst.op == ISet ? false : inst.op == ILeadSet ? true : error("weird opcode in onSet"); false
+        if inst.op == ISet
+            updatesfar!(vm)
+            return false
+        elseif inst.op == ILeadSet
+            return true
+        else
+            error("unrecognized set opcode $(inst.op)")
+            return false
+        end
     else
         vm.i += inst.l
         return true
@@ -599,14 +606,18 @@ function aftermatch(vm::VMState)::PegMatch
         f1 = prevind(vm.subject, f)
         return @views (vm.subject[s:f1])
     end
-    last = prevind(vm.subject, vm.s)
+    if vm.s == length(vm.subject) + 1
+        full = true
+    else
+        full = false
+    end
     captures = PegCapture()
     patt = vm.patt
     # there may not be any captures, in which case the whole
     # matched string is the capture:
     if lcap(vm) == 0
-        push!(captures, @views vm.subject[1:last])
-        return PegMatch(vm.subject, last, captures, patt)
+        push!(captures, @views vm.subject[1:prevind(vm.subject, vm.s)])
+        return PegMatch(vm.subject, full, captures, patt)
     end
     # Otherwise:
     # To handle nested captures of all sorts we use a stack
@@ -720,7 +731,7 @@ function aftermatch(vm::VMState)::PegMatch
         amount = length(capstack) == 1 ? "entry" : "entries"
         @warn "left $(length(capstack)) $amount on the capture stack: $(capstack)"
     end
-    return PegMatch(vm.subject, last, captures, patt)
+    return PegMatch(vm.subject, full, captures, patt)
 end
 
 function afterfail(vm::VMState)::PegFail

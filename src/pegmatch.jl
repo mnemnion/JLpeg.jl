@@ -16,9 +16,7 @@ Properties:
 
 -  `subject` stores the string matched.
 
--  `last` is the index of the last character matched by `patt`.  Due to the nature of
-    PEGs, the match always begins at the first character, so there is little point in
-    storing this information as a SubString (although the subject itself may be one).
+-  `full::Bool` whether the match is of the entire string.
 
 -  `captures` contains any captures from matching `patt` to `subject`.  This Vector
     can in principle contain anything, as captures may call functions, in which case
@@ -35,13 +33,13 @@ Properties:
 """
 struct PegMatch <: AbstractMatch
     subject::AbstractString
-    last::Integer
+    full::Bool
     captures::PegCapture
     patt::Pattern
     PegMatch(subject::AbstractString,
-             last::Integer,
+             full::Bool,
              captures::PegCapture,
-             patt::Pattern) = new(subject, last, captures, patt)
+             patt::Pattern) = new(subject, full, captures, patt)
 end
 
 function Base.:(==)(match::PegMatch, other::AbstractVector)
@@ -135,7 +133,7 @@ function Base.getindex(m::PegMatch, i::PegKey)
         elem = m.captures[i]
         if elem isa Pair
             if elem.second isa Vector
-                return PegMatch(m.subject, m.last, elem.second, m.patt)
+                return PegMatch(m.subject, false, elem.second, m.patt)
             end
             return elem.second
         else
@@ -145,7 +143,7 @@ function Base.getindex(m::PegMatch, i::PegKey)
         for cap ∈ m.captures
             if cap isa Pair && cap.first == i
                 if cap.second isa Vector
-                    return PegMatch(m.subject, m.last, cap.second, m.patt)
+                    return PegMatch(m.subject, false, cap.second, m.patt)
                 end
                 return cap.second
             end
@@ -241,8 +239,13 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
         print(io, "\"\"")
     elseif errpos == 1
         err = subject[1:1]
+        if err == " "
+            reverseit = true
+        else
+            reverseit = false
+        end
         print(io, '"')
-        printstyled(io, err, color=:red)
+        printstyled(io, err, color=:red, reverse=reverseit)
         print(io, subject[nextind(subject,1):end], '"')
     else # The point-of-failure is one past the character which caused that failure,
          #  so -1 to highlight it
@@ -250,8 +253,13 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
         e1 = prevind(subject, epos)
         e2 = nextind(subject, epos)
         sub1, err, sub2 = subject[1:e1], subject[epos:epos], subject[e2:end]
+        if err == " "
+            reverseit = true
+        else
+            reverseit = false
+        end
         print(io, '"', sub1)
-        printstyled(io, err, color=:red)
+        printstyled(io, err, color=:red, reverse=reverseit)
         print(io, sub2, '"')
     end
     print(io, ", $(Int(errpos))")

@@ -16,19 +16,20 @@ bootstrap of other dialects.
     :seq          ←  [:element * (:S * :element * :S)^1, :seq]
 
     :element       ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :action | :suffix
-    :suffix       ←  ([:primary * :S * ( (S"+*?", :kleene)
+    :suffix       ←  (([:primary * :S * ( (S"+*?", :kleene)
                                          | "^" * ((S"+-"^-1,) * (:number,), :rep)
-                                         | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange] * :S), :suffixed]) | :primary * :S
+                                         | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange] * :S), :suffixed])
+                     | :primary * :S)
 
     :action        ←  :suffix * (("|>" | "<|") * :S * (:name, :action) |
                                 ">:" * :S * (:name, :runtime))
 
 
     :primary      ← ( "(" * [:expr] * ")" | :string | :class | :defined
-                      | ["{:" * :expr * ":" * (:name^-1, :groupname) * "}", :groupcapture]
+                      | ["{" * :expr * ":" * (:name^-1, :groupname) * "}", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
-                      | ("{}", :positioncapture)
-                      | ["{"  * :expr *  "}", :capture]
+                      | ("()", :positioncapture)
+                      | ["("  * :expr * "," * :S * (((":" * :name, :capname) * :S)^-1) * ")", :capture]
                       | (".", :any)
                       | (:name, :call) * :S * !(:arrow) )
 

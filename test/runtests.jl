@@ -311,6 +311,8 @@ using InteractiveUtils
         @test match(re, "exp <- S grammar | alternative") isa PegMatch
         @test match(re, "a <- '123'^[1:3] |> action ") isa PegMatch
         @test match(re, "a <- '123'^[1:3] >: run_action") isa PegMatch
+        @test match(re, "a <- '123' * ('4'+, :fours)") isa PegMatch
+
         lpegre = """
         pattern         <- exp !.
         exp             <- S (grammar | alternative)
@@ -361,7 +363,7 @@ using InteractiveUtils
         @test match(not123, "3") isa PegFail
         @test match(not123, "🤡") isa PegMatch
         sphinx0 = (R"az" | " ")^0
-        @test match(sphinx0, "sphinx of black quartz judge my vow").last == 35
+        @test match(sphinx0, "sphinx of black quartz judge my vow").full == true
     end
 
     @testset "Type tests" begin
