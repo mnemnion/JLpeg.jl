@@ -309,6 +309,47 @@ using InteractiveUtils
         @test match(re, "a <- c^1") isa PegMatch
         @test match(re, "a <- 'a'+ 'b'* c?") isa PegMatch
         @test match(re, "exp <- S grammar | alternative") isa PegMatch
+        @test match(re, "a <- '123'^[1:3] |> action ") isa PegMatch
+        @test match(re, "a <- '123'^[1:3] >: run_action") isa PegMatch
+        lpegre = """
+        pattern         <- exp !.
+        exp             <- S (grammar | alternative)
+
+        alternative     <- seq ('/' S seq)*
+        seq             <- prefix*
+        prefix          <- '&' S prefix / '!' S prefix / suffix
+        suffix          <- primary S (([+*?]
+                                    / '^' [+-]? num
+                                    / '->' S (string / '{}' / name)
+                                    / '>>' S name
+                                    / '=>' S name) S)*
+
+        primary         <- '(' exp ')' / string / class / defined
+                         / '{:' (name ':')? exp ':}'
+                         / '=' name
+                         / '{}'
+                         / '{~' exp '~}'
+                         / '{|' exp '|}'
+                         / '{' exp '}'
+                         / '.'
+                         / name S !arrow
+                         / '<' name '>'         # old-style non terminals
+
+        grammar         <- definition+
+        definition      <- name S arrow exp
+
+        class           <- '[' '^'? item (!']' item)* ']'
+        item            <- defined / range / .
+        range           <- . '-' [^]]
+
+        S               <- (%s / '--' [^%nl]*)*   # spaces and comments
+        name            <- [A-Za-z_][A-Za-z0-9_]*
+        arrow           <- '<-'
+        num             <- [0-9]+
+        string          <- '"' [^"]* '"' / "'" [^']* "'"
+        defined         <- '%' name
+        """
+        @test match(re, lpegre) isa PegMatch
     end
     @testset "MultiSet refactor tests" begin
         emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)

@@ -831,7 +831,7 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
                     p.ref.val[1] = recursepattern!(p.ref[1], gaux)
                     p.ref.aux[:visiting] = false
                     p.ref.aux[:walked] = true
-                    p.ref.aux[:hascall] = p.ref[1].aux[:hascall]
+                    p.ref.aux[:hascall] = get(p.ref[1].aux, :hascall, false)
                 end
             end
         elseif p isa PCapture
