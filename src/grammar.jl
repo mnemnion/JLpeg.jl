@@ -56,7 +56,7 @@ end
 function wrap_rule(expr::Expr)::Expr
     if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_))
         return wrap_rule_body(expr)
-    elseif @capture(expr, (sym_ <--> rulebody_))
+    elseif @capture(expr, (sym_ ⟷ rulebody_) | (sym_ <--> rulebody_) | (sym_ ↔︎ rulebody_))
         local body = wrap_rule_body(rulebody)
         :($sym ← Cg($body, $sym))
     else
@@ -127,7 +127,11 @@ name = @rule :name  ←  "foo" | "bar"
 ```
 """
 macro rule(expr::Expr)
-    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_) | (sym_ <--> rulebody_))
+    if @capture(expr, (sym_ ← rulebody_)
+                    | (sym_ ⟷ rulebody_)
+                    | (sym_ <--> rulebody_)
+                    | (sym_ ↔︎ rulebody_)
+                    | (sym_ <-- rulebody_))
         local r = wrap_rule(expr)
         local name = sym.value
         :($(esc(name)) = $r)
@@ -137,7 +141,11 @@ macro rule(expr::Expr)
 end
 
 macro rule(expr::Expr, erest::Expr...)
-    if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_) | (sym_ <--> rulebody_))
+    if @capture(expr, (sym_ ← rulebody_)
+                    | (sym_ ⟷ rulebody_)
+                    | (sym_ <--> rulebody_)
+                    | (sym_ ↔︎ rulebody_)
+                    | (sym_ <-- rulebody_))
         error("extra expression in $(sym) :  $(erest...)")
     else
         error("malformed rule: $(expr) $(erest...)")

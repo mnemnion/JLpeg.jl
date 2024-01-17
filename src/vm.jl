@@ -176,8 +176,8 @@ Also sets the fail tag to 0, since throws set sfar directly,
 and this is the condition of all other failures
 """
 function updatesfar!(vm)
-    vm.failtag = 0
     if vm.s > vm.sfar
+        vm.failtag = 0
         vm.sfar = vm.s
     end
 end

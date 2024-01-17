@@ -7,29 +7,26 @@ const PegOffset = Vector{Union{Integer,Vector}}
 """
     PegMatch <: AbstractMatch
 
-A type representing a single match to a [`Pattern`](@ref).  Typically returned from
-the [`match`](@ref) function.  [`PegFail`](@ref) is the atypical return value.
+A type representing a successful match of a [`Pattern`](@ref) on a string.  Typically
+returned from the [`match`](@ref) function.  [`PegFail`](@ref) is the atypical return
+value.
 
 A `PegMatch` is equal (`==`) to a `Vector` if the captures are equal to the `Vector`.
 
 Properties:
 
--  `subject` stores the string matched.
-
--  `full::Bool` whether the match is of the entire string.
-
--  `captures` contains any captures from matching `patt` to `subject`.  This Vector
-    can in principle contain anything, as captures may call functions, in which case
-    the return value of that function becomes the capture.  For more information,
-    consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`, `Cc`, `A`,
-    and `Anow`.
-
--  `offsets` is a `Vector{Int}`, provided for compatibility with `AbstractMatch`.
+-  `subject::AbstractString`:  Stores the string matched.
+-  `full::Bool`:  Whether the match is of the entire string.
+-  `captures::Vector`:  Contains any captures from matching `patt` to `subject`.
+    This can in principle contain anything, as captures may call functions, in which
+    case the return value of that function becomes the capture.  For more
+    information, consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`,
+    `Cc`, `A`, and `Anow`.
+-  `offsets::Vector{Int}`:, provided for compatibility with `AbstractMatch`.
    `SubString`s contain their own offsets, so this is unnecessary for normal work,
    but we JIT it for `match.offsets`.  It then consists of the indices at which the
    outer layer of captures may be found within the subject.
-
-- `patt` is the `Pattern` matched against the subject.
+- `patt::Pattern`: The pattern matched against the subject.
 """
 struct PegMatch <: AbstractMatch
     subject::AbstractString
@@ -218,10 +215,16 @@ end
 """
     PegFail
 
-Returned on a failure to `match(patt:Pattern, subject::AbstractString)`. `errpos` is the
-position at which the pattern ultimately failed to match, `label` is info about the failure
-provided by `T(::symbol)`, defaulting to `:default` if the pattern fails but not at a throw
-point, or if no throws are provided.
+Returned on a failure to `match(patt:Pattern, subject::AbstractString)`.
+
+
+# Properties
+
+- `subject::AbstractString`:  The string that we failed to match on.
+- `errpos`: The position at which the pattern ultimately failed to match.
+- `label::Symbol`: Info about the failure provided by `T(::symbol)`, defaulting to
+        `:default` if the pattern fails but not at a throw point, or if no throws are
+        provided.
 """
 struct PegFail
     subject:: String
@@ -264,7 +267,7 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
     end
     print(io, ", $(Int(errpos))")
     if label != :default
-        print(io, ", $label")
+        print(io, ", :$label")
     end
     print(io, ")")
 end

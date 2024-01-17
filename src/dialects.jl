@@ -7,15 +7,15 @@ The first dialect, intended, among other things, as a useful
 bootstrap of other dialects.
 """
 @grammar re begin
-    :re           ←   (:grammar | :pattern) * !1
+    :re           ←  (:grammar | :pattern) * !1
     :pattern      ←  :expr
-    :grammar      <-->  :rule^1
+    :grammar     ⟷  :rule^1
     :rule         ←  [(:name, :rulename) * :S * :arrow * :S * [:expr] * :S, :rule]
     :expr         ←  :alt | :seq | :element
     :alt          ←  [(:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1, :alt]
     :seq          ←  [:element * (:S * :element * :S)^1, :seq]
 
-    :element       ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :action | :suffix
+    :element      ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :action | :suffix
     :suffix       ←  (([:primary * :S * ( (S"+*?", :kleene)
                                          | "^" * ((S"+-"^-1,) * (:number,), :rep)
                                          | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange] * :S), :suffixed])
@@ -25,11 +25,11 @@ bootstrap of other dialects.
                                 ">:" * :S * (:name, :runtime))
 
 
-    :primary      ← ( "(" * [:expr] * ")" | :string | :class | :defined
+    :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :defined
                       | ["{" * :expr * ":" * (:name^-1, :groupname) * "}", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("()", :positioncapture)
-                      | ["("  * :expr * "," * :S * (((":" * :name, :capname) * :S)^-1) * ")", :capture]
+                      | ["("  * :expr * "," * :S * (((":" * :name, :capname) % :badcapture) * :S)^-1  * ")", :capture]
                       | (".", :any)
                       | (:name, :call) * :S * !(:arrow) )
 
