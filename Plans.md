@@ -53,14 +53,10 @@ The hitlist:
   - [ ]  Refactor color printing to use `printstyled`.
 - [ ]  "Modularize" the @grammar code so that users don't get unexpected results if they
        define, say, `compile!` (humorous example) and try to use it as a variable name.
-- [x]  Macros
-  - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
-         escaping rules for the macro correct.
 - [ ]  Documenter stuff
   - [X]  Order the pages correctly
   - [ ]  Docstrings for private module names in Internals
   - [ ]  Add a "comparisons.md" page for in-depth comparison of PEGs to other systems.
-  - [ ]  Fix `PegFail` so the fail is visible (again).
 - [ ]  [Mark / Check](#mark-and-check-back-references)
   - [ ]  `MC(patt, :sym)`: Mark `patt` with `:sym` and capture with the same name.
   - [ ]  By analogy `KC(patt, :sym)` for checking-with-capture.
@@ -114,7 +110,8 @@ The hitlist:
          describing how to do it for the LPeg VM (!!), but LPeg has not been extended to allow
          this.  I'd like to ask the Lua list why before trying it myself...
     - [This repo](https://github.com/sacek/LPeg) is an LPeg fork with left recursion
-       added, I can diff this with its source (LPeg 1.0.0) and learn things.
+       added, I can diff this with its source (LPeg 1.0.0) and learn things. Here's
+       how to [do a file diff](https://vscode.one/diff-vscode/) in VSCode.
   - [ ]  Choice-sequence [prefix matching](#prefix-matching).  This is something
          regex automatons do automatically, which would be nice for us to have.
          Basically, it work with head sequences (including sets, and maybe
@@ -208,6 +205,9 @@ The hitlist:
   - [X]  `patt^[n:m]` for fixed repetition.  The `Vector` is a nice way of avoiding precedence
          problems, probably better than requiring `patt^(n:m)`.  This simply decomposes into
          `patt(n times) * patt^(n - m)`, which we can do in the constructor.
+  - [x]  Macros
+    - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
+           escaping rules for the macro correct.
 
 [Trees]: https://github.com/JuliaCollections/AbstractTrees.jl
 

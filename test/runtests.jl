@@ -308,6 +308,7 @@ using InteractiveUtils
         @test match(re, "a <- b c*")[:grammar] isa PegMatch
         @test match(re, "a <- c^1") isa PegMatch
         @test match(re, "a <- 'a'+ 'b'* c?") isa PegMatch
+        @test match(re, "exp <- S grammar | alternative") isa PegMatch
     end
     @testset "MultiSet refactor tests" begin
         emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)
