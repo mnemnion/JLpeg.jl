@@ -7,29 +7,31 @@ The first dialect, intended, among other things, as a useful
 bootstrap of other dialects.
 """
 @grammar re begin
-    :pattern      ←  :exp * !P(1)
-    :exp          ←  :S * (:grammar | :alternative)
-    :alternative  ←  ([:seq * :S * ("|" * :S * :alternative)^1, :alt] | :seq * :S)^1
-    :seq          ←  [(:prefix * :S)^2, :seq] | :prefix * :S
+    :re           ←   (:grammar | :pattern) * !P(1)
+    :pattern      ←  :expr * !P(1)
+    :grammar      <-->  :rule^1
+    :rule         ←  [(:name, :rulename) * :S * :arrow * :S * [:expr] * :S, :rule]
+    :expr         ←  :alt | :seq | :element
+    :alt          ←  [(:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1, :alt]
+    :seq          ←  [:element * (:S * :element * :S)^1, :seq]
 
-    :prefix       ←  "&" * :S * :prefix | "!" * :S * :prefix | :suffix
-    :suffix       ←  ( :primary * :S * !S"+*?^|<:"
-                     | [:primary * :S * ( (S"+*?", :kleene)
+    :element       ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :suffix
+    :suffix       ←  ([:primary * :S * ( (S"+*?", :kleene)
                                          | "^" * (( S"+-"^-1,) * (:num,), :rep)
                                          | ("|>" | "<|") * :S * (:name, :action)
-                                         | ">:" * :S * (:name, :runtime) * :S)^1, :suffixed])
+                                         | ">:" * :S * (:name, :runtime) * :S)^1, :suffixed]) | :primary * :S
 
-    :primary      ← ( "(" * [:exp] * ")" | :string | :class | :defined
-                      | ["{:" * :exp * ":" * (:name^-1, :groupname) * "}", :groupcapture]
+
+    :primary      ← ( "(" * [:expr] * ")" | :string | :class | :defined
+                      | ["{:" * :expr * ":" * (:name^-1, :groupname) * "}", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("{}", :positioncapture)
-                      | ["{"  * :exp *  "}", :capture]
+                      | ["{"  * :expr *  "}", :capture]
                       | (".", :any)
-                      | (:name * :S * !(:arrow), :call) )
+                      | (:name, :call) * :S * !(:arrow) )
 
-    :grammar      <-->  :rule^1
-    :rule         ←  [(:name, :rulename) * :S * :arrow * [:exp], :rule]
-    :class        ←  "[" * "^"^-1 * :item * (!"]" * :item)^0 * "]"
+    :class        ←  "[" * "^" * (:item * (!"]" * :item)^0, :notset) * "]" |
+                     "[" * (:item * (!"]" * :item)^0, :set) * "]"
     :item         ←  :defined | :range | P(1)
     :range        ←  [(P(1),) * "-" * (!S"]" * (P(1),)), :range]
 
