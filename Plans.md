@@ -51,6 +51,7 @@ The hitlist:
          truncated the string in the front or the back.  There are always substrings,
          but if `i` is the first or last character, one of them will be empty.
   - [ ]  Refactor color printing to use `printstyled`.
+  - [X]  Highlight PegFail on a space with background red
 - [ ]  "Modularize" the @grammar code so that users don't get unexpected results if they
        define, say, `compile!` (humorous example) and try to use it as a variable name.
 - [ ]  Documenter stuff
@@ -81,9 +82,9 @@ The hitlist:
   - [ ]  disjoint-PChoice optimization
   - [ ]  Capture-closing optimization (vm)
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
-- [ ]  Un-pirate: shadow operators with a definition which falls back to Base,
+- [X]  Un-pirate: shadow operators with a definition which falls back to Base,
        don't extend Base for operators directly.
-  - [ ]  Separate module JLpeg.Combinators for exporting the operators directly.
+  - [X]  Separate module JLpeg.Combinators for exporting the operators directly.
          They'll still work in `@rule` and `@grammar`.
 - [#]  Proposed optimizations not found in LPeg
   - [X]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
@@ -525,3 +526,13 @@ even have profiling set up and it's asinine to optimize on this level until I've
 in all the other optimizations and features, have wide-ranging tests, and so on.
 
 I needed to get this out of my head so I can get on with all that.
+
+### Stay Winning
+
+I want to figure out how to implement the stay winning algorithm with the bytecode VM.
+
+It involves tracking calls somehow, when there are prefix matches.  That's all I've got so far.
+
+I think it's as simple as one instruction. A WinningCommitInstruction is like
+PartialCommit, in that it updates `.ts` and `.tc`, but it also carries a label which
+updates `.ti` to point to a new jump.

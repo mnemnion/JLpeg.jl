@@ -31,11 +31,12 @@ reporting and recovery.
 
 Compared with a "compiler compiler" such as ANTLR or the classic yacc/bison, JLpeg
 does not generate source code, but rather bytecode, which Julia is able to JIT into
-near-optimal machine code on the fly.  These systems work on tokens, an abstraction
-PEGs don't use, which allows JLpeg to parse contextually-valid grammars which cannot
-be readily tokenized.  PEGs are also far more suitable for scanning, captures, and
-other pattern-recognition tasks than these programs, which are only well-suited to
-parsing of full grammars, a task JLpeg also excels at.
+near-optimal machine code on the fly.  These systems require an imput stream to be
+reduced to tokens, an abstraction PEGs do not need, which allows JLpeg to parse
+contextually-valid grammars which cannot be readily tokenized.  PEGs are also far
+more suitable for scanning, captures, and other pattern-recognition tasks than these
+programs, which are only well-suited to parsing of full grammars, a task JLpeg also
+excels at.
 
 ## Patterns
 
@@ -193,6 +194,9 @@ match(abc123, "abc123123123abc123abc")
 PegMatch(["abc123123123abc123abc"])
 ```
 
+Although we suggest as a matter of style that a grammar use one arrow form or the
+other, with `←` preferred.
+
 The first rule is the start rule, which must succeed if the match is to succeed.  A
 grammar which is missing rules will throw a [`PegError`](@ref), but duplicate rules
 are undefined behavior: currently JLpeg will compile the last rule of that name it
@@ -210,28 +214,28 @@ and `∅` for `P(false)`, and these may be used in grammars and rules as well, w
 `\varepsilon` (`\vare[TAB]`) and `\emptyset` (`\emp[TAB]`) respectively.
 
 Exported variable names from `JLpeg` will always refer to the values they have in the
-module, any other variable will be escaped, so it will have the expected meaning.
+module.  Any other variable will be escaped, so it will have the expected meaning.
 
 To give an example, this rule:
 
 ```julia
-@rule :a ← "foo" * ["abc"^0 | S"123"]^1
+@rule :a ← "foo" *  [S"123" | "abc"^0]^1
 ```
 
 Is equivalent to this expression:
 
 ```julia
-a = :a ← P("foo") * Cg(P("abc")^0 | S("123"))^1
+a = :a ← P("foo") * Cg(S("123") | P("abc")^0)^1
 ```
 
 Although the definitions of the operators and string macros would allow this reduction:
 
 ```julia
-a = :a ← P"foo" * Cg(P"abc"^0 | S"123")^1
+a = :a ← P"foo" * Cg(S"123" | "abc"^0)^1
 ```
 
 Which is a bit less cumbersome (we try).  Note that the `@rule` form doesn't require
-the importation of `@S_str`, or any other public symbol, thanks to the nature of
+the importation of `@S_str`, or any other exported name, thanks to the nature of
 Julia macros.
 
 A classic example of a task forever beyond the reach of regular expressions is balancing parentheses, with JLpeg this is easy:
@@ -246,7 +250,7 @@ end;
 
 match(parens, "(these (must) balance)")
 
-match(parens, "(these (must) balance")
+match(parens, "these (must) balance)")
 
 match(parens, "(these (must) balance")
 
@@ -279,9 +283,9 @@ that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
 `P("") >> C(P("56"))`.
 
 | [❓] | Operation               | What it produces                                       |
-| --- | ----------------------- | :----------------------------------------------------- |
+| --- | :---------------------- | :----------------------------------------------------- |
 | [✅] | `C(patt [, key])`,      | captures the substring of `patt`                       |
-| [✅] | `(patt,)`,              | same as above, note the comma!                         |
+| [✅] | `(patt,)`               | same as above, note the comma!                         |
 | [✅] | `(patt, key)`           | `key` may be `:symbol` or `"string"`                   |
 | [✅] | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,        |
 | [✅] | `[patt], ([patt], key)` | optionally tagged with `key`                           |
@@ -320,6 +324,8 @@ julia> match(capABC, "abcBCAzyzCCCdef")
 PegMatch([:capABC => ["BCA", "CCC"]])
 ```
 
+With both `⟷` and `↔︎` as synonyms.
+
 ## Actions
 
 A pattern may be modified with an action to be taken, either at runtime, or, more
@@ -327,11 +333,6 @@ commonly, once the match has completed.  These actions are supplied with all cap
 in `patt`, or the substring matched by `patt` itself if `patt` contains no captures
 of its own.
 
-`T(:label)` doesn't capture, but rather, fails the match, records the position
-of that failure, and throws `:label`.  If there is a rule by that name, it is
-attempted for error recovery, otherwise `:label` and the error position are attached
-to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
-is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
 
 | [❓] | Action                | Consequence                                     |
 | --- | --------------------- | :---------------------------------------------- |
@@ -348,6 +349,53 @@ The use of `<|` is meant to be mnemonic of [`|>`](@extref
 `Function-composition-and-piping`) for ordinary piping (and shares its
 usefully low precedence), without pirating the meaning of the pipe operator.  This way
 `patt |> λ` will do the expected thing, `λ(patt)`.
+
+### Throws and Recovery
+
+The ultimate challenge of good parsing has always been error reporting and recovery.
+With old-school [lex and yacc](https://www.wikiwand.com/en/Yacc), the conventional
+wisdom was to develop the grammar for a language or DSL using the compiler-compiler
+toolkit, to assure that the grammar is actually in a useful context-free class, then
+handroll a recursive-descent parser for production use, in order to provide users
+with useful error messages when they inevitably create syntax errors.
+
+[`JLpeg`](index.md), being a PEG parser, is a formalization of the classic
+recursive-descent parsing strategy.  It includes a mechanism pioneered by
+[lpeglabel](https://github.com/sqmedeiros/lpeglabel), somewhat improved in the
+implementation, which allows a pattern to throw a specific error when an expected
+aspect of parsing is violated.
+
+`T(:label)` doesn't capture, but rather, fails the match, records the position
+of that failure, and throws `:label`.  If there is a rule by that name, it is
+attempted for error recovery, otherwise `:label` and the error position are attached
+to the `PegFail` struct, in the event that the whole pattern fails.  The label `:default`
+is reserved by JLpeg for reporting failure of patterns which didn't otherwise throw a label.
+
+Consider a simplified pattern for matching double-quoted strings:
+
+```@repl badstring
+using JLpeg #hide
+
+@rule :string  ←  "'" * (!"'" * 1)^0 * "'";
+
+match(string, "'a string'")
+
+match(string, "'not a string")
+```
+
+We do mark the point of failure, which is better than average; a normal PEG or parser
+combinator will silently fail to match, without informing the user of where. But we
+can do better with throws.
+
+```@repl badstring
+@rule :string  ←  "'" * (!"'" * 1)^0 * ("'" % :badstring)
+
+match(string, "'not a string")
+```
+
+This provides us both with the point of failure, and the cause, data which can be
+used to provide a helpful error message to the user of your patterns, who may or may
+not be you.
 
 ## Working With Matched Data
 
