@@ -179,7 +179,6 @@ end
 
 # To be continued...
 
-abstract type SpanInst end
 abstract type CloseRunTimeInst end
 abstract type MarkInstruction end
 abstract type CheckInstruction end

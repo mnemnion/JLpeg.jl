@@ -9,7 +9,7 @@ end
 
 "Show a CapEntry"
 function Base.show(io::IO, ::MIME"text/plain", cap::CapEntry)
-    print(io, "s:$(Int(cap.s)) $(cap.inst)}")
+    print(io, "s:$(Int(cap.s)) $(repr("text/plain",cap.inst))}")
 end
 
 "Show a vector of Bytecode instructions."
@@ -108,8 +108,6 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
     end
     print(io, join(lines, "\n"))
 end
-
-
 
 "Show a VMState."
 function Base.show(io::IO, ::MIME"text/plain", vm::VMState)
@@ -313,7 +311,6 @@ function bitvector_to_compact_repr(bitvec::IVec128)
 
     return fragments
 end
-
 
 # VMState printing helpers
 
