@@ -737,7 +737,7 @@ function _compile!(patt::PGrammar)::Pattern
         rule.aux[:visiting] = false
         rule.aux[:walked] = false
         rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
-    end  # TODO we can fold all of this into recursepattern
+    end
     patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
         if p isa PCapture
             a[:caps][p.tag] = p.cap
@@ -811,7 +811,7 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
         end
     end
     if !isa(patt.val, Vector)
-        @error "missing primitive maybe? $(typeof(patt)).val <: $(typeof(patt.val))"
+        @error "missing primitive maybe? $(typeof(patt)).val isa $(typeof(patt.val))"
     end
     hascap = false
     hascall = false
@@ -837,7 +837,7 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
         elseif p isa PCapture
             hascap = true
         end
-        p = patt.val[idx] = recursepattern!(p, gaux)
+        patt.val[idx] = recursepattern!(p, gaux)
     end
     patt.aux[:visiting] = false
     patt.aux[:walked] = true
@@ -898,7 +898,19 @@ function peephole!(code::IVector)
             if inst.l ≠ l
                 code[i] = relabel(inst, l)
             end
-        end # TODO handle IJump itself
+        elseif inst.op == IJump
+            l = finallabel(code, i)
+            if l ≠ inst.l
+                println("indirect jump in program (implement redirect)")
+            end
+            target = code[i + l]
+            t_op = target.op
+            if t_op == IReturn || t_op == IFail || t_op == IFailTwice || t_op == IEnd
+                println("instruction $i is a Jump to be transformed to $t_op")
+            elseif t_op == ICommit || t_op == IPartialCommit || t_op == IBackCommit
+                println("instruction $i jumps to commit: the complex case")
+            end
+        end
     end
 end
 
