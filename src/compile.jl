@@ -500,15 +500,15 @@ function _compile!(patt::PSet)::Pattern
         return compile!(PFalse())
     end
     # Specialize one-char sets into PChar
-    if length(patt.val) == 1 && patt.val[1] isa AbstractChar
+    if sizeof(patt.val) ≤ 4 && length(patt.val) == 1 && patt.val[1] isa AbstractChar
         return compile!(PChar(first(patt.val)))
     end
     bvec, prefix_map = makebitvectors(patt.val)
     if bvec !== nothing && prefix_map === nothing
         push!(patt.code, SetInst(bvec))
-     else
-         encode_multibyte_set!(patt.code, bvec, prefix_map)
-     end
+    else
+        encode_multibyte_set!(patt.code, bvec, prefix_map)
+    end
     pushEnd!(patt.code)
     return patt
 end
@@ -530,7 +530,8 @@ function _compile!(patt::PNot)::Pattern
     c = patt.code
     code = hoist!(patt, patt[1])
     # We can remove captures from PNot patterns,
-    # which never succeed (except match-time captures)I
+    # which never succeed (except match-time captures)
+    # TODO unlikely optimization unless we inline simple calls (which we should)
     for (idx, inst) in enumerate(code)
         if ( ( inst.op == IOpenCapture
             || inst.op == ICloseCapture
@@ -879,11 +880,37 @@ function link!(code::IVector, aux::AuxDict)
             end
         end
     end
-    # TODO Optimize jumps (once I have a test grammar displaying multiple indirects)
-    # What creates jumps?
-    # - [x] tail calls
-    # - [ ] PStar with a headfail / test instruction
+    peephole!(code)
 end
+
+"""
+    peephole!(code::IVector)
+
+Optimizes jumps and labeled instructions which point to them.
+"""
+function peephole!(code::IVector)
+    for i ∈ 1:length(code)
+        # @label redo
+        inst = code[i]
+        op = inst.op
+        if hasfield(typeof(inst), :l) && op != IJump
+            l = finallabel(code, i)
+            if inst.l ≠ l
+                code[i] = relabel(inst, l)
+            end
+        end # TODO handle IJump itself
+    end
+end
+
+function finallabel(code::IVector, i::Integer)::Int32
+    inst = code[i]
+    target = inst.l
+    while code[i + target].op == IJump
+        target += code[i + target].l
+    end
+    return target
+end
+
 
 """
     headfail(patt::Pattern)::Bool

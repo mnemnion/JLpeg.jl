@@ -592,6 +592,7 @@ end
 "Catch OpenCallInst"
 function onInst(::OpenCallInst, ::VMState)
     throw(PegError("Undefined rule while matching Pattern"))
+    return false
 end
 
 """
@@ -630,7 +631,7 @@ function aftermatch(vm::VMState)::PegMatch
         if cap.inst.op == IOpenCapture
             push!(capstack, cap)
             if cap.inst.kind == Cgroup
-                # Push our current captures and offsets onto the group stack
+                # Push our current captures onto the group stack
                 push!(groupstack, captures)
                 captures = PegCapture()
             end
@@ -675,7 +676,7 @@ function aftermatch(vm::VMState)::PegMatch
                 else
                     push!(caps, captures)
                 end
-                captures= caps
+                captures = caps
             elseif ikey.kind == Cposition
                 # Note: the original intention was to capture an empty SubString,
                 # Those are unfortunately broken (they set the offset to 0) so
