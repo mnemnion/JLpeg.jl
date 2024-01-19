@@ -294,7 +294,7 @@ Base.keys(::IVec128) = 1:128
 
 
 function Base.iterate(inst::IASCIISet, i::Integer)
-    i = i + 1
+    i += 1
     i > 128 && return nothing
     if inst[i]
         return UInt8(i-1), i
@@ -304,7 +304,7 @@ function Base.iterate(inst::IASCIISet, i::Integer)
 end
 
 function Base.iterate(inst::LeadMultiInst, i::Integer)
-    i = i + 1
+    i += 1
     i > 128 && return nothing
 
     if @inbounds inst[i]
@@ -315,7 +315,7 @@ function Base.iterate(inst::LeadMultiInst, i::Integer)
 end
 
 function Base.iterate(inst::MultiVecInst, i::Integer)
-    i = i + 1
+    i += 1
     i > 64 && return nothing
     if @inbounds inst[i]
         return UInt8(i-1) | 0b10000000, i
@@ -886,7 +886,7 @@ end
 """
     peephole!(code::IVector)
 
-Optimizes jumps and labeled instructions which point to them.
+Optimizes jumps, and labeled instructions which point to them.
 """
 function peephole!(code::IVector)
     for i ∈ 1:length(code)
@@ -908,12 +908,17 @@ function peephole!(code::IVector)
             if t_op == IReturn || t_op == IFail || t_op == IFailTwice || t_op == IEnd
                 println("instruction $i is a Jump to be transformed to $t_op")
             elseif t_op == ICommit || t_op == IPartialCommit || t_op == IBackCommit
-                println("instruction $i jumps to commit: the complex case")
+                println("instruction $i jumps to $t_op: the complex case")
             end
         end
     end
 end
 
+"""
+    finallabel(code::IVector, i::Integer)::Int32
+
+Follows all jumps to produce the final target of a labeled instruction.
+"""
 function finallabel(code::IVector, i::Integer)::Int32
     inst = code[i]
     target = inst.l

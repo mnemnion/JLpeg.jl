@@ -102,7 +102,7 @@ regex-like captures.
 function Base.keys(m::PegMatch)::Vector
     keys = []
     keyset = Set{Union{Symbol,AbstractString}}()
-    for (idx, elem) in enumerate(m.captures)
+    for (idx, elem) in pairs(m.captures)
         if elem isa Pair
             if elem.first in keyset
                 push!(keys, idx)
@@ -203,7 +203,16 @@ function showcaptures(io::IO, caps::Vector)
     print(io, "]")
 end
 
-Base.iterate(m::PegMatch, args...) = iterate(m.captures, args...)
+function Base.iterate(m::PegMatch)
+    iterate(m, 0)
+end
+
+function Base.iterate(m::PegMatch, i::Integer)
+    i += 1
+    i > length(m.captures) && return nothing
+    return m[i], i
+end
+
 Base.length(m::PegMatch) = length(m.captures)
 
 function Base.show(io::IO, ::MIME"text/plain", m::PegMatch)
