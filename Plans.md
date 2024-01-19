@@ -259,8 +259,11 @@ function onCaptureCommit(inst::LabelInst, vm::VMState)
 end
 ```
 
-This saves us a frame in both the VM stack and (more importantly) the capture stack,
-in a common workload.
+This saves us a frame in both the VM stack and the capture stack, in a common
+workload.
+
+Note: We can't apply this optimization if there are nested captures and the CloseCapture
+is of group type.
 
 ### Prefix Matching
 
@@ -294,6 +297,23 @@ can never be reached, due to ordered choice. The rules for shadowing are somewha
 different, for example, patt^1 shadows patt^0, a superset shadows a subset, the
 principle is that a pattern shadows another pattern if it can match everything that
 pattern recognizes.
+
+#### What Can We Do With This
+
+There are four states a Choice can be in with the full analysis.
+
+1. It cannot be prefix or suffix matched, no rules shadow, etc. No change.
+2. We can successfully merge prefixes or suffixes.  We do so.
+3. There is an earlier choice which prevents the execution of a later choice from
+   ever happening. We report this as a bug.
+4. There are common pathways through the prefix, but earlier rules match longer
+   strings than later ones.  This is where we apply [Stay Winning](#stay-winning).
+
+Detection is actually the tricky part here, we need to look through multiple rules to
+see what's going on.  Something tells me this is solved with a custom data structure,
+like a Trie, but where adding a rule as a choice applies the required comparison
+rules and maintains references into the original Pattern, prevents runaway recursion,
+and so on.
 
 ### Relabeling Bytecode
 
@@ -529,10 +549,64 @@ I needed to get this out of my head so I can get on with all that.
 
 ### Stay Winning
 
-I want to figure out how to implement the stay winning algorithm with the bytecode VM.
+I want to figure out how to implement the Stay Winning algorithm with the bytecode
+VM.
 
-It involves tracking calls somehow, when there are prefix matches.  That's all I've got so far.
+Example code:
 
-I think it's as simple as one instruction. A WinningCommitInstruction is like
-PartialCommit, in that it updates `.ts` and `.tc`, but it also carries a label which
-updates `.ti` to point to a new jump.
+```julia
+    :expr         ←  :alt | :seq | :element
+    :alt          ←  [(:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1, :alt]
+    :seq          ←  [:element * (:S * :element * :S)^1, :seq]
+```
+
+Stay Winning means we always keep a `:seq` or `:element`.
+
+The main change is one added instruction.  A `WinCommitInst` first does an ordinary
+Commit, popping its own choice frame, but before it jumps to the label, it updates
+the frame under its `.s` and `.t`, and uses a second label to update `.i` as well.
+We've accepted a 16-byte instruction width as standard when we indulge in [Optimizing
+the VM](#optimal-vm), this would be a nominal 12 with padding.  That way, if the
+longer rule fails, it keeps the advanced subject pointer and cap stack, and just
+jumps where e.g. `seq` would have gone anyway.
+
+We need to be careful with captures though. In the above code, as currently
+implemented, failing to find a `S"|/"` will unwind the capture stack, dropping the
+captured :seq, which is what we want to avoid.  So it isn't legal to update the
+`:alt` choice frame with a new capture height, because that will strand an opencapture.
+
+[CaptureCommits](#capturecommitinst) don't help here, because the updated `.s` would
+modify the capture offset.
+
+But, we could add a special kind of fail instruction. Every failable pattern comes
+with a test form, the fail could have the tag of the capture to slip out of the stack
+during unwind.  I don't like this on first glance: it complicates unwinding, not
+necessarily making it slower, but now we have two ways to change the `lcap`, not one,
+and the height of the capture frame is stored in any choice frame, so we'd have to
+reason fairly carefully about whether and how this is legal. Intuitively it's
+acceptable, because it doesn't change any values below the one we're removing.  This
+would also complicate coding of differentiating patterns, which can include lookahead.
+
+I earlier had notes about leaving a stranded frame and marking that as a possibility,
+but that would just end up being backtracking with extra steps, or allocation of
+spurious vectors which have to be spilled.
+
+What should work better: a special closing instruction telling us not to include the
+grouping thus established. That lets us process in linear time, and we retain the
+nested-capture property.
+
+I think this ends up being pretty cheap in practice. We open a group, a lot of the
+time it's empty, the rest of the time we just append it to the existing group.  We
+can even have a spare-parts stack to stick the emptied Vector for a later group
+capture, that spares some of the allocation pressure, and it's not even branching:
+it's just `cap = pop!(groupstack); append!(captures, cap); empty!(cap); push!(cap,
+groupbuffer)`.  That's gotta be cheaper than backtracking, especially with some of
+the bad patterns which this memorizes against, valid Lua Lvalue chains being the
+example which first got me thinking about this algorithm.
+
+Cheap to code, too. A WinCommit points the Choice at a new label, we just make that
+location our special CloseCapture (a `LidCaptureInst`, let's say). It has its own
+opcode and we can therefore include the final jump in the instruction.
+
+Clearly the Stay Winning optimization is going to be the last thing we add.  I'll
+want to benchmark it, for one thing.
