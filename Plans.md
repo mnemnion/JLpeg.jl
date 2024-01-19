@@ -222,6 +222,7 @@ Which I don't have to do myself!  How luxurious.  There's a
 [UnitRangesSortedSet](https://juliahub.com/ui/Packages/General/UnitRangesSortedSets)
 which will do the needful.
 
+
 ### Capture closing
 
 I knew there was a reason I might want to cache the capture stack...
@@ -262,8 +263,13 @@ end
 This saves us a frame in both the VM stack and the capture stack, in a common
 workload.
 
-Note: We can't apply this optimization if there are nested captures and the CloseCapture
-is of group type.
+Note: We can't apply this optimization if there are nested captures and the
+CloseCapture is of group type.  There are ways to do it but, as far as I've been able
+to figure, they involve fiddling around with the capture list after match, in a way
+which has got to be slower than just allowing a bracketed capture.  The VM ends up
+collapsing open/close pairs which are touching anyway, so the capture list should end
+up being entirely full captures except for groups, which are inherently nested
+structures.
 
 ### Prefix Matching
 
@@ -546,6 +552,19 @@ even have profiling set up and it's asinine to optimize on this level until I've
 in all the other optimizations and features, have wide-ranging tests, and so on.
 
 I needed to get this out of my head so I can get on with all that.
+
+#### Links
+
+Looks like [StaticTools.jl](https://docs.juliahub.com/General/StaticTools/stable/)
+has the basics for allocating a dense Vector on the heap. From there it's a matter of
+making the instructions the same size, locating `.op` in a consistent location, and
+writing an unsafe decoder in the VM, which reads the exact byte of .op and casts the
+initial pointer to the correct type.
+
+There's some finesse in there which I'm missing, but this is the basic idea.  It may
+even make sense to take over manual memory management of the VM stacks, but that
+seems less likely to yield greater performance than finally shaking off the boxed
+instructions and runtime type decoding.
 
 ### Stay Winning
 
