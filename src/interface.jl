@@ -461,7 +461,12 @@ function >>(a::Pattern, b::Pattern)
 end
 >>(a::Patternable, b::Pattern) = P(a) >> b
 >>(a::Pattern, b::CaptureTuple) = a >> C(b...)
+>>(a::CaptureTuple, b::Pattern) = C(a...) >> b
 >>(a::Patternable, b::CaptureTuple) = P(a) >> C(b...)
+>>(a::CaptureTuple, b::CaptureTuple) = C(a...) >> C(b...)
+>>(a::CaptureTuple, b::Vector) = C(a...) >> Cg(b)
+>>(a::Vector, b::CaptureTuple) = Cg(a) >> C(b...)
 >>(a::Pattern, b::Vector) = a >> Cg(b)
+>>(a::Vector, b::Pattern) = Cg(a) >> b
 
 end; # module Combinators
