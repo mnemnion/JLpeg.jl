@@ -440,7 +440,7 @@ false
 This is somewhat at variance with [doctrine](@extref `Base.hash`), but we feel it's
 the correct choice here.
 
-Let's trying indexing our match:
+This is the iteration interface for our match:
 
 ```jldoctest baddate
 julia> date[:day]
@@ -455,6 +455,18 @@ julia> keys(date)
  2
   :day
 
+julia> collect(date)
+3-element Vector{Any}:
+ "2024"
+ "01"
+ "10"
+
+julia> collect(eachindex(date))
+3-element Vector{Int64}:
+ 1
+ 2
+ 3
+
 julia> collect(pairs(date))
 3-element Vector{Pair{A, SubString{String}} where A}:
  :year => "2024"
@@ -467,6 +479,10 @@ julia> collect(enumerate(date))
  2 => "01"
  3 => "10"
 ```
+
+Default iteration will get you the matches, [`pairs`](@extref `Base.pairs`) uses the
+name of the capture when there is one, if a capture has a name, that can be used to
+index it, or the position in the Vector.
 
 So far so good, what happens if a named capture matches more than once?
 

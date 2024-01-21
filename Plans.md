@@ -64,7 +64,10 @@ The hitlist:
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`.  Left recursion
        may obviate this.
 - [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
-  - [ ]  Also we can virtualize .offsets into a property and JIT it when requested.
+  - [X]  Also we can virtualize .offsets into a property and JIT it when requested.
+  - [ ]  `PegMatch` should return a `PegCapture` (no longer a full PegMatch) which
+         subtypes `AbstractVector` and is just a wrapper which provides the appropriate
+         `keys` and `getindex` methods.
 - [#]  Optimizations from The Book (paper and/or lpeg C code):
   - [X]  Instrument `lpeglabel` to report optimizations of interest, to get usable
          test cases and gain clarity on some thorny parts.  I tried the latest LPeg
@@ -91,17 +94,22 @@ The hitlist:
   - [ ]  MultiSetTest [conversion](#multiset-test-conversion)
   - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
   - [ ]  Inlining: short rules with no captures, "short" is like, 5 instructions? 10?
+    - [ ]  Definitely good for predicates, disinclined to do this for ordinary rules.
+           With predicates we can remove captures and turn throws into simple fails.
+           I think we have to keep the in-pred throw codes though, we can't in the
+           general case inline a rule, they can be recursive.  It would be possible
+           to create a full copy without captures and throws but this is not an
+           optimization imho.
   - [ ]  [CaptureCommitInst](CaptureCommitInst): it's a commit which create a full
          capture from its paired Choice.  Very nice for capture-heavy workflows, like
          parsing full grammars (where we very often want a full rule).
-  - [ ]  `(a / b / c)* -> (a* / b* / c*)*` should give better performance on common
-         patterns like whitespace, where the {\t\n } is very frequent and the comment
-         part is not, lets us use ISpan for a leading set.  Note: there's some
-         bytecode trickery needed here to make sure it doesn't infinite loop, or
-         maybe left recursion gets us out of this one.
-  - [ ]  Follow sets for TestSet and Span.  These have the additional advantage that they can
-         jump immediately if they fail (for TestSet) or recurse to the start instruction after
-         a match (for a SpanSet).
+  - [ ]  `(a / b / c)* -> (a+ / b+ / c+)*` should give better performance on common
+         patterns like whitespace, where the `{\t\n }` is very frequent and the comment
+         part is not, lets us use ISpan for a leading set.  I think this transformation is
+         always valid, it's basic loop unrolling, and we can combine it with headfail.
+  - [ ]  [MultiSets for TestSet and Span](#multitestsets).  These have the additional
+         advantage that they can jump immediately if they fail (for TestSet) or
+         recurse to the start instruction after a match (for a SpanSet).
   - [X]  Headfailing TestSet groups: If we have a group of multibyte sets we want to test,
          we can compress the head (lead) bytes into a single ASCII-style lead test set, by
          masking the high bit off.  This lets us single-test fail out of some very large
@@ -221,7 +229,6 @@ the expensive operation until we compile, it should return itself as a PSet.
 Which I don't have to do myself!  How luxurious.  There's a
 [UnitRangesSortedSet](https://juliahub.com/ui/Packages/General/UnitRangesSortedSets)
 which will do the needful.
-
 
 ### Capture closing
 
@@ -378,7 +385,8 @@ just `|(P(:a)...)^0` as a postscript.
 
 We might in fact want to do this in a more sophisticated way, we can sort the rules
 so that longer patterns match before shorter ones, giving a fragment parser which
-doesn't have to complete the string, but I'm not convinced that's as useful, actually.
+yields the most coherent fragment.  We can in fact do this, it's the same algorithm
+we need for [Stay Winning](#stay-winning).
 
 ### Mark and Check: Back References
 
@@ -501,12 +509,13 @@ they were).
   - [ ]  It would be fun to special case S"AZ"^+n, S"az"^+n, and variations, such
          that in a grammar they give back a word from lorem ipsum.
 
-### MultiSet to MultiTestSet Conversion
+### MultiTestSets
 
 Is easy: we have OpFail everywhere it can fail other than the vectorized
 instructions: we replace the end vectors with TestMultiVec (doesn't exist yet but
 obvious opcode is obvious) and swap the OpFails with jumps to the next Choice, put an
-`IAny (1)` at the end, done.
+`IAny (1)` at the end, done. MultiSpan is the same but the end is a jump back to the
+LeadSet(s).
 
 We're probably going to have to assume that MultiSet codes aren't disjoint with other
 choices though, although.... with the PDiff thing we'll have a way of differing two
@@ -581,21 +590,24 @@ Example code:
 
 Stay Winning means we always keep a `:seq` or `:element`.
 
-The main change is one added instruction.  A `WinCommitInst` first does an ordinary
-Commit, popping its own choice frame, but before it jumps to the label, it updates
-the frame under its `.s` and `.t`, and uses a second label to update `.i` as well.
-We've accepted a 16-byte instruction width as standard when we indulge in [Optimizing
-the VM](#optimal-vm), this would be a nominal 12 with padding.  That way, if the
-longer rule fails, it keeps the advanced subject pointer and cap stack, and just
-jumps where e.g. `seq` would have gone anyway.
+The main semantic change is one added instruction, the complexity is in handling
+captures.  A `WinCommitInst` first does an ordinary Commit, popping its own choice
+frame, but before it jumps to the label, it updates the new top frame `.ts` and
+`.tc`, and uses a second label to update `.ti` as well (this will include marks and
+left recursion once those are added). We've accepted a 16-byte instruction width as
+standard when we indulge in [Optimizing the VM](#optimal-vm), this would be a nominal
+12 with mandatory padding, two labels and an opcode.
+
+That way, if the longer rule fails, it keeps the advanced subject pointer and cap
+stack, and just jumps where e.g. `seq` would have gone anyway.
 
 We need to be careful with captures though. In the above code, as currently
 implemented, failing to find a `S"|/"` will unwind the capture stack, dropping the
 captured :seq, which is what we want to avoid.  So it isn't legal to update the
 `:alt` choice frame with a new capture height, because that will strand an opencapture.
 
-[CaptureCommits](#capturecommitinst) don't help here, because the updated `.s` would
-modify the capture offset.
+[CaptureCommits](#capturecommitinst) don't help here, because they add a frame to the
+capture height.
 
 But, we could add a special kind of fail instruction. Every failable pattern comes
 with a test form, the fail could have the tag of the capture to slip out of the stack
@@ -622,6 +634,16 @@ it's just `cap = pop!(groupstack); append!(captures, cap); empty!(cap); push!(ca
 groupbuffer)`.  That's gotta be cheaper than backtracking, especially with some of
 the bad patterns which this memorizes against, valid Lua Lvalue chains being the
 example which first got me thinking about this algorithm.
+
+Or even better: we simply create the captures on their own Vector, then slice it up
+at the end. We end up with one stack of data, and another stack of Tuples with index
+references into the data and what to do with it. For fake groups the answer is
+nothing. No extra group stack either, we push open captures as a tuple of the capture
+and its index into the group vector, and when we get a fake close, we can O(1)
+replace it with `missing`, since `nothing` means we do nothing for that capture (it's
+a bare capture).  I think that's actually optimal even without the optimization,
+because we don't do all that stack manipulation to keep the groups lined up, it's two
+passes, one to create captures and the second to package them up.
 
 Cheap to code, too. A WinCommit points the Choice at a new label, we just make that
 location our special CloseCapture (a `LidCaptureInst`, let's say). It has its own
