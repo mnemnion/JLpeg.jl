@@ -145,7 +145,18 @@ end
 @inline
 "Push a CapEntry."
 function pushcap!(vm::VMState, inst::Instruction)
-    push!(vm.cap, CapEntry(vm.s, inst))
+    isempty(vm.cap) && return push!(vm.cap, CapEntry(vm.s, inst))
+    if inst.op == ICloseCapture
+        top = last(vm.cap)
+        if top.inst.op == IOpenCapture
+            @assert inst.tag == top.inst.tag "mismatched tags in capture push"
+            vm.cap[end] = CapEntry(vm.s, FullCaptureInst(inst.kind, vm.s - top.s, inst.tag))
+        else
+            push!(vm.cap, CapEntry(vm.s, inst))
+        end
+    else
+        push!(vm.cap, CapEntry(vm.s, inst))
+    end
 end
 
 @inline
@@ -641,7 +652,11 @@ function aftermatch(vm::VMState)::PegMatch
             # Make a synthetic back capture, reusing this Instruction
             # The only distinct value of bcap we use is .s,
             # Which we calculate thus:
-            bcap = CapEntry(cap.s + cap.inst.l, cap.inst)
+            bcap = CapEntry(cap.s - cap.inst.n, cap.inst)
+            if cap.inst.kind == Cgroup # We'll need a cap vector
+                push!(groupstack, captures)
+                captures = PegCapture()
+            end
         elseif cap.inst.op == ICloseCapture
             bcap = pop!(capstack)
             if bcap.inst.tag ≠ cap.inst.tag

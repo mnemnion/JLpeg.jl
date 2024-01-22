@@ -186,7 +186,7 @@ abstract type CheckInstruction end
 struct CaptureInst <: Instruction
     op::Opcode
     kind::CapKind
-    l::Int16
+    n::Int16
     tag::UInt16
 end
 CaptureInst(op::Opcode, kind::CapKind) = CaptureInst(op, kind, Int16(0), UInt16(0))
@@ -195,7 +195,7 @@ CaptureInst(op::Opcode, kind::CapKind, tag::UInt16) = CaptureInst(op, kind, Int1
 OpenCaptureInst(kind::CapKind) = CaptureInst(IOpenCapture, kind, UInt16(0))
 OpenCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(IOpenCapture, kind, tag)
 CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseCapture, kind, Int16(0), tag)
-FullCaptureInst(kind::CapKind, l::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(l), tag)
+FullCaptureInst(kind::CapKind, n::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(n), tag)
 
 
 struct ThrowInst <: Instruction
