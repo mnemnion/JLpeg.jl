@@ -83,7 +83,7 @@ The hitlist:
   - [X]  fixed-length detection
   - [ ]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
-  - [ ]  Capture-closing optimization (vm)
+  - [X]  Capture-closing optimization (vm)
 - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
 - [X]  Un-pirate: shadow operators with a definition which falls back to Base,
        don't extend Base for operators directly.
@@ -134,10 +134,11 @@ The hitlist:
 - [ ]  String [generators](#string-generation)
 - [ ]  Add beginning index or `UnitRange` as optional third argument for `match`.
        The way the VM is structured we don't even need to make a SubString, we cache
-       the last index string set the subject pointer to 1, so both of those are mutable
-       things.  Note that the VM works correctly on SubStrings already, although we should
-       special-case them because this implies that all the indexing is going through an offset
-       we only need to calculate once.
+       the last index string and set the subject pointer to 1, so the fact that
+       currently these are always the beginning and end of the string is just a
+       special case.  Note that the VM works correctly on SubStrings already,
+       although we should special-case them because this implies that all the
+       indexing is going through an offset we only need to calculate once.
 - [ ]  Suspendable VM [discussion](#suspend-the-vm)
 - [ ]  Pure [Code Bumming](#optimal-vm) (need to be able to check if it even matters)
   - [ ]  Vector in contiguous memory for prepared programs.
