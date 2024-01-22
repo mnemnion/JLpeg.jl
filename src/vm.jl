@@ -145,7 +145,7 @@ end
 @inline
 "Push a CapEntry."
 function pushcap!(vm::VMState, inst::Instruction)
-   push!(vm.cap, CapEntry(vm.s, inst))
+    push!(vm.cap, CapEntry(vm.s, inst))
 end
 
 @inline

@@ -274,7 +274,7 @@ using InteractiveUtils
         mix = match(pmix, "abc")
         @test collect(enumerate(mix)) == [1 => "a", 2 => "b", 3 => "c"]
         @test collect(pairs(mix)) == [1 => "a", :b => "b", 3 => "c"]
-        @test collect(mix) == ["a", :b => "b", "c"]
+        @test collect(mix) == ["a", "b", "c"]
     end
     @testset "Throws" begin
         pthrow = P"123" * (P"abc" | T(:noletter))

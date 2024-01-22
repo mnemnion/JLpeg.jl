@@ -65,8 +65,8 @@ The hitlist:
        may obviate this.
 - [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
   - [X]  Also we can virtualize .offsets into a property and JIT it when requested.
-  - [ ]  `PegMatch` should return a `PegCapture` (no longer a full PegMatch) which
-         subtypes `AbstractVector` and is just a wrapper which provides the appropriate
+  - [ ]  `PegMatch` groups should be a `PegCapture` (no longer a full PegMatch), which
+         subtypes `AbstractVector`, and is just a wrapper which provides the appropriate
          `keys` and `getindex` methods.
 - [#]  Optimizations from The Book (paper and/or lpeg C code):
   - [X]  Instrument `lpeglabel` to report optimizations of interest, to get usable
@@ -147,6 +147,9 @@ The hitlist:
            accordingly.  It's a major operation from my perspective, we'd need to obtain a pointer to the Vector somehow and correct all the instruction labels, but probably
            worth the most speedup after a type-stable dispatch.
   - [X]  Struct packing
+  - [ ]  Use Stack from DataStructures.jl for the instruction/capture/mark stacks.
+         Proposed block size of 512 for VM and Caps and 256 for marks, which should stay
+         much smaller than that in a well-functioning program.
   - [ ]  I'm surely losing cycles converting non-ASCII Chars into UInt32, should add
          Char1Inst..Char4Inst.  With NotChar and TestChar, that's 12 instructions, which is
          fine I think.
@@ -245,6 +248,10 @@ although I doubt very much that this would generate different machine code, but
 maybe: the compiler pays a lot of attention to method dispatch.
 
 ### CaptureCommitInst
+
+Update: I think this one is useless. If there are no intervening captures, the VM
+will close it, if there are, we can't really use this without backtracking at some
+point.
 
 We can use this whenever a `PCapture` is enclosing a `PChoice`, but it's a slightly
 tricky optimization to get right.  What we do is go through the copied bytecode and
@@ -640,12 +647,12 @@ at the end. We end up with one stack of data, and another stack of Tuples with i
 references into the data and what to do with it. For fake groups the answer is
 nothing. No extra group stack either, we push open captures as a tuple of the capture
 and its index into the group vector, and when we get a fake close, we can O(1)
-replace it with `missing`, since `nothing` means we do nothing for that capture (it's
-a bare capture).  I think that's actually optimal even without the optimization,
-because we don't do all that stack manipulation to keep the groups lined up, it's two
-passes, one to create captures and the second to package them up.
+ replace it with a sentinel value. Two passes always sounds like more work, I have to
+remind myself no, it's the same amount of work being done in a different order. It
+isn't the sort of thing I'd do if it wasn't useful, there are some weird bits, we
+still need the operation stac
 
-Cheap to code, too. A WinCommit points the Choice at a new label, we just make that
+Cheap to code, for the VM, too. A WinCommit points the Choice at a new label, we just make that
 location our special CloseCapture (a `LidCaptureInst`, let's say). It has its own
 opcode and we can therefore include the final jump in the instruction.
 
