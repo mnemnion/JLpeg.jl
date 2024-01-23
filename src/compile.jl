@@ -182,8 +182,6 @@ end
 # To be continued...
 
 abstract type CloseRunTimeInst end
-abstract type MarkInst end
-abstract type CheckInst end
 
 struct CaptureInst <: Instruction
     op::Opcode
@@ -199,7 +197,6 @@ OpenCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(IOpenCapture, kind, ta
 CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseCapture, kind, Int16(0), tag)
 FullCaptureInst(kind::CapKind, n::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(n), tag)
 
-
 struct ThrowInst <: Instruction
     tag::UInt16
     op::Opcode
@@ -213,6 +210,24 @@ struct ThrowRecInst <: Instruction
 end
 ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(Int32(l), tag, IThrowRec)
 
+struct OpenMarkInst <: Instruction
+    tag::UInt16
+    op::Opcode
+end
+OpenMarkInst(tag::UInt16) = OpenMarkInst(tag, IOpenMark)
+
+struct CloseMarkInst <: Instruction
+    tag::UInt16
+    op::Opcode
+end
+CloseMarkInst(tag::UInt16) = CloseMarkInst(tag, ICloseMark)
+
+struct CheckMarkInst <: Instruction
+    tag::UInt16
+    action::UInt16
+    op::Opcode
+end
+CheckMarkInst(tag::UInt16, action::UInt16) = CheckMarkInst(tag, action, ICheckMark)
 
 """
     relabel(inst::Instruction, l::Integer)

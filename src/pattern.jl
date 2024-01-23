@@ -224,6 +224,13 @@ end
 const markmap = Dict{Symbol,UInt16}()
 global markcounter::UInt16 = 0
 
+function _getmark!(mark::Symbol)::UInt16
+    get!(markmap, mark) do
+        global markcounter += 1
+        return markcounter
+    end
+end
+
 struct PMark <: Pattern
     val::PVector
     code::IVector
@@ -231,10 +238,7 @@ struct PMark <: Pattern
     tag::UInt16
 end
 function PMark(patt::Pattern, mark::Symbol)
-    tag = get!(markmap, mark) do
-        global markcounter += 1
-        return markcounter
-    end
+    tag = _getmark!(mark)
     PMark([patt], Inst(), mark, tag)
 end
 
@@ -246,10 +250,7 @@ struct PCheck <: Pattern
     check::Union{Symbol,Function}
 end
 function PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function})
-    tag = get!(markmap, mark) do
-        global markcounter += 1
-        return markcounter
-    end
+    tag = _getmark!(mark)
     PCheck([patt], Inst(), mark, tag, check)
 end
 
