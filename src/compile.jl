@@ -21,7 +21,6 @@
     IPredChoice # labeled failure: stack a choice; changes label env next fail will jump to 'offset'
     IJump       # jump to 'offset'
     ICall       # call rule at 'offset'
-    INameCall   # Call as named capture
     IOpenCall   # call rule number 'key' (must be closed to a ICall)
     ICommit     # pop choice and jump to 'offset'
     IPartialCommit # update top choice to current position and jump
@@ -34,6 +33,9 @@
     ICloseRunTime
     IThrow      # fails with a given label
     IThrowRec   # fails with a given label and call rule at 'offset'
+    IOpenMark   # Begin a marked region
+    ICloseMark  # Close a marked region
+    ICheckMark  # Close a marked region and check it
     INoOp       # to fill empty slots left by optimizations
 end
 
@@ -180,8 +182,8 @@ end
 # To be continued...
 
 abstract type CloseRunTimeInst end
-abstract type MarkInstruction end
-abstract type CheckInstruction end
+abstract type MarkInst end
+abstract type CheckInst end
 
 struct CaptureInst <: Instruction
     op::Opcode
@@ -249,7 +251,7 @@ const IVec128 = Union{SetInst,NotSetInst,TestSetInst}
 const IVec64 = Union{MultiVecInst,LeadMultiInst}
 
 # Code borrowed from BitPermutations.jl for converting vector instructions
-#   into bit types
+# into bit types
 
 """
     bitsize(::Type{T})

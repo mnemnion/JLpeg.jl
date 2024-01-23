@@ -221,20 +221,37 @@ function PThrow(val::Symbol)
     PThrow(val, Inst(), throwcounter)
 end
 
+const markmap = Dict{Symbol,UInt16}()
+global markcounter::UInt16 = 0
+
 struct PMark <: Pattern
     val::PVector
     code::IVector
     mark::Symbol
+    tag::UInt16
 end
-PMark(patt::Pattern, mark::Symbol) = PMark([patt], Inst(), mark)
+function PMark(patt::Pattern, mark::Symbol)
+    tag = get!(markmap, mark) do
+        global markcounter += 1
+        return markcounter
+    end
+    PMark([patt], Inst(), mark, tag)
+end
 
 struct PCheck <: Pattern
     val::PVector
     code::IVector
     mark::Symbol
+    tag::UInt16
     check::Union{Symbol,Function}
 end
-PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function}) = PCheck([patt], Inst(), mark, check)
+function PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function})
+    tag = get!(markmap, mark) do
+        global markcounter += 1
+        return markcounter
+    end
+    PCheck([patt], Inst(), mark, tag, check)
+end
 
 abstract type PRunTime <:Pattern end
 abstract type PTXInfo <:Pattern end
