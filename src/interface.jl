@@ -215,6 +215,45 @@ function T(label::Symbol)
 end
 
 """
+    M(patt::Pattern, sym::Symbol)
+
+Mark the match of a pattern for later examination with [`Check`](@ref).
+
+See also [`MC`](@ref).
+"""
+M(patt::Pattern, sym::Symbol) = PMark(patt, sym)
+
+"""
+    MC(patt::Pattern, sym::Symbol)
+
+`Mark` the match of `patt` with `sym`, while also capturing it with `sym`.
+
+See [`M`](@ref) and [`C`](@ref) for details.
+"""
+MC(patt::Pattern, sym::Symbol) = C(M(patt, sym), sym)
+
+"""
+    K(patt::Pattern, sym::Symbol, [check::Union{Function,Symbol}])
+
+Chec`K` the pattern against the previous [`Mark`](@ref) with the same tag. If `check`
+is not provided, it will return `true` if the SubStrings of the mark and check are
+identical, otherwise it must be either a symbol representing one of the builtins or a
+function with the signature `(marked::SubString, checked::SubString)::Bool`.  The
+success or failure of the check is the success or failure of the whole pattern.
+"""
+K(patt::Pattern, sym::Symbol, check::Union{Function,Symbol}) = PCheck(patt, sym, check)
+K(patt::Pattern, sym::Symbol) = K(patt, sym, :(==))
+
+"""
+    CK(patt::Pattern, sym::Symbol, check::Union{Function,Symbol})
+
+Chec`K` the pattern against the prior [`Mark`], capturing if the check suceeds.
+See [`K`](@ref) and [`C`](@ref) for details.
+"""
+CK(patt::Pattern, sym::Symbol, check::Union{Function,Symbol}) = C(K(patt, sym, check), sym)
+CK(patt::Pattern, sym::Symbol) = CK(patt, sym, :(==))
+
+"""
     P"str"
 
 Calls P(str) on the String, in close imitation of Lua's calling convention.

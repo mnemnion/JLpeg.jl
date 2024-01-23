@@ -221,10 +221,25 @@ function PThrow(val::Symbol)
     PThrow(val, Inst(), throwcounter)
 end
 
+struct PMark <: Pattern
+    val::PVector
+    code::IVector
+    mark::Symbol
+end
+PMark(patt::Pattern, mark::Symbol) = PMark([patt], Inst(), mark)
+
+struct PCheck <: Pattern
+    val::PVector
+    code::IVector
+    mark::Symbol
+    check::Union{Symbol,Function}
+end
+PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function}) = PCheck([patt], Inst(), mark, check)
+
 abstract type PRunTime <:Pattern end
 abstract type PTXInfo <:Pattern end
 
-const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind}
+const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind,PMark,PCheck}
 
 "Patterns which don't contain other patterns"
 const PPrimitive = Union{PChar,PSet,PAny,PTrue,PFalse,PThrow,PCall,POpenCall}
