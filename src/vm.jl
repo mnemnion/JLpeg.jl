@@ -24,26 +24,27 @@ struct MarkFrame
 end
 
 """
-    VMState(patt::Pattern, string::AbstractString)
+    VMState(patt::Pattern, subject::AbstractString)
 
 Contains the state of a match on `subject` by `program`.
 
 # Fields
 
-Other than the `subject` and `program`, we have:
+Other than the `subject`, `program`, and `patt`, we have:
 
 - `top`: the byte length of `subject`
 - `i`: Instruction counter
 - `s`: Subject pointer
-- `ti`, `ts`, `tc`, `tp`: Stack top registers
+- `ti`, `ts`, `tc`, `tm`, `tp`: Stack top registers
 - `t_on`: flag for nonempty stack
+- `running`: `Bool` which is `true` when the VM is executing
+- `matched`: true if we matched the program on the subject
 - `inpred`: `Bool` is `true` inside predicates (`PAnd`, `PNot`)
 - `sfar`: furthest subject pointer we've failed at, for error reporting
 - `failtag`: tag for a labeled failure
 - `stack`: Contains stack frames for calls and backtracks
 - `cap`: A stack for captures
-- `running`: `Bool` which is `true` when the VM is executing
-- `matched`: true if we matched the program on the subject
+- `mark`: A stack for marks
 
 ##  Implementation
 
@@ -77,14 +78,17 @@ mutable struct VMState
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapFrame}  # Capture stack
    mark::Vector{MarkFrame} # Mark stack
-   function VMState(patt::Pattern, subject::AbstractString)
+   function VMState(patt::Pattern, subject::AbstractString, s::Integer, top::Integer)
       program = prepare!(patt).code
       stack = sizehint!(Vector{StackFrame}(undef, 0), 64)
       cap   = Vector{CapFrame}()
       mark  = Vector{MarkFrame}()
-      top = ncodeunits(subject)
-      return new(subject, program, patt, top, 1, 1, 0, 0, 0, 0, false, false, false, false, false, 0, 1, 0, stack, cap, mark)
+      return new(subject, program, patt, top, 1, s, 0, 0, 0, 0, false, false, false, false, false, 0, 1, 0, stack, cap, mark)
    end
+   function VMState(patt::Pattern, subject::AbstractString)
+        top = ncodeunits(subject)
+        VMState(patt, subject, 1, top)
+    end
 end
 
 # ## VM Actions
