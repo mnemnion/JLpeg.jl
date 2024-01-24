@@ -214,20 +214,20 @@ struct OpenMarkInst <: Instruction
     tag::UInt16
     op::Opcode
 end
-OpenMarkInst(tag::UInt16) = OpenMarkInst(tag, IOpenMark)
+OpenMarkInst(tag::UInt16) = OpenMarkInst(UInt16(tag), IOpenMark)
 
 struct CloseMarkInst <: Instruction
     tag::UInt16
     op::Opcode
 end
-CloseMarkInst(tag::UInt16) = CloseMarkInst(tag, ICloseMark)
+CloseMarkInst(tag::UInt16) = CloseMarkInst(UInt16(tag), ICloseMark)
 
 struct CheckMarkInst <: Instruction
     tag::UInt16
-    action::UInt16
+    check::UInt16
     op::Opcode
 end
-CheckMarkInst(tag::UInt16, action::UInt16) = CheckMarkInst(tag, action, ICheckMark)
+CheckMarkInst(tag::UInt16, check::UInt16) = CheckMarkInst(tag, check, ICheckMark)
 
 """
     relabel(inst::Instruction, l::Integer)
@@ -721,6 +721,26 @@ end
 function _compile!(patt::PThrow)::Pattern
     # Grammars may recode this as ThrowRecInst
     push!(patt.code, ThrowInst(patt.tag), OpEnd)
+    return patt
+end
+
+function _compile!(patt::PMark)::Pattern
+    code = hoist!(patt, patt[1])
+    trimEnd!(code)
+    push!(patt.code, OpenMarkInst(patt.tag))
+    # TODO Marks can't enclose marks, check
+    append!(patt.code, code)
+    push!(patt.code, CloseMarkInst(patt.tag), OpEnd)
+    return patt
+end
+
+function _compile!(patt::PCheck)::Pattern
+    code = hoist!(patt, patt[1])
+    trimEnd!(code)
+    push!(patt.code, OpenMarkInst(patt.tag))
+    # TODO Marks can't enclose marks, check
+    append!(patt.code, code)
+    push!(patt.code, CheckMarkInst(patt.tag, patt.check_tag), OpEnd)
     return patt
 end
 

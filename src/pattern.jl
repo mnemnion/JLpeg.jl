@@ -242,16 +242,27 @@ function PMark(patt::Pattern, mark::Symbol)
     PMark([patt], Inst(), mark, tag)
 end
 
+const checkmap = Dict{Union{Symbol,Function},UInt16}()
+global checkcounter::UInt16 = 0
+
+function _getcheck!(check::Union{Symbol,Function})::UInt16
+    get!(checkmap, check) do
+        global checkcounter += 1
+        return checkcounter
+    end
+end
 struct PCheck <: Pattern
     val::PVector
     code::IVector
     mark::Symbol
     tag::UInt16
     check::Union{Symbol,Function}
+    check_tag::UInt16
 end
 function PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function})
     tag = _getmark!(mark)
-    PCheck([patt], Inst(), mark, tag, check)
+    check_tag = _getcheck!(check)
+    PCheck([patt], Inst(), mark, tag, check, check_tag)
 end
 
 abstract type PRunTime <:Pattern end
