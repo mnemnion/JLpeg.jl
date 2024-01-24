@@ -251,6 +251,9 @@ function _getcheck!(check::Union{Symbol,Function})::UInt16
         return checkcounter
     end
 end
+
+# Add :(==) as default so we can hard-code comparison
+_getcheck!(:(==))
 struct PCheck <: Pattern
     val::PVector
     code::IVector

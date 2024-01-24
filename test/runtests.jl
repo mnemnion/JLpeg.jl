@@ -385,6 +385,12 @@ using InteractiveUtils
         capn = ((P"a",) | R"az")^1
         @test match(capn, "sdfdasfarewaaawerwr").offsets == [5, 8, 12, 13, 14]
     end
+
+    @testset "Mark and Check" begin
+        pmark = M(R"09"^1, :numsame) * P":" * K(R"09"^1, :numsame)
+        @test match(pmark, "123:123") isa PegMatch
+        @test match(pmark, "123:124") isa PegFail
+    end
     @testset "Preface Checks" begin
         prefix1 = P"abc" | P"abd" | P"abf"
         @test match(prefix1, "abc")[1] == "abc"

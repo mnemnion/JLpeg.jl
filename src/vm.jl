@@ -71,7 +71,7 @@ mutable struct VMState
    matched::Bool     # Has the pattern matched the subject?
    t_on::Bool        # Is there a frame on the stack?
    inpred::Bool      # Are we inside a predicate?
-   mo::UInt32        # Mark opening tag
+   mo::UInt32        # Mark opening subject pointer
    sfar::UInt32      # Farthest subject pointer we've failed at
    failtag::UInt16   # Labeled failure tag
    # Stacks
@@ -176,7 +176,7 @@ function trimmark!(vm::VMState, m::UInt16)
 end
 
 @inline
-"Push a CapEntry."
+"Push a CapFrame."
 function pushcap!(vm::VMState, inst::Instruction)
     isempty(vm.cap) && return push!(vm.cap, CapFrame(vm.s, inst))
     if inst.op == ICloseCapture
@@ -193,12 +193,19 @@ function pushcap!(vm::VMState, inst::Instruction)
 end
 
 @inline
+"Push a MarkFrame."
+function pushmark!(vm::VMState, off::UInt16, inst::Instruction)
+    push!(vm.mark, MarkFrame(vm.mo, off, inst.tag))
+end
+
+@inline
 "Return the char at `vm.s`."
 function thischar(vm::VMState)
     if vm.s > vm.top
-        return nothing
+        nothing
+    else
+        vm.subject[vm.s]
     end
-    vm.subject[vm.s]
 end
 
 @inline
@@ -215,9 +222,8 @@ end
 """
     updatesfar!(vm)
 
-Updates the farthest-fail register if greater than before.
-Also sets the fail tag to 0, since throws set sfar directly,
-and this is the condition of all other failures
+If this is the farthest point at which we've failed, update the farthest-fail
+point, and set the failtag to 0.
 """
 function updatesfar!(vm)
     if vm.s > vm.sfar
@@ -249,6 +255,20 @@ function failmatch!(vm::VMState)
         trimcap!(vm, c::UInt32)
         trimmark!(vm, m::UInt16)
     end
+end
+
+@inline
+"Unwind a throw inside a predicate"
+function unwindpred!(vm::VMState)
+    # Unwind until above predicate
+    # Which we can check with the stack instruction register,
+    # Conveniently enough
+    while vm.program[vm.ti].op ≠ IPredChoice
+        popframe!(vm)
+    end # until we've left the predicate on the stack
+    vm.failtag = 0
+    vm.sfar = vm.s
+    return false  # This handles .inpred (we could be in more than one)
 end
 
 # ## VM core and instructions
@@ -496,6 +516,49 @@ function onInst(inst::CaptureInst, vm::VMState)::Bool
     return true
 end
 
+"onOpenMark"
+function onInst(::OpenMarkInst, vm::VMState)::Bool
+    vm.mo = vm.s
+    vm.i += 1
+    return true
+end
+
+"onCloseMark"
+function onInst(inst::CloseMarkInst, vm::VMState)::Bool
+   off = UInt16(vm.s - vm.mo - 1)
+   pushmark!(vm, off, inst)
+   vm.i += 1
+   return true
+end
+
+"onCheckMark"
+function onInst(inst::CheckMarkInst, vm::VMState)::Bool
+    idx = findlast(vm.mark) do i
+        i.tag == inst.tag
+    end
+    if idx === nothing
+        vm.i += 1
+        return false
+    end
+    # special cases (TODO optimize, i.e. no substring creation for == (0x0001))
+    if inst.check == 0x0001  # aka :(==)
+        mark = vm.mark[idx]
+        start1, stop1 = mark.s, mark.s + mark.off
+        sub1 = @views vm.subject[start1:stop1]
+        sub2 = @views vm.subject[vm.mo:vm.s - 1]
+        if sub1 == sub2
+            deleteat!(vm.mark, idx)
+            vm.i += 1
+            return true
+        else
+            vm.i += 1
+            return false
+        end
+    else
+        error("NYI")
+    end
+end
+
 "onChoice"
 function onInst(inst::ChoiceInst, vm::VMState)
     pushframe!(vm, vm.i + inst.l, vm.s)
@@ -524,20 +587,6 @@ function onInst(inst::ThrowRecInst, vm::VMState)
     else
         return unwindpred!(vm)
     end
-end
-
-@inline
-"Unwind a throw inside a predicate"
-function unwindpred!(vm::VMState)
-    # Unwind until above predicate
-    # Which we can check with the stack instruction register,
-    # Conveniently enough
-    while vm.program[vm.ti].op ≠ IPredChoice
-        popframe!(vm)
-    end # until we've left the predicate on the stack
-    vm.failtag = 0
-    vm.sfar = vm.s
-    return false  # This handles .inpred (we could be in more than one)
 end
 
 function onInst(inst::LabelInst, vm::VMState)
