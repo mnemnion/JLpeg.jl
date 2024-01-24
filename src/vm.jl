@@ -5,6 +5,7 @@ struct StackFrame
     i::Int32   # Instruction pointer
     s::UInt32  # String index
     c::UInt32  # Capture level
+    m::UInt16  # Mark level
     p::Bool    # Predicate status
 end
 
@@ -13,6 +14,13 @@ struct CapEntry
     s::UInt32      # String index
     inst::CaptureInst
     CapEntry(s::UInt32, inst::CaptureInst) = new(s, inst)
+end
+
+"A frame of the mark stack"
+struct MarkFrame
+    s::UInt32
+    off::UInt16
+    tag::UInt16
 end
 
 """
@@ -55,21 +63,27 @@ mutable struct VMState
    ti::Int32         # Stack top instruction register
    ts::UInt32        # Stack top subject register
    tc::UInt32        # Stack top capture level register
+   tm::UInt16        # Stack top mark level register
    tp::Bool          # Stack top predicate register
+   # State
+   running::Bool     # Is the VM running?
+   matched::Bool     # Has the pattern matched the subject?
    t_on::Bool        # Is there a frame on the stack?
    inpred::Bool      # Are we inside a predicate?
+   mo::UInt32        # Mark opening tag
    sfar::UInt32      # Farthest subject pointer we've failed at
    failtag::UInt16   # Labeled failure tag
+   # Stacks
    stack::Vector{StackFrame}  # Stack of Instruction offsets
-   cap::Vector{CapEntry}
-   running::Bool
-   matched::Bool
+   cap::Vector{CapEntry}  # Capture stack
+   mark::Vector{MarkFrame} # Mark stack
    function VMState(patt::Pattern, subject::AbstractString)
       program = prepare!(patt).code
       stack = sizehint!(Vector{StackFrame}(undef, 0), 64)
-      cap   = Vector{CapEntry}(undef, 0)
+      cap   = Vector{CapEntry}()
+      mark  = Vector{MarkFrame}()
       top = ncodeunits(subject)
-      return new(subject, program, patt, top, 1, 1, 0, 0, 0, false, false, false, 1, 0, stack, cap, false, false)
+      return new(subject, program, patt, top, 1, 1, 0, 0, 0, 0, false, false, false, false, false, 0, 1, 0, stack, cap, mark)
    end
 end
 
@@ -81,11 +95,11 @@ end
 "Push a full frame onto the stack."
 function pushframe!(vm::VMState, i::Int32, s::UInt32)
     if !vm.t_on
-        vm.ti, vm.ts, vm.tc, vm.tp = i, s, lcap(vm), vm.inpred
+        vm.ti, vm.ts, vm.tc, vm.tm, vm.tp = i, s, lcap(vm), mcap(vm), vm.inpred
         vm.t_on = true
     else
-        frame = StackFrame(vm.ti, vm.ts, vm.tc, vm.tp)
-        vm.ti, vm.ts, vm.tc, vm.tp = i, s, lcap(vm), vm.inpred
+        frame = StackFrame(vm.ti, vm.ts, vm.tc, vm.tm, vm.tp)
+        vm.ti, vm.ts, vm.tc, vm.tm, vm.tp = i, s, lcap(vm), mcap(vm), vm.inpred
         push!(vm.stack, frame)
     end
 end
@@ -98,26 +112,26 @@ function pushcall!(vm::VMState)
        vm.ti = vm.i + 1
        vm.t_on = true
     else
-        frame = StackFrame(vm.ti, vm.ts, vm.tc, vm.tp)
-        vm.ti, vm.ts, vm.tc, vm.tp = vm.i + 1, 0, 0, false
+        frame = StackFrame(vm.ti, vm.ts, vm.tc, vm.tm, vm.tp)
+        vm.ti, vm.ts, vm.tc, vm.tm, vm.tp = vm.i + 1, 0, 0, 0, false
         push!(vm.stack, frame)
     end
 end
 
 @inline
 "Pop a stack frame. Returns a tuple (i, s, c, p)"
-function popframe!(vm::VMState)::Tuple{Union{Int32,Nothing},UInt32,UInt32,Bool}
+function popframe!(vm::VMState)::Tuple{Union{Int32,Nothing},UInt32,UInt32,UInt16,Bool}
     if !vm.t_on
-        return nothing, UInt32(0), UInt32(0), false
+        return nothing, 0x00000000, 0x00000000, 0x0000 , false
     end
     if isempty(vm.stack)
         vm.t_on = false
-        return vm.ti, vm.ts, vm.tc, vm.tp
+        return vm.ti, vm.ts, vm.tc, vm.tm, vm.tp
     end
     frame = pop!(vm.stack)
-    _ti, _ts, _tc, _tp = vm.ti, vm.ts, vm.tc, vm.tp
-    vm.ti, vm.ts, vm.tc, vm.tp = frame.i, frame.s, frame.c, frame.p
-    return _ti, _ts, _tc, _tp
+    _ti, _ts, _tc, _tm, _tp = vm.ti, vm.ts, vm.tc, vm.tm, vm.tp
+    vm.ti, vm.ts, vm.tc, vm.tm, vm.tp = frame.i, frame.s, frame.c, frame.m, frame.p
+    return _ti, _ts, _tc, _tm, _tp
 end
 
 @inline
@@ -128,9 +142,15 @@ function updatetop_s!(vm::VMState)
 end
 
 @inline
-"Length/height of the capture stack."
+"Height of the capture stack."
 function lcap(vm::VMState)
     return UInt16(length(vm.cap))
+end
+
+@inline
+"Height of the mark stack"
+function mcap(vm::VMState)
+    return UInt16(length(vm.mark))
 end
 
 @inline
@@ -138,6 +158,15 @@ end
 function trimcap!(vm::VMState, c::UInt32)
     while lcap(vm) > c
         pop!(vm.cap)
+    end
+    return
+end
+
+@inline
+"Trim the mark stack height to `m`"
+function trimmark!(vm::VMState, m::UInt16)
+    while mcap(vm) > m
+        pop!(vm.mark)
     end
     return
 end
@@ -201,9 +230,9 @@ function failmatch!(vm::VMState)
         vm.matched = false
         return
     end
-    i, s, c, p = popframe!(vm)
+    i, s, c, m, p = popframe!(vm)
     while s == 0 # return from calls
-        i, s, c, p = popframe!(vm)
+        i, s, c, m, p = popframe!(vm)
         if i === nothing break end
     end # until we find a choice frame or exhaust the stack
     if i === nothing
@@ -214,6 +243,7 @@ function failmatch!(vm::VMState)
         vm.i = i
         vm.inpred = p
         trimcap!(vm, c::UInt32)
+        trimmark!(vm, m::UInt16)
     end
 end
 
@@ -579,11 +609,12 @@ end
 
 @inline
 function onBackCommit(inst::LabelInst, vm::VMState)
-    _, s, c, p = popframe!(vm)
+    _, s, c, m, p = popframe!(vm)
     vm.i += inst.l
     vm.s = s
     vm.inpred = p
     trimcap!(vm, c)
+    trimmark!(vm, m)
     return true
 end
 
