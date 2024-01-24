@@ -10,10 +10,10 @@ struct StackFrame
 end
 
 "An entry in the capture stack"
-struct CapEntry
+struct CapFrame
     s::UInt32      # String index
     inst::CaptureInst
-    CapEntry(s::UInt32, inst::CaptureInst) = new(s, inst)
+    CapFrame(s::UInt32, inst::CaptureInst) = new(s, inst)
 end
 
 "A frame of the mark stack"
@@ -75,12 +75,12 @@ mutable struct VMState
    failtag::UInt16   # Labeled failure tag
    # Stacks
    stack::Vector{StackFrame}  # Stack of Instruction offsets
-   cap::Vector{CapEntry}  # Capture stack
+   cap::Vector{CapFrame}  # Capture stack
    mark::Vector{MarkFrame} # Mark stack
    function VMState(patt::Pattern, subject::AbstractString)
       program = prepare!(patt).code
       stack = sizehint!(Vector{StackFrame}(undef, 0), 64)
-      cap   = Vector{CapEntry}()
+      cap   = Vector{CapFrame}()
       mark  = Vector{MarkFrame}()
       top = ncodeunits(subject)
       return new(subject, program, patt, top, 1, 1, 0, 0, 0, 0, false, false, false, false, false, 0, 1, 0, stack, cap, mark)
@@ -122,7 +122,7 @@ end
 "Pop a stack frame. Returns a tuple (i, s, c, p)"
 function popframe!(vm::VMState)::Tuple{Union{Int32,Nothing},UInt32,UInt32,UInt16,Bool}
     if !vm.t_on
-        return nothing, 0x00000000, 0x00000000, 0x0000 , false
+        return nothing, 0x00000000, 0x00000000, 0x0000   , false
     end
     if isempty(vm.stack)
         vm.t_on = false
@@ -174,17 +174,17 @@ end
 @inline
 "Push a CapEntry."
 function pushcap!(vm::VMState, inst::Instruction)
-    isempty(vm.cap) && return push!(vm.cap, CapEntry(vm.s, inst))
+    isempty(vm.cap) && return push!(vm.cap, CapFrame(vm.s, inst))
     if inst.op == ICloseCapture
         top = last(vm.cap)
         if top.inst.op == IOpenCapture
             @assert inst.tag == top.inst.tag "mismatched tags in capture push"
-            vm.cap[end] = CapEntry(vm.s, FullCaptureInst(inst.kind, vm.s - top.s, inst.tag))
+            vm.cap[end] = CapFrame(vm.s, FullCaptureInst(inst.kind, vm.s - top.s, inst.tag))
         else
-            push!(vm.cap, CapEntry(vm.s, inst))
+            push!(vm.cap, CapFrame(vm.s, inst))
         end
     else
-        push!(vm.cap, CapEntry(vm.s, inst))
+        push!(vm.cap, CapFrame(vm.s, inst))
     end
 end
 
@@ -683,7 +683,7 @@ function aftermatch(vm::VMState)::PegMatch
             # Make a synthetic back capture, reusing this Instruction
             # The only distinct value of bcap we use is .s,
             # Which we calculate thus:
-            bcap = CapEntry(cap.s - cap.inst.n, cap.inst)
+            bcap = CapFrame(cap.s - cap.inst.n, cap.inst)
             if cap.inst.kind == Cgroup # We'll need a cap vector
                 push!(groupstack, captures)
                 captures = PegCapture()

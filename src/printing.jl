@@ -8,7 +8,7 @@ function Base.show(io::IO, ::MIME"text/plain", inst::Instruction)
 end
 
 "Show a CapEntry"
-function Base.show(io::IO, ::MIME"text/plain", cap::CapEntry)
+function Base.show(io::IO, ::MIME"text/plain", cap::CapFrame)
     print(io, "s:$(Int(cap.s)) $(repr("text/plain",cap.inst))}")
 end
 
