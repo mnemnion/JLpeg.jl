@@ -217,29 +217,32 @@ end
 """
     M(patt::Pattern, sym::Symbol)
 
-Mark the match of a pattern for later examination with [`Check`](@ref).
+Mark the match of a pattern for later examination with [`K`](@ref).
 
-See also [`MC`](@ref).
+See also [`CM`](@ref).
 """
 M(patt::Pattern, sym::Symbol) = PMark(patt, sym)
 
 """
-    MC(patt::Pattern, sym::Symbol)
+    CM(patt::Pattern, sym::Symbol)
 
 `Mark` the match of `patt` with `sym`, while also capturing it with `sym`.
 
 See [`M`](@ref) and [`C`](@ref) for details.
 """
-MC(patt::Pattern, sym::Symbol) = C(M(patt, sym), sym)
+CM(patt::Pattern, sym::Symbol) = C(M(patt, sym), sym)
 
 """
     K(patt::Pattern, sym::Symbol, [check::Union{Function,Symbol}])
 
-Chec`K` the pattern against the previous [`Mark`](@ref) with the same tag. If `check`
-is not provided, it will return `true` if the SubStrings of the mark and check are
-identical, otherwise it must be either a symbol representing one of the builtins or a
-function with the signature `(marked::SubString, checked::SubString)::Bool`.  The
-success or failure of the check is the success or failure of the whole pattern.
+Chec`K` the pattern against the previous [`Mark`](@ref JLpeg.M) with the same tag.
+If `check` is not provided, it will return `true` if the SubStrings of the mark and
+check are identical, otherwise it must be either a symbol representing one of the
+builtins or a function with the signature `(marked::SubString,
+checked::SubString)::Bool`.  The success or failure of the check is the success or
+failure of the whole pattern.
+
+See also [`CK`](@ref)
 """
 K(patt::Pattern, sym::Symbol, check::Union{Function,Symbol}) = PCheck(patt, sym, check)
 K(patt::Pattern, sym::Symbol) = K(patt, sym, :(==))

@@ -537,6 +537,7 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
         i.tag == inst.tag
     end
     if idx === nothing
+        updatesfar!(vm)
         vm.i += 1
         return false
     end
@@ -551,6 +552,7 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
             vm.i += 1
             return true
         else
+            updatesfar!(vm)
             vm.i += 1
             return false
         end

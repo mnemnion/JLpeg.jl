@@ -236,10 +236,11 @@ struct PMark <: Pattern
     code::IVector
     mark::Symbol
     tag::UInt16
+    aux::AuxDict
 end
 function PMark(patt::Pattern, mark::Symbol)
     tag = _getmark!(mark)
-    PMark([patt], Inst(), mark, tag)
+    PMark([patt], Inst(), mark, tag, AuxDict())
 end
 
 const checkmap = Dict{Union{Symbol,Function},UInt16}()
@@ -261,11 +262,12 @@ struct PCheck <: Pattern
     tag::UInt16
     check::Union{Symbol,Function}
     check_tag::UInt16
+    aux::AuxDict
 end
 function PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function})
     tag = _getmark!(mark)
     check_tag = _getcheck!(check)
-    PCheck([patt], Inst(), mark, tag, check, check_tag)
+    PCheck([patt], Inst(), mark, tag, check, check_tag, AuxDict())
 end
 
 abstract type PRunTime <:Pattern end
