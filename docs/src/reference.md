@@ -64,6 +64,10 @@ JLpeg.Cg
 JLpeg.Cr
 JLpeg.Cc
 JLpeg.Cp
+JLpeg.M
+JLpeg.CM
+JLpeg.K
+JLpeg.CK
 JLpeg.A
 JLpeg.Anow
 JLpeg.T
