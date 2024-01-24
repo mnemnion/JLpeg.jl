@@ -22,10 +22,10 @@ Properties:
     case the return value of that function becomes the capture.  For more
     information, consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`,
     `Cc`, `A`, and `Anow`.
--  `offsets::Vector{Int}`:, provided for compatibility with `AbstractMatch`.
+-  `offsets::Vector{Int}`:  Provided for compatibility with `AbstractMatch`.
    `SubString`s contain their own offsets, so this is unnecessary for normal work,
-   but we JIT it for `match.offsets`.  It then consists of the indices at which the
-   outer layer of captures may be found within the subject.
+   but we generate them when `match.offsets` is used.  It then consists of the
+   indices at which the outer layer of captures may be found within the subject.
 - `patt::Pattern`: The pattern matched against the subject.
 """
 struct PegMatch <: AbstractMatch

@@ -69,10 +69,13 @@ end
     @grammar(name, rules)
 
 Syntax sugar for defining a set of rules as a single grammar. Expects a block
-`rules`, each of which is a rule-pair as can be created with `←`, or, if you must,
-`<=`.  `"string"` will be interpolated as `P("string")`, and `:symbol` as
-`P(:symbol)`.  Be sure to use the macro forms `S"123"` and `R"az"` for sets and
-ranges, which will otherwise be transformed into `S(P("123"))`, which is invalid.
+`rules`, each of which is a rule-pair as can be created with `←`, or `<--`.
+`"string"` will be interpolated as `P("string")`, `:symbol` as `P(:symbol)`, and an
+integer `n` as `P(n)`.
+
+Any variable name exported by JLpeg will refer to the same value as the export, while
+any other variable is escaped, and will have the meaning it has in the scope where
+`@grammar` is called.
 
 ## Example use
 
@@ -81,24 +84,23 @@ This simple grammar captures the first string of numbers it finds:
 ```jldoctest
 julia> @grammar capnums begin
             :nums  ←  (:num,) | 1 * :nums
-            :num   ←  S"123"^1
+            :num   ←  R"09"^1
         end;
 
 julia> match(capnums, "abc123abc123")
 PegMatch(["123"])
 ```
 
-This one also captures the lowercase letters, before converting them to uppercase.
+This one also captures the lowercase letters, converting them to uppercase.
 
 ```jldoctest
 julia> upper = uppercase;  # A thoroughly unhygienic macro
 
 julia> @grammar uppernums begin
            :nums  ←  (:num,) | :abc * :nums
-           :num   ←  S"123"^1
+           :num   ←  R"09"^1
            :abc   ←  R"az"^1 <| upper
        end;
-
 
 julia> match(uppernums, "abc123abc123")
 PegMatch(["ABC", "123"])
@@ -125,6 +127,8 @@ name = @rule :name  ←  "foo" | "bar"
 # Right
 @rule :name ← "foo" | "bar"
 ```
+
+In terms of scope and variable escaping, `@rule` functions identically to `@grammar`.
 """
 macro rule(expr::Expr)
     if @capture(expr, (sym_ ← rulebody_)

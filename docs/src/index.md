@@ -351,48 +351,47 @@ The use of `<|` is meant to be mnemonic of [`|>`](@extref
 usefully low precedence), without pirating the meaning of the pipe operator.  This way
 `patt |> λ` will do the expected thing, `λ(patt)`.
 
-### Mark and Check
+### Marks and Checks
 
 Validation and parsing of strings frequently requires comparison between two
 substrings.  For our example, let's consider this toy XML tag grammar.
 
-```jldoctest toyXML
-julia> @grammar xmltag begin
-          :doc ← :tags * !1
-          :tags ← :opentag * :tags^0 * :closetag
-          :opentag ← "<" * R"az"^1 * ">"
-          :closetag ← "</" * R"az"^1 * ">"
-       end;
+```@setup toyXML
+using JLpeg
+```
 
-julia> match(xmltag, "<a><b></b></a>")
-PegMatch(["<a><b></b></a>"])
+```@repl toyXML
+@grammar xmltag begin
+    :doc ← :tags * !1
+    :tags ← :opentag * :tags^0 * :closetag
+    :opentag ← "<" * R"az"^1 * ">"
+    :closetag ← "</" * R"az"^1 * ">"
+end;
 
-julia> match(xmltag, "<a><b></b>")
-PegFail("<a><b></b>", 11)
+match(xmltag, "<a><b></b></a>")
+
+match(xmltag, "<a><b></b>")
 ```
 
 So far so good! We've got a nice recursive tag matcher, without [summoning Zalgo](https://stackoverflow.com/questions/1732348/regex-match-open-tags-except-xhtml-self-contained-tags/1732454#1732454).  One problem though: it allows any close tag to match any open tag.
 
-```jldoctest toyXML
-julia> match(xmltag, "<a><b></a></b>")
-PegMatch(["<a><b></a></b>"])
+```@repl toyXML
+match(xmltag, "<a><b></a></b>")
 ```
 
 To solve this, we have the mark and check mechanism. Let's rewrite the grammar to use them.
 
-```jldoctest
-julia> @grammar xmltag begin
-          :doc ← :tags * !1
-          :tags ← :opentag * :tags^0 * :closetag
-          :opentag ← "<" * M(R"az"^1, :tag) * ">"
-          :closetag ← "</" * K(R"az"^1, :tag) * ">"
-       end;
+```@repl toyXML
+@grammar xmltag begin
+    :doc ← :tags * !1
+    :tags ← :opentag * :tags^0 * :closetag
+    :opentag ← "<" * M(R"az"^1, :tag) * ">"
+    :closetag ← "</" * K(R"az"^1, :tag) * ">"
+end;
 
-julia> match(xmltag, "<a><b></a></b>")
-PegFail("<a><b></a></b>", 10)
+match(xmltag, "<a><b></a></b>")
 
-julia> match(xmltag, "<a><b></b></a>")
-PegMatch(["<a><b></b></a>"])
+match(xmltag, "<a><b></b></a>")
 ```
 
 More like it! This mechanism allows for a fully declarative PEG grammar which matches
@@ -408,6 +407,10 @@ these symbols as the third argument:
 
 - #TODO the built-ins
 
+With the exception of the built-in `:true` check, a check will always fail if the
+pattern hasn't captured a mark with the same key.  This includes user-provided
+functions, which won't trigger if a mark isn't found.
+
 Marks and checks are independent of the capture mechanism, but since the regions of
 interest are frequently worth capturing, we provide [`CM(patt)`](@ref CM) as a
 shorthand for `C(M(patt))`, and [`CK(patt)`](@ref CK) as shorthand for `C(K(patt))`.
@@ -416,13 +419,14 @@ Marks and checks come with an **important limitation**: they must not contain ot
 marks and checks.  Any other pattern is ok, including captures and all other actions.
 A future version of JLpeg may check for this condition and refuse to compile, the
 current behavior will silently corrupt your parse.  The author's opinion is that this
-is no limitation in practice.  If you find yourself with a real-world grammar which
-would benefit from nested marks, feel free to open an issue, and we can decide if the
-complexity, performance impact, and unclear semantics (does an inner mark come
-before, or after, its enclosing mark?) is worth it.
+is no limitation in practice, after all, one might match the longer region and
+perform whatever inner checks are desired.  If you find yourself with a real-world
+grammar which would benefit from nested marks, feel free to open an issue, and we can
+decide if the complexity, performance impact, and unclear semantics (does an inner
+mark come before, or after, its enclosing mark?) is worth it.
 
-Note that marks are only removed when a check passes them, and grammars or strings
-which don't close their marks will leave them on the stack.  This is normally
+Note that marks are only removed once a corresponding check succeeds, and grammars or
+strings which don't close their marks will leave them on the stack.  This is normally
 harmless, the worst that can come of it is JLpeg throwing an `InexactError` once
 there are more than `typemax(UInt16)` marks on the stack, but it's certainly possible
 to create bad performance.  For example, by stacking up a bunch of mark `:a` while
@@ -437,9 +441,21 @@ the mark exists or not.  If you want the check to fail if the mark doesn't exist
 example, `**` for emphasis is allowed to end when the paragraph ends, without needing
 to be closed.
 
+Final note: this thorough discussion might leave some with the impression that marks
+and checks aren't performant, are tricky, to be avoided in practice, etc.  Fear not!
+Typical uses will consume marks nearly as fast as they're generated, and it's rare
+for marks to overlap, that is, normally the check will be compared against the latest
+mark.  To cite our XML example, the mark stack will be as deep as the tags are
+nested, comparisons are always against the top mark, and any mismatch fails the
+entire parse. This has the same time complexity as a grammar which allows mismatched
+tags, with a tiny added constant factor which is well-used.
+
+Practical use of mark and check is as fast as it reasonably can be, and enables
+recognition of many common patterns in strings.
+
 ### Throws and Recovery
 
-The ultimate challenge of good parsing has always been error reporting and recovery.
+The greatest challenge for good parsing has always been error reporting and recovery.
 With old-school [lex and yacc](https://www.wikiwand.com/en/Yacc), the conventional
 wisdom was to develop the grammar for a language or DSL using the compiler-compiler
 toolkit, to assure that the grammar is actually in a useful context-free class, then
@@ -448,7 +464,7 @@ with useful error messages when they inevitably create syntax errors.
 
 [`JLpeg`](index.md), being a PEG parser, is a formalization of the classic
 recursive-descent parsing strategy.  It includes a mechanism pioneered by
-[lpeglabel](https://github.com/sqmedeiros/lpeglabel), modestly improved in the
+[lpeglabel](https://github.com/sqmedeiros/lpeglabel), modestly improved in our
 implementation, which allows a pattern to throw a specific error when an expected
 aspect of parsing is violated.
 
@@ -460,9 +476,11 @@ for reporting failure of patterns which didn't otherwise throw a label.
 
 Consider a simplified pattern for matching single-quoted strings:
 
-```@repl badstring
+```@setup badstring
 using JLpeg #hide
+```
 
+```@repl badstring
 @rule :string ← "'" * (!"'" * 1)^0 * "'";
 
 match(string, "'a string'")

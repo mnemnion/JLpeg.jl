@@ -93,8 +93,8 @@ R(a::AbstractChar, b::AbstractChar) = R(a * b)
     B(p::Union{Pattern,AbstractString,AbstractChar,Integer})
 
 Match `patt` behind the current subject index. `patt` must be of fixed length.  The
-most useful `B` pattern is `!B(1)`, which succeeds at the beginning of the string,
-followed by `B('\n')` to match the start of a line.
+most useful `B` patterns are `!B(1)`, which succeeds at the beginning of the string,
+and `B('\\n')|!B(1)` to match the start of a line.
 """
 B(p::Union{AbstractString,AbstractChar,Integer}) = PBehind(P(p))
 B(p::Pattern) = PBehind(p)
@@ -103,7 +103,8 @@ B(p::Pattern) = PBehind(p)
 """
     C(patt::Pattern)
 
-Create a capture. Matching `patt` with return the matched substring.
+Create a capture. Matching `patt` will return the matched substring.  The sugared
+form is `(patt,)`.
 """
 C(patt::Pattern) = PCapture(patt, Csimple, nothing)
 C(p::Patternable) = PCapture(P(p), Csimple, nothing)
@@ -111,7 +112,7 @@ C(p::Patternable) = PCapture(P(p), Csimple, nothing)
 """
     C(patt::Pattern, sym::Union{Symbol,AbstractString})
 
-Create a named capture with key :sym or "sym".
+Create a named capture with key :sym or "sym".  Sugared form `(patt, :sym)`.
 """
 function C(patt::Pattern, sym::CapSym)
     PCapture(patt, Csymbol, sym)
@@ -125,7 +126,7 @@ C(p::Vector, sym::CapSym) = Cg(p, sym)
 
 Create a group capture, which groups all captures from P into a vector inside
 the `PegMatch` object.  If `sym` is provided, the group will be found at that
-key.
+key.  Sugared as `[patt]` or `[patt, :sym]`.
 """
 function Cg(patt::Pattern, sym::Union{CapSym,Nothing})
     PCapture(patt, Cgroup, sym)
@@ -177,29 +178,30 @@ Cr(p::Patternable, sym::Union{CapSym, Nothing}) = Cr(P(p), sym)
 Cr(p::Union{Patternable, Pattern}) = Cr(p, nothing)
 
 """
-    A(patt::Pattern, fn::Function)
+    A(patt::Pattern, λ::Function)
 
-Acts as a grouping capture for `patt`, applying `fn` to a successful match
+Acts as a grouping capture for `patt`, applying `λ` to a successful match
 with the captures as arguments (not as a single Vector). If `patt` contains
-no captures, the capture is the SubString.  The return value of `fn` becomes
+no captures, the capture is the SubString.  The return value of `λ` becomes
 the capture; if `nothing` is returned, the capture (and its offset) are deleted.
+May be invoked as `patt <| λ`.
 """
-function A(patt::Pattern, fn::Function)
-    PCapture(patt, Caction, fn)
+function A(patt::Pattern, λ::Function)
+    PCapture(patt, Caction, λ)
 end
 
-A(p::Patternable, fn::Function) = A(P(p), fn)
+A(p::Patternable, λ::Function) = A(P(p), λ)
 
 """
-    Anow(patt::Pattern, fn::Function)
+    Anow(patt::Pattern, λ::Function)
 
-Acts as a grouping capture, applying `fn` immediately upon a match succeeding
+Acts as a grouping capture, applying `λ` immediately upon a match succeeding
 to the captures inside `patt`, or the span of `patt` if there are no captures
-within it.  The return value of `fn` becomes the capture, but if `nothing` is
+within it.  The return value of `λ` becomes the capture, but if `nothing` is
 returned, the entire pattern fails.
 """
-function Anow(patt::Pattern, fn::Function)
-    PCapture(patt, Cruntime, fn)
+function Anow(patt::Pattern, λ::Function)
+    PCapture(patt, Cruntime, λ)
 end
 
 """
@@ -208,7 +210,8 @@ end
 Throw a failure labeled with `:label`.  If a rule `:label` exists, this will
 be called to attempt recovery, the success or failure of the recovery rule is
 then used.  Otherwise, `:label` and the position of `T(:label)` will be
-attached to `PegFail` in the event that the whole match fails.
+attached to `PegFail` in the event that the whole match fails at that point
+in the string.
 """
 function T(label::Symbol)
     PThrow(label)
@@ -217,7 +220,7 @@ end
 """
     M(patt::Pattern, sym::Symbol)
 
-Mark the match of a pattern for later examination with [`K`](@ref).
+`M`ark the match of a pattern for later examination with [`K`](@ref).
 
 See also [`CM`](@ref).
 """
@@ -226,7 +229,7 @@ M(patt::Pattern, sym::Symbol) = PMark(patt, sym)
 """
     CM(patt::Pattern, sym::Symbol)
 
-`Mark` the match of `patt` with `sym`, while also capturing it with `sym`.
+Mark the match of `patt` with `sym`, while also capturing it with `sym`.
 
 See [`M`](@ref) and [`C`](@ref) for details.
 """
@@ -240,7 +243,9 @@ If `check` is not provided, it will return `true` if the SubStrings of the mark 
 check are identical, otherwise it must be either a symbol representing one of the
 builtins or a function with the signature `(marked::SubString,
 checked::SubString)::Bool`.  The success or failure of the check is the success or
-failure of the whole pattern.
+failure of the pattern.  If `patt` doesn't match, the check will not be performed.
+The check will always fail if the corresponding mark is not present, except for the
+builtin `:true`, which always succeeds if `patt` succeeds.
 
 See also [`CK`](@ref)
 """
