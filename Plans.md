@@ -45,6 +45,9 @@ The hitlist:
          complex to get right, but we get one critical and one nice thing out of it: assigning
          several actions to a single grammar, and compile-time compiling grammars then load-time
          providing the Actions.
+- [ ]  Complete Mark and Check
+  - [ ]  Add the remaining builtins
+  - [ ]  Support function checks
 - [ ]  Printing stuff
   - [ ]  `clipstringat(str, i, len=20)` returns a NamedTuple tuple with the char at i,
          up to two substrings surrounding it, and booleans telling whether or not we
