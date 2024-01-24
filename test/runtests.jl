@@ -390,6 +390,9 @@ using InteractiveUtils
         pmark = M(R"09"^1, :numsame) * P":" * K(R"09"^1, :numsame)
         @test match(pmark, "123:123") isa PegMatch
         @test match(pmark, "123:124") isa PegFail
+        mark2 = M(R"09"^1, :nums) * M(R"az"^1, :lets) * K(R"09"^1, :nums) * K(R"az"^1, :lets)
+        @test match(mark2, "012abc012abc") isa PegMatch
+        @test match(mark2, "012abc012abd") isa PegFail
     end
     @testset "Preface Checks" begin
         prefix1 = P"abc" | P"abd" | P"abf"
