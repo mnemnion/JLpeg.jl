@@ -387,17 +387,26 @@ using InteractiveUtils
     end
 
     @testset "Mark and Check" begin
-        pmark = M(R"09"^1, :numsame) * P":" * K(R"09"^1, :numsame)
-        @test match(pmark, "123:123") isa PegMatch
-        @test match(pmark, "123:124") isa PegFail
+        mark1 = M(R"09"^1, :numsame) * P":" * K(R"09"^1, :numsame)
+        @test match(mark1, "123:123") isa PegMatch
+        @test match(mark1, "123:124") isa PegFail
         mark2 = M(R"09"^1, :nums) * M(R"az"^1, :lets) * K(R"09"^1, :nums) * K(R"az"^1, :lets)
         @test match(mark2, "012abc012abc") isa PegMatch
         @test match(mark2, "012abc012abd") isa PegFail
+        @test match(mark2, "012abc013abc") isa PegFail
         mlen = M(R"az"^1, :letter) * K(R"AZ"^1, :letter, :length)
         @test mlen[2].check_tag == 0x0002
         @test match(mlen, "abcABC") isa PegMatch
         @test match(mlen, "abcABCD") isa PegFail
         @test match(mlen, "abcAB") isa PegFail
+        mclose = (R"az"^1 | M(R"09"^1, :num)) * K(P"Moe", :num, :close)
+        @test match(mclose, "123Moe") isa PegMatch
+        @test match(mclose, "abcMoe") isa PegFail
+        malways = M(R"09", :d1) * M(R"09", :digit) * K(R"09", :digit, :always) * K(R"09", :d1)
+        @test match(malways, "1991") isa PegMatch
+        @test match(malways, "1971") isa PegMatch
+        mall2 = R"09" * K(R"09", :noproblem, :always)
+        @test match(mall2, "22") isa PegMatch
     end
     @testset "Preface Checks" begin
         prefix1 = P"abc" | P"abd" | P"abf"

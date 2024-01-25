@@ -1017,7 +1017,7 @@ function nofail(patt::Pattern)::Bool
     # PChoice nofail if any branch is nofail
     elseif patt isa PChoice return any(nofail, patt.val)
     # Wrapped patterns which nofail based on the pattern they enclose
-    elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd) return nofail(patt.val[1])
+    elseif isof(patt, PCapture, PGrammar, PRule, PTXInfo, PAnd, PMark, PCheck) return nofail(patt.val[1])
     else @error "nofail not defined for $(typeof(patt))"
     end
 end
