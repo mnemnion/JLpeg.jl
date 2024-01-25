@@ -342,7 +342,7 @@ of its own.
 | [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time,           |
 | [⭕️] | `patt >: λ`           | return `nothing` to fail the match                |
 | [✅] | `M(patt, :label)`     | `M`ark a the region of `patt` for later reference |
-| [✅️] | `K(patt, :label, op)` | checK `patt` against the last mark with `op`      |
+| [✅️] | `K(patt, :label, op)` | chec`K` `patt` against the last mark with `op`    |
 | [✅] | `T(:label)`,          | fail the match and throw `:label`                 |
 | [✅] | `patt % :label`       | shorthand for `patt \| T(:label)`                 |
 
@@ -402,8 +402,13 @@ strings, and much more.
 are identical.  In the three-argument form, a function may be provided, which must
 have the signature `(marked::AbstractString, checked::AbstractString)::Bool`, with
 the result of calling the function on the regions of interest used to pass or fail
-the match.  `JLpeg` provides several built-ins, which may be invoked by providing
-these symbols as the third argument:
+the match.  This may also be written in [do syntax](@extref
+`Do-Block-Syntax-for-Function-Arguments`).
+
+For the most common comparisons, `JLpeg` provides several built-ins, which may be
+invoked by providing these symbols as the third argument.  These don't have to
+allocate SubStrings or look up a function, and should always be preferred for what
+they do.
 
 | Built-in  |           Match when           |
 | :-------- | :----------------------------- |
@@ -416,15 +421,25 @@ these symbols as the third argument:
 | `:gte`    | length(r2) ≥ length(r1)        |
 | `:lte`    | length(r2) ≤ length(r1)        |
 
-The builtin `:(==)` is the default used in the two-argument form of [`K`](@ref).
+The builtin `:(==)` is the default used in the two-argument form of [`K`](@ref).  The
+length comparisons in the table may look backward, but is easy to remember in
+practice: `K(patt, :tag, :gt)` means "this is greater than that", and so on.  These
+are abbreviations and not symbols, because, for one example, `K(patt, :tag, >)` is a
+perfectly valid check, but will use lexicographic comparison (as always with strings
+and `>`), not length comparison.  `:(==)` is identical in meaning to `==` in this
+context, but may be safely elided.
 
 With the exception of `:always`, a check will fail if there is no mark with the same
 key.  This includes user-provided functions, which won't trigger if a mark isn't
-found.
+found. All checks, _including_ `:always`, are only performed if the enclosed pattern
+succeeds.
 
 Marks and checks are independent of the capture mechanism, but since the regions of
-interest are frequently worth capturing, we provide [`CM(patt)`](@ref CM) as a
-shorthand for `C(M(patt))`, and [`CK(patt)`](@ref CK) as shorthand for `C(K(patt))`.
+interest are frequently worth capturing, we provide [`CM(patt, :sym)`](@ref CM) as a
+shorthand for `C(M(patt, :sym), :sym)`, and [`CK(patt, :sym, check)`](@ref CK) as
+shorthand for `C(K(patt, :sym, check), :sym)`.
+
+#### Limitation and Performance
 
 Marks and checks come with an **important limitation**: they must not contain other
 marks and checks.  Any other pattern is ok, including captures and all other actions.
@@ -446,8 +461,8 @@ nonexistent mark on a growing stack of marks.  It takes some real effort to prod
 grammar which will do this, however.
 
 If you have a grammar where some paired regions may be implicitly closed, you can use
-`K(patt, :tag, :always)` to automatically close the mark; this check succeeds whether
-the mark exists or not.  If you want the check to fail if the mark doesn't exist, use
+`K(patt, :tag, :always)` to close the mark by fiat; this check succeeds whether the
+mark exists or not.  If you want the check to fail if the mark doesn't exist, use
 `K(patt, :tag, :close)` instead.  This comes up in Markdown parsing, where, for
 example, `**` for emphasis is allowed to end when the paragraph ends, without needing
 to be closed.
@@ -511,6 +526,31 @@ match(string, "'not a string")
 
 This provides us both with the point of failure, and the cause, data which can be
 used to provide a helpful error message to the user.
+
+A Throw with a matching rule will attempt that rule on throw, if this succeeds, the
+parse continues.  This can be used to embed errors while continuing to check the
+validity of the grammar, as in this example.
+
+```@repl badstring
+@grammar strmatch begin
+    :strings ← " "^0 * "'" * (!S"'\n'" * 1)^0 * ("'" % :missedend) * :strings^0 * !1
+    :missedend ← ("\n", :str_newline_error)
+end;
+
+match(strmatch, "'a string' 'another string'")
+
+match(strmatch, "'a string\n 'another string'")
+
+match(strmatch, "'a string' 'another string")
+```
+
+Here we have a grammar matching at least one single-quoted string, which may not
+contain a literal newline. If we fail to match a string, the `:missedend` rule looks
+for a newline, which it captures and tags, enabling the parse to continue.
+Subsequent code can look for `:str_newline_error`, or any number of such
+error-signalling keys.  Since a [`SubString`](@extref `Base.SubString`) has its start
+point in the `.offset` field, this may be used to inform the user where the missing
+close quote belongs.
 
 ## Working With Matched Data
 
