@@ -412,6 +412,25 @@ using InteractiveUtils
         mall2 = R"09" * K(R"09", :noproblem, :always)
         @test mall2[2].check_tag == 0x0004
         @test match(mall2, "22") isa PegMatch
+        p0, p1 = P"0"^1, P"1"^1
+        m_gt = M(p0, :bin) * K(p1, :bin, :gt)
+        @test m_gt[2].check_tag == 0x0005
+        @test match(m_gt, "0001111") isa PegMatch
+        @test match(m_gt, "000111") isa PegFail
+        m_lt = M(p0, :bin) * K(p1, :bin, :lt)
+        @test m_lt[2].check_tag == 0x0006
+        @test match(m_lt, "0000111") isa PegMatch
+        @test match(m_lt, "000111") isa PegFail
+        m_gte = M(p0, :bin) * K(p1, :bin, :gte)
+        @test m_gte[2].check_tag == 0x0007
+        @test match(m_gte, "0001111") isa PegMatch
+        @test match(m_gte, "000111") isa PegMatch
+        @test match(m_gte, "00011") isa PegFail
+        m_lte = M(p0, :bin) * K(p1, :bin, :lte)
+        @test m_lte[2].check_tag == 0x0008
+        @test match(m_lte, "000111") isa PegMatch
+        @test match(m_lte, "00011") isa PegMatch
+        @test match(m_lte, "0001111") isa PegFail
         markfn = M(R"az"^1, :alphas) * P":" * K(R"az"^1, :alphas, (s1,s2) -> occursin("a", s1) && occursin("z", s2))
         @test match(markfn, "dieda:dzzbs") isa PegMatch
         @test match(markfn, "diedo:dzzbs") isa PegFail
