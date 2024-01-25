@@ -525,7 +525,7 @@ end
 
 "onCloseMark"
 function onInst(inst::CloseMarkInst, vm::VMState)::Bool
-   off = UInt16(vm.s - vm.mo - 1)
+   off = UInt16(vm.s - vm.mo)
    pushmark!(vm, off, inst)
    vm.i += 1
    return true
@@ -550,7 +550,7 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
     end
     # Built-ins
     mark = vm.mark[idx]
-    start1, stop1 = mark.s, mark.s + mark.off
+    start1, stop1 = mark.s, mark.s + mark.off - 1
     start2, stop2 = vm.mo, vm.s - 1
     matched::Bool = false
     if inst.check == 0x0001  # aka :(==)
@@ -590,7 +590,9 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
     end
 
     if matched
-        deleteat!(vm.mark, idx)
+        if !vm.inpred
+            deleteat!(vm.mark, idx)
+        end
     else
         updatesfar!(vm)
     end

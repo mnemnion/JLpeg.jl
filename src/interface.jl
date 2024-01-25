@@ -253,7 +253,7 @@ builtin `:always`, which always succeeds if `patt` succeeds.
 See also [`CK`](@ref)
 """
 K(patt::Pattern, sym::Symbol, check::Union{Function,Symbol}) = PCheck(patt, sym, check)
-K(patt::Pattern, sym::Symbol) = K(patt, sym, :(==))
+K(patt::Pattern, sym::Symbol) = PCheck(patt, sym)
 K(check::Function, patt::Pattern, sym::Symbol) = PCheck(patt, sym, check)
 
 """

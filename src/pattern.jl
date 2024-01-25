@@ -279,6 +279,7 @@ function PCheck(patt::Pattern, mark::Symbol, check::Union{Symbol,Function})
     check_tag = _getcheck!(check)
     PCheck([patt], Inst(), mark, tag, check, check_tag, AuxDict())
 end
+PCheck(patt::Pattern, mark::Symbol) = PCheck(patt, mark, :(==))
 
 abstract type PRunTime <:Pattern end
 abstract type PTXInfo <:Pattern end
