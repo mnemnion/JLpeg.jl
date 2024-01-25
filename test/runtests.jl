@@ -393,6 +393,11 @@ using InteractiveUtils
         mark2 = M(R"09"^1, :nums) * M(R"az"^1, :lets) * K(R"09"^1, :nums) * K(R"az"^1, :lets)
         @test match(mark2, "012abc012abc") isa PegMatch
         @test match(mark2, "012abc012abd") isa PegFail
+        mlen = M(R"az"^1, :letter) * K(R"AZ"^1, :letter, :length)
+        @test mlen[2].check_tag == 0x0002
+        @test match(mlen, "abcABC") isa PegMatch
+        @test match(mlen, "abcABCD") isa PegFail
+        @test match(mlen, "abcAB") isa PegFail
     end
     @testset "Preface Checks" begin
         prefix1 = P"abc" | P"abd" | P"abf"

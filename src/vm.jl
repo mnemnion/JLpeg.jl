@@ -533,22 +533,28 @@ end
 
 "onCheckMark"
 function onInst(inst::CheckMarkInst, vm::VMState)::Bool
+    vm.i += 1  # we advance unconditionally in this instruction
     idx = findlast(vm.mark) do i
         i.tag == inst.tag
     end
+    if inst.check == 0x0004  # :always
+        if idx !== nothing
+            deleteat!(vm.mark, idx)
+        end
+        return true
+    end
+    # All other checks fail if there is no mark:
     if idx === nothing
         updatesfar!(vm)
-        vm.i += 1
         return false
     end
     # Built-ins
+    mark = vm.mark[idx]
+    start1, stop1 = mark.s, mark.s + mark.off
+    start2, stop2 = vm.mo, vm.s - 1
     if inst.check == 0x0001  # aka :(==)
-        mark = vm.mark[idx]
-        start1, stop1 = mark.s, mark.s + mark.off
-        start2, stop2 = vm.mo, vm.s - 1
         if stop1 - start1 ≠ stop2 - start2
             updatesfar!(vm)
-            vm.i += 1
             return false
         end
         Δ = start2 - start1
@@ -561,15 +567,22 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
         end
         if matched
             deleteat!(vm.mark, idx)
-            vm.i += 1
             return true
         else
             updatesfar!(vm)
-            vm.i += 1
             return false
         end
-    else
-        error("NYI")
+    elseif inst.check == 0x0002  # :length
+        if stop1 - start1 ≠ stop2 - start2
+            updatesfar!(vm)
+            return false
+        else
+            deleteat!(vm.mark, idx)
+            return true
+        end
+    elseif inst.check == 0x0003  # :close
+        deleteat!(vm.mark, idx)
+        return true
     end
 end
 

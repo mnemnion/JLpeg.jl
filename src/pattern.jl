@@ -253,8 +253,11 @@ function _getcheck!(check::Union{Symbol,Function})::UInt16
     end
 end
 
-# Add :(==) as default so we can hard-code comparison
+# Add built-ins first, these tag values are hard-coded
 _getcheck!(:(==))
+_getcheck!(:length)
+_getcheck!(:close)
+_getcheck!(:always)
 struct PCheck <: Pattern
     val::PVector
     code::IVector

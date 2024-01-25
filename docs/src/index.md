@@ -407,7 +407,7 @@ these symbols as the third argument:
 
 - #TODO the built-ins
 
-With the exception of the built-in `:true` check, a check will always fail if the
+With the exception of the built-in `:always` check, a check will always fail if the
 pattern hasn't captured a mark with the same key.  This includes user-provided
 functions, which won't trigger if a mark isn't found.
 
@@ -435,7 +435,7 @@ nonexistent mark on a growing stack of marks.  It takes some real effort to prod
 grammar which will do this, however.
 
 If you have a grammar where some paired regions may be implicitly closed, you can use
-`K(patt, :tag, :true)` to automatically close the mark; this check succeeds whether
+`K(patt, :tag, :always)` to automatically close the mark; this check succeeds whether
 the mark exists or not.  If you want the check to fail if the mark doesn't exist, use
 `K(patt, :tag, :close)` instead.  This comes up in Markdown parsing, where, for
 example, `**` for emphasis is allowed to end when the paragraph ends, without needing

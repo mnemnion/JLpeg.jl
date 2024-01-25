@@ -245,7 +245,7 @@ builtins or a function with the signature `(marked::SubString,
 checked::SubString)::Bool`.  The success or failure of the check is the success or
 failure of the pattern.  If `patt` doesn't match, the check will not be performed.
 The check will always fail if the corresponding mark is not present, except for the
-builtin `:true`, which always succeeds if `patt` succeeds.
+builtin `:always`, which always succeeds if `patt` succeeds.
 
 See also [`CK`](@ref)
 """
