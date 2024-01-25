@@ -552,7 +552,7 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
     mark = vm.mark[idx]
     start1, stop1 = mark.s, mark.s + mark.off
     start2, stop2 = vm.mo, vm.s - 1
-    matched = false
+    matched::Bool = false
     if inst.check == 0x0001  # aka :(==)
         if stop1 - start1 == stop2 - start2
             Δ = start2 - start1
@@ -564,34 +564,31 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
                 end
             end
         end
-    elseif inst.check == 0x0002  # :length
-        if stop1 - start1 == stop2 - start2
-            matched = true
-        end
-    elseif inst.check == 0x0003  # :close
+    # :length
+    elseif inst.check == 0x0002 && stop1 - start1 == stop2 - start2
         matched = true
-    elseif inst.check == 0x0005  # gt (handled 0x0004 at top)
-        if stop2 - start2 > stop1 - start1
-            matched = true
-        end
-    elseif inst.check == 0x0006 # lt
-        if stop2 - start2 < stop1 - start1
-            matched = true
-        end
-    elseif inst.check == 0x0007 # gte
-        if stop2 - start2 ≥ stop1 - start1
-            matched = true
-        end
-    elseif inst.check == 0x0008 # lte
-        if stop2 - start2 ≤ stop1 - start1
-            matched = true
-        end
-    else
+    # :close
+    elseif inst.check == 0x0003
+        matched = true
+    # :gt (handled 0x0004 at top)
+    elseif inst.check == 0x0005 && stop2 - start2 > stop1 - start1
+        matched = true
+    # :lt
+    elseif inst.check == 0x0006 && stop2 - start2 < stop1 - start1
+        matched = true
+    # :gte
+    elseif inst.check == 0x0007 && stop2 - start2 ≥ stop1 - start1
+        matched = true
+    # :lte
+    elseif inst.check == 0x0008 && stop2 - start2 ≤ stop1 - start1
+        matched = true
+    elseif inst.check ≥ 0x0009  # user-provided function
         λ = tagtocheck[inst.check]
         sub1 = @views vm.subject[start1:stop1]
         sub2 = @views vm.subject[start2:stop2]
         matched = λ(sub1, sub2)
     end
+
     if matched
         deleteat!(vm.mark, idx)
     else
@@ -885,7 +882,6 @@ end
 
 ## Core Method extensions
 
-
 """
     match(patt::Pattern, subject::AbstractString)::Union{PegMatch, PegFail}
 
@@ -903,7 +899,7 @@ end
     findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
 
 Find the first match of `patt` in `string`. Returns the index at the *end* of the match,
-such that string[1:findfirst(patt)] will show the substring.
+such that `@views string[1:findfirst(patt)]` is the match.
 """
 function Base.findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
     vm = VMState(patt, string)

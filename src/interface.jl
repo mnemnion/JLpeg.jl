@@ -247,10 +247,14 @@ failure of the pattern.  If `patt` doesn't match, the check will not be performe
 The check will always fail if the corresponding mark is not present, except for the
 builtin `:always`, which always succeeds if `patt` succeeds.
 
+`K` may also be written in [do syntax](@extref
+`Do-Block-Syntax-for-Function-Arguments`), `K(patt, :tag) do s1, s2... end`.
+
 See also [`CK`](@ref)
 """
 K(patt::Pattern, sym::Symbol, check::Union{Function,Symbol}) = PCheck(patt, sym, check)
 K(patt::Pattern, sym::Symbol) = K(patt, sym, :(==))
+K(check::Function, patt::Pattern, sym::Symbol) = PCheck(patt, sym, check)
 
 """
     CK(patt::Pattern, sym::Symbol, check::Union{Function,Symbol})
@@ -260,6 +264,7 @@ See [`K`](@ref) and [`C`](@ref) for details.
 """
 CK(patt::Pattern, sym::Symbol, check::Union{Function,Symbol}) = C(K(patt, sym, check), sym)
 CK(patt::Pattern, sym::Symbol) = CK(patt, sym, :(==))
+CK(check::Function, patt::Pattern, sym::Symbol) = C(K(patt, sym, check), sym)
 
 """
     P"str"
