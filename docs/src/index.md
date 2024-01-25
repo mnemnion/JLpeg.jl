@@ -394,9 +394,9 @@ match(xmltag, "<a><b></a></b>")
 match(xmltag, "<a><b></b></a>")
 ```
 
-More like it! This mechanism allows for a fully declarative PEG grammar which matches
-valid XML.  It's also applicable to Python-style indentation, Lua's long strings, and
-much more.
+That's more like it!  This mechanism allows for a fully declarative PEG grammar which
+matches valid XML.  It's also applicable to Python-style indentation, Lua's long
+strings, and much more.
 
 `K` has a two-argument form (shown), where the check confirms that the two substrings
 are identical.  In the three-argument form, a function may be provided, which must
@@ -405,11 +405,22 @@ the result of calling the function on the regions of interest used to pass or fa
 the match.  `JLpeg` provides several built-ins, which may be invoked by providing
 these symbols as the third argument:
 
-- #TODO the built-ins
+| Built-in  |           Match when           |
+| :-------- | :----------------------------- |
+| `:(==)`   | Regions are identical          |
+| `:length` | Regions have the same length   |
+| `:close`  | There is a mark with this tag  |
+| `:always` | Whether the mark exists or not |
+| `:gt`     | length(r2) > length(r1)        |
+| `:lt`     | length(r2) < length(r1)        |
+| `:gte`    | length(r2) ≥ length(r1)        |
+| `:lte`    | length(r2) ≤ length(r1)        |
 
-With the exception of the built-in `:always` check, a check will always fail if the
-pattern hasn't captured a mark with the same key.  This includes user-provided
-functions, which won't trigger if a mark isn't found.
+The builtin `:(==)` is the default used in the two-argument form of [`K`](@ref).
+
+With the exception of `:always`, a check will fail if there is no mark with the same
+key.  This includes user-provided functions, which won't trigger if a mark isn't
+found.
 
 Marks and checks are independent of the capture mechanism, but since the regions of
 interest are frequently worth capturing, we provide [`CM(patt)`](@ref CM) as a
