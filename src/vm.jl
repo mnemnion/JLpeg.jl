@@ -541,13 +541,25 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
         vm.i += 1
         return false
     end
-    # special cases (TODO optimize, i.e. no substring creation for == (0x0001))
+    # Built-ins
     if inst.check == 0x0001  # aka :(==)
         mark = vm.mark[idx]
         start1, stop1 = mark.s, mark.s + mark.off
-        sub1 = @views vm.subject[start1:stop1]
-        sub2 = @views vm.subject[vm.mo:vm.s - 1]
-        if sub1 == sub2
+        start2, stop2 = vm.mo, vm.s - 1
+        if stop1 - start1 ≠ stop2 - start2
+            updatesfar!(vm)
+            vm.i += 1
+            return false
+        end
+        Δ = start2 - start1
+        matched = true
+        for i = start1:stop1
+            if codeunit(vm.subject, i) ≠ codeunit(vm.subject, i + Δ)
+                matched = false
+                break
+            end
+        end
+        if matched
             deleteat!(vm.mark, idx)
             vm.i += 1
             return true
