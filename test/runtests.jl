@@ -388,6 +388,9 @@ using InteractiveUtils
 
     @testset "Mark and Check" begin
         mark1 = M(R"09"^1, :numsame) * P":" * K(R"09"^1, :numsame)
+        # Note: the builtin tags are hardcoded into the VM,
+        # so we must test that they stay stable
+        @test mark1[2][2].check_tag == 0x0001
         @test match(mark1, "123:123") isa PegMatch
         @test match(mark1, "123:124") isa PegFail
         mark2 = M(R"09"^1, :nums) * M(R"az"^1, :lets) * K(R"09"^1, :nums) * K(R"az"^1, :lets)
@@ -400,13 +403,18 @@ using InteractiveUtils
         @test match(mlen, "abcABCD") isa PegFail
         @test match(mlen, "abcAB") isa PegFail
         mclose = (R"az"^1 | M(R"09"^1, :num)) * K(P"Moe", :num, :close)
+        @test mclose[2].check_tag == 0x0003
         @test match(mclose, "123Moe") isa PegMatch
         @test match(mclose, "abcMoe") isa PegFail
         malways = M(R"09", :d1) * M(R"09", :digit) * K(R"09", :digit, :always) * K(R"09", :d1)
         @test match(malways, "1991") isa PegMatch
         @test match(malways, "1971") isa PegMatch
         mall2 = R"09" * K(R"09", :noproblem, :always)
+        @test mall2[2].check_tag == 0x0004
         @test match(mall2, "22") isa PegMatch
+        markfn = M(R"az"^1, :alphas) * P":" * K(R"az"^1, :alphas, (s1,s2) -> occursin("a", s1) && occursin("z", s2))
+        @test match(markfn, "dieda:dzzbs") isa PegMatch
+        @test match(markfn, "diedo:dzzbs") isa PegFail
     end
     @testset "Preface Checks" begin
         prefix1 = P"abc" | P"abd" | P"abf"
