@@ -119,10 +119,10 @@ bring them into scope if desired.  Most users will stick to the [`@rule`](@ref) 
 returning a [`PegMatch`](@ref) `<:` [AbstractMatch](@extref `Base.RegexMatch`). In
 the event of a failure, it returns a [`PegFail`](@ref), with the index of the failure
 at `.errpos`.  Note that unlike regular expressions, JLpeg will not skip ahead to
-find a pattern in a string, unless the pattern is so constructed.  We offer the easy
-shorthand `"" >> patt` to convert a pattern into its searching equivalent; `P""`
-matches the empty string, and JLPeg will convert strings and numbers (but not
-booleans) into patterns when able.
+find a pattern in a string, unless the pattern is so constructed.  We offer the
+shorthand `"" >> patt`, the "fast-forward" operator, to convert a pattern into its
+searching equivalent.  `P""` matches the empty string, and JLPeg will convert Strings
+and Integers (but not Bools) into patterns when able.
 
 ```jldoctest
 julia> match(P"123", "123456")
@@ -209,13 +209,14 @@ The preferred way to create rules and grammars is with the macros [`@rule`](@ref
 entirely.  Any [`Integer`](@extref `Core.Integer`), [`String`](@extref
 `manual/strings`), [`Symbol`](@extref `Symbols`), or [`Char`](@extref
 `man-characters`), found on its own, is converted into the pattern equivalent.  While
-this is not true of booleans, the idiomatic way to spell `true` and `false` in JLpeg
-is `""` and `S""` respectively, and these are compiled into the same code as
-`P(true)` and `P(false)`.  JLpeg also defines, but does not export, `ε` for `P(true)`
-and `∅` for `P(false)`, and these may be used in grammars and rules as well, with
-`\varepsilon` (`\vare[TAB]`) and `\emptyset` (`\emp[TAB]`) respectively.
+this is not true of booleans, an idiomatic way to spell `true` and `false` in JLpeg
+is `""` and `S""` respectively (read: "the empty string" and "the empty set").  These
+are compiled into the same code as `P(true)` and `P(false)`.  JLpeg also defines, but
+does not export, `ε` for `P(true)` and `∅` for `P(false)`, and these may be used in
+grammars and rules as well, with `\varepsilon` (`\vare[TAB]`) and `\emptyset`
+(`\emp[TAB]`) respectively.
 
-Exported variable names from `JLpeg` will always refer to the values they have in the
+Public variable names from `JLpeg` will always refer to the values they have in the
 module.  Any other variable will be escaped, so it will have the expected meaning.
 
 To give an example, this rule:
@@ -238,7 +239,10 @@ a = :a ← P"foo" * Cg(S"123" | "abc"^0)^1
 
 Which is a bit less cumbersome (we try).  Note that the `@rule` form doesn't require
 the importation of `@S_str`, or any other exported name, thanks to the nature of
-Julia macros.
+Julia macros.  You may always use any form of a pattern in `@rule` or `@grammar`, all
+of these are equivalent: `P("string")`, `P"string"`, and `"string"`.
+
+#### A Sample Grammar
 
 A classic example of a task forever beyond the reach of regular expressions is balancing parentheses, with JLpeg this is easy:
 
@@ -262,18 +266,19 @@ match(parens, "(these (must))) balance)")
 ```
 
 `!1` is our equivalent of `$` in regex, a pattern which only succeeds at the end of
-input.
+input. `1` will match a single Unicode codepoint, and `!` is negative lookahead.
 
 The `@grammar` macro doesn't define variable names for the rules, only the grammar
-name given before the expression block.  The first rule, as always, is the start
-rule, as you can see, it needn't match the variable name.
+name given before the expression block.  The first rule is always the start rule.  As
+the example shows, it doesn't necessarily match the variable name, although of course
+it may.
 
 ## Captures
 
 A [`PegMatch`](@ref) defaults to the longest [`SubString`](@extref `Base.SubString`)
 when no captures are provided, or when the pattern succeeds but all captures within
-fail.  To capture only the substring of interest, use `C(patt)` or just make a tuple
-`(patt,)`.  Don't forget the comma, or Julia will interpret this as a group.
+fail.  To capture only the substring(s) of interest, use `C(patt)` or just make a tuple
+`(patt,)`.
 
 ```jldoctest
 julia> match("" >> (P"56",), "1234567")
@@ -282,7 +287,8 @@ PegMatch(["56"])
 
 This matches the empty string, fast-forwards to the first 56, and captures it.  Note
 that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
-`P("") >> C(P("56"))`.
+`P("") >> C(P("56"))`.  The capture can receive a key, which may be either a
+Symbol or a String: `(P"56", :fiftysix)` or `(P"56", "fifty six")`.
 
 | [❓]  | Operation               | What it produces                                       |
 |------|:------------------------|:-------------------------------------------------------|
@@ -290,9 +296,9 @@ that the pattern is `(P"56",)`, a tuple, not a group; this is syntax sugar for
 | [✅]  | `(patt,)`               | same as above, note the comma!                         |
 | [✅]  | `(patt, key)`           | `key` may be `:symbol` or `"string"`                   |
 | [✅]  | `Cg(patt [, key])`,     | captures a Vector of values produced by `patt`,        |
-| [✅]  | `[patt], ([patt], key)` | optionally tagged with `key`                           |
+| [✅]  | `[patt], [patt, key]`   | optionally tagged with `key`                           |
 | [✅]  | `Cp()`                  | captures `""` so `PegMatch.offsets` has the position   |
-| [🔶] | `Cc(any)`               | places `any` in `.captures` at the current offset      |
+| [🔶] | `Cc(any)`                | places `any` in `.captures` at the current offset      |
 | [✅]  | `Cr(patt [, key])`      | Range of indices [start:end] of `patt`, optional `key` |
 
 Some more examples:
@@ -325,7 +331,7 @@ PegMatch([:capABC => ["BCA", "CCC"]])
 ```
 
 With both `⟷` and `↔︎` as synonyms, these are `\longleftrightarrow` and
-`\:left_right_arrow` respectively.
+`\:left_right_arrow:` respectively.
 
 ## Actions
 
@@ -333,7 +339,6 @@ A pattern may be modified with an action to be taken, either at runtime, or, mor
 commonly, once the match has completed.  These actions are supplied with all captures
 in `patt`, or the substring matched by `patt` itself if `patt` contains no captures
 of its own.
-
 
 | [❓]  | Action               | Consequence                                       |
 |------|-----------------------|:--------------------------------------------------|
