@@ -243,21 +243,28 @@ function PMark(patt::Pattern, mark::Symbol)
     PMark([patt], Inst(), mark, tag, AuxDict())
 end
 
-const checkmap = Dict{Union{Symbol,Function},UInt16}()
+const checktotag = Dict{Union{Symbol,Function},UInt16}()
+const tagtocheck = Dict{UInt16,Union{Symbol,Function}}()
 global checkcounter::UInt16 = 0
 
 function _getcheck!(check::Union{Symbol,Function})::UInt16
-    get!(checkmap, check) do
+    get!(checktotag, check) do
         global checkcounter += 1
+        tagtocheck[checkcounter] = check
         return checkcounter
     end
 end
 
-# Add built-ins first, these tag values are hard-coded
+# Add built-ins first, tag values are hard-coded in the VM
 _getcheck!(:(==))
 _getcheck!(:length)
 _getcheck!(:close)
 _getcheck!(:always)
+_getcheck!(:gt)
+_getcheck!(:lt)
+_getcheck!(:gte)
+_getcheck!(:lte)
+
 struct PCheck <: Pattern
     val::PVector
     code::IVector

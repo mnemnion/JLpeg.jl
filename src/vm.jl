@@ -552,38 +552,52 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
     mark = vm.mark[idx]
     start1, stop1 = mark.s, mark.s + mark.off
     start2, stop2 = vm.mo, vm.s - 1
+    matched = false
     if inst.check == 0x0001  # aka :(==)
-        if stop1 - start1 ≠ stop2 - start2
-            updatesfar!(vm)
-            return false
-        end
-        Δ = start2 - start1
-        matched = true
-        for i = start1:stop1
-            if codeunit(vm.subject, i) ≠ codeunit(vm.subject, i + Δ)
-                matched = false
-                break
+        if stop1 - start1 == stop2 - start2
+            Δ = start2 - start1
+            matched = true
+            for i = start1:stop1
+                if codeunit(vm.subject, i) ≠ codeunit(vm.subject, i + Δ)
+                    matched = false
+                    break
+                end
             end
         end
-        if matched
-            deleteat!(vm.mark, idx)
-            return true
-        else
-            updatesfar!(vm)
-            return false
-        end
     elseif inst.check == 0x0002  # :length
-        if stop1 - start1 ≠ stop2 - start2
-            updatesfar!(vm)
-            return false
-        else
-            deleteat!(vm.mark, idx)
-            return true
+        if stop1 - start1 == stop2 - start2
+            matched = true
         end
     elseif inst.check == 0x0003  # :close
-        deleteat!(vm.mark, idx)
-        return true
+        matched = true
+    elseif inst.check == 0x0005  # gt (handled 0x0004 at top)
+        if stop2 - start2 > stop1 - start1
+            matched = true
+        end
+    elseif inst.check == 0x0006 # lt
+        if stop2 - start2 < stop1 - start1
+            matched = true
+        end
+    elseif inst.check == 0x0007 # gte
+        if stop2 - start2 ≥ stop1 - start1
+            matched = true
+        end
+    elseif inst.check == 0x0008 # lte
+        if stop2 - start2 ≤ stop1 - start1
+            matched = true
+        end
+    else
+        λ = tagtocheck[inst.check]
+        sub1 = @views vm.subject[start1:stop1]
+        sub2 = @views vm.subject[start2:stop2]
+        matched = λ(sub1, sub2)
     end
+    if matched
+        deleteat!(vm.mark, idx)
+    else
+        updatesfar!(vm)
+    end
+    return matched
 end
 
 "onChoice"
