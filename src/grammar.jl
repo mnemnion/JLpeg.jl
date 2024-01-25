@@ -23,6 +23,8 @@ function wrap_rule_body(rulebody::Expr)::Expr
                 :(@S_str($val))
             elseif @capture(x, (@R_str(🔠(val_))))
                 :(@R_str($val))
+            elseif @capture(x, (@P_str(🔠(val_))))
+                :(@P_str($val))
             elseif @capture(x, ((cap_, 🔠(sym1_))))
                 :(C($cap, $sym1))
             elseif @capture(x, ([val_, 🔠(sym2_)]))
