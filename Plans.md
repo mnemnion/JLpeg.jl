@@ -19,7 +19,7 @@ The hitlist:
            Ends up being equivalent to suppressed and included rules in the PEG
            format.  Needs to be a group capture though, to get the recursive
            shape correct.
-    - [?]  Expression caps can just be |> `toexpr`, right? Although what's the
+    - [?]  Expression caps can just be <| `toexpr`, right? Although what's the
            symbol.  I think having a gazillion capture types is too LPeg for JLpeg...
     - [Y]  Captures in fact should just be Csimple and Csymbol, the rest are
            conceptually Actions according to the distinction I've drawn.
@@ -36,18 +36,35 @@ The hitlist:
            walking a parse tree or iterating, but it's important to know where they
            are and categorize them for tasks like syntax highlighting and formatting.
            The LPeg tree format I was using was a right pain for that.
-  - [ ]  `Anow`, `patt > λ`
-    - [ ]  `patt >: λ`?  I think this is the best one actually
+  - [ ]  `Anow`, `patt >: λ`
+    - [ ]  I have to decide what `Anow` is even for, is what it amounts to.  In LPeg it's an
+           all-purpose escape hatch that lets you do almost anything.  We have the check
+           mechanism, which covers the (only) use shown in the LPeg manual, matching long
+           strings. I'm starting to think we just don't need it.
+    - [ ]  I think the answer here is we have an action `Avm(λ)`, which calls `λ(vm)` and
+           expects a true or false return value.  This is Ultimate Power without adding much
+           program complexity, and I can imagine a few uses for it, debugging being the main
+           one, but it serves as an all-purpose escape hatch for weird hacks.
+    - [X]  `patt >: λ`?  I think this is the best one actually
     - [ ]  Refactor `aftermatch` to get a function which can enact captures across
            part of the  stack
-    - [ ]  The rest should be fairly simple
+    - [ ]  The big question here is what the function signature and return values
+           look like.  The equivalent in LPeg, `Cmt`, is [rather
+           complex](https://www.inf.puc-rio.br/~roberto/lpeg/lpeg.html#matchtime). Julia isn't
+           Lua, we can't really use the program stack to store captures, and without `Anow`,
+           the captures themselves aren't created until after matchtime.  And we don't have
+           true multiple return values, we can fake it with a tuple but we have to, y'know,
+           fake it with a tuple.
   - [ ]  "deferred action" form `patt |> :func` || `patt > :func`.  This one will be rather
          complex to get right, but we get one critical and one nice thing out of it: assigning
-         several actions to a single grammar, and compile-time compiling grammars then load-time
-         providing the Actions.
-- [ ]  Complete Mark and Check
-  - [ ]  Add the remaining builtins
-  - [ ]  Support function checks
+         several actions to a single grammar, compile-time compiling grammars then load-time
+         providing the Actions, serializing grammars without pickling functions, providing
+         expanded Unicode definitions, there are a few options.
+- [ ]  Remove duplicate overloads in definitions. Only * is actually n-ary, the rest
+       left-associate binary forms.
+- [X]  Complete Mark and Check
+  - [X]  Add the remaining builtins
+  - [X]  Support function checks
 - [ ]  Printing stuff
   - [ ]  `clipstringat(str, i, len=20)` returns a NamedTuple tuple with the char at i,
          up to two substrings surrounding it, and booleans telling whether or not we
