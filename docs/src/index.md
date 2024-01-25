@@ -444,6 +444,61 @@ interest are frequently worth capturing, we provide [`CM(patt, :sym)`](@ref CM) 
 shorthand for `C(M(patt, :sym), :sym)`, and [`CK(patt, :sym, check)`](@ref CK) as
 shorthand for `C(K(patt, :sym, check), :sym)`.
 
+#### Checks and Predicates
+
+Successful checks will remove the corresponding mark, unless they're inside
+predicates, `~` or `!`.  The "exception to the exception" is `:always`, which, given
+the semantics of the name, and the fact that it exists entirely to remove marks, we
+felt should do what it says on the label.
+
+This differing behavior inside predicates is the better semantic, since it allows
+lookahead for a checked-mark which is later consumed.
+
+To illustrate, we'll show a grammar for [Lua's long
+strings](https://www.inf.puc-rio.br/~roberto/lpeg/lpeg.html#ex).  This illustrates
+the motive both for our choice of check behavior inside predicates, and the motive
+for JLpeg's innovative mark and check mechanism. LPeg can provide equivalent
+functionality for many cases, using a more general but somewhat cumbersome mechanism.
+
+```@setup longstring
+using JLpeg #hide
+```
+
+```@repl longstring
+@grammar longstr begin
+    :str ← :open * :body * :close
+    :open ← '[' * M("="^0, :equals) * '['
+    :body ← ((!:close * 1)^0, :string)
+    :close ← ']' * K("="^0, :equals) * ']'
+end;
+
+match(longstr, "[[]]")
+
+match(longstr, "[[long strings ]]")
+
+match(longstr, "[==[end with a ]=] token]==]")
+
+match(longstr, "[==[the equals must balance]=]")
+```
+
+Lua's long strings are a nice bit of syntax, because they have the enclosure
+property: it is always possible to turn a literal string into a program string, no
+matter the contents, because the equals signs in e.g. `[===[` must be matched with
+`]===]`.  I wish Julia had a string syntax which functions the same way.
+
+We see that the `:body` rule contains `(!:close * 1)^0`, a pattern which experienced
+PEG users recognize instantly as matching zero or more characters provided that
+lookahead doesn't match the `:close` rule.
+
+Because the negative-lookahead `:close` always matches the `:close` rule first on the
+closing region, if `K` didn't behave differently inside predicates, this would
+consume the mark, so the `:close` in the `:str` rule would always fail.
+
+Small note: a rule like this should use the `:length` builtin, since the pattern
+matching has already guaranteed that if the lengths are equal the contents will be
+identical, so this form does extra work.  The two-argument form was chosen for
+pedagogical reasons.
+
 #### Limitation and Performance
 
 Marks and checks come with an **important limitation**: they must not contain other
