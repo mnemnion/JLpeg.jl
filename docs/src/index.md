@@ -400,7 +400,7 @@ match(xmltag, "<a><b></b></a>")
 ```
 
 That's more like it!  This mechanism allows for a fully declarative PEG grammar which
-matches valid XML.  It's also applicable to Python-style indentation, Lua's long
+matches well-formed XML.  It's also applicable to Python-style indentation, Lua's long
 strings, and much more.
 
 `K` has a two-argument form (shown), where the check confirms that the two substrings
@@ -434,6 +434,11 @@ perfectly valid check, but will use lexicographic comparison (as always with str
 and `>`), not length comparison.  `:(==)` is identical in meaning to `==` in this
 context, but may be safely elided.
 
+Note that all of the length-examining builtins use byte width, or codeunits. Not
+codepoints, graphemes, or [`textwidth`](@extref `Base.Unicode.textwidth`).  This is
+the fastest of the options and probably the least surprising.  Bespoke comparisons
+based on some other standard may always be employed as user-provided check functions.
+
 With the exception of `:always`, a check will fail if there is no mark with the same
 key.  This includes user-provided functions, which won't trigger if a mark isn't
 found. All checks, _including_ `:always`, are only performed if the enclosed pattern
@@ -452,13 +457,14 @@ the semantics of the name, and the fact that it exists entirely to remove marks,
 felt should do what it says on the label.
 
 This differing behavior inside predicates is the better semantic, since it allows
-lookahead for a checked-mark which is later consumed.
+lookahead for a checked mark which is later consumed.
 
-To illustrate, we'll show a grammar for [Lua's long
-strings](https://www.inf.puc-rio.br/~roberto/lpeg/lpeg.html#ex).  This illustrates
-the motive both for our choice of check behavior inside predicates, and the motive
-for JLpeg's innovative mark and check mechanism. LPeg can provide equivalent
-functionality for many cases, using a more general but somewhat cumbersome mechanism.
+As an example, we'll show a grammar for [Lua's long
+strings](https://www.inf.puc-rio.br/~roberto/lpeg/lpeg.html#ex).  This serves to
+illustrate both the motive for our choice of check behavior inside predicates, and
+the reason for adding JLpeg's innovative mark and check mechanism. LPeg can provide
+equivalent functionality for many cases, using a more general but somewhat cumbersome
+mechanism.
 
 ```@setup longstring
 using JLpeg #hide
@@ -474,7 +480,7 @@ end;
 
 match(longstr, "[[]]")
 
-match(longstr, "[[long strings ]]")
+match(longstr, "[[long strings]]")
 
 match(longstr, "[==[end with a ]=] token]==]")
 
@@ -482,22 +488,17 @@ match(longstr, "[==[the equals must balance]=]")
 ```
 
 Lua's long strings are a nice bit of syntax, because they have the enclosure
-property: it is always possible to turn a literal string into a program string, no
-matter the contents, because the equals signs in e.g. `[===[` must be matched with
-`]===]`.  I wish Julia had a string syntax which functions the same way.
+property: it is always possible to wrap a literal string as a program string, without
+modifying the string itself, because the equals signs in e.g. `[===[` must be matched
+with `]===]`.  I wish Julia had a string syntax which functions the same way.
 
 We see that the `:body` rule contains `(!:close * 1)^0`, a pattern which experienced
-PEG users recognize instantly as matching zero or more characters provided that
+PEG users will recognize as matching zero or more characters, so long as the
 lookahead doesn't match the `:close` rule.
 
 Because the negative-lookahead `:close` always matches the `:close` rule first on the
 closing region, if `K` didn't behave differently inside predicates, this would
 consume the mark, so the `:close` in the `:str` rule would always fail.
-
-Small note: a rule like this should use the `:length` builtin, since the pattern
-matching has already guaranteed that if the lengths are equal the contents will be
-identical, so this form does extra work.  The two-argument form was chosen for
-pedagogical reasons.
 
 #### Limitation and Performance
 
@@ -512,11 +513,11 @@ decide if the complexity, performance impact, and unclear semantics (does an inn
 mark come before, or after, its enclosing mark?) is worth it.
 
 Note that marks are only removed once a corresponding check succeeds, and grammars or
-strings which don't close their marks will leave them on the stack.  This is normally
-harmless, the worst that can come of it is JLpeg throwing an `InexactError` once
-there are more than `typemax(UInt16)` marks on the stack, but it's certainly possible
-to create bad performance.  For example, by stacking up a bunch of mark `:a` while
-checking for mark `:b`, every check will be forced to fruitlessly look for the
+strings which don't close their marks will leave them on the mark stack.  This is
+mostly harmless, the worst that can come of it is JLpeg throwing an `InexactError`
+once there are more than `typemax(UInt16)` marks on the stack, but it's certainly
+possible to create bad performance.  For example, by stacking up a bunch of mark `:a`
+while checking for mark `:b`, every check will be forced to fruitlessly look for the
 nonexistent mark on a growing stack of marks.  It takes some real effort to produce a
 grammar which will do this, however.
 
@@ -593,7 +594,7 @@ validity of the grammar, as in this example.
 
 ```@repl badstring
 @grammar strmatch begin
-    :strings ← " "^0 * "'" * (!S"'\n'" * 1)^0 * ("'" % :missedend) * :strings^0 * !1
+    :strings ← " "^0 * "'" * (!S"'\n" * 1)^0 * ("'" % :missedend) * :strings^0 * !1
     :missedend ← ("\n", :str_newline_error)
 end;
 
@@ -611,6 +612,12 @@ Subsequent code can look for `:str_newline_error`, or any number of such
 error-signalling keys.  Since a [`SubString`](@extref `Base.SubString`) has its start
 point in the `.offset` field, this may be used to inform the user where the missing
 close quote belongs.
+
+Throws, like checks behave differently inside predicates: they become a normal
+failure, without setting the label or trying any recovery rule.  Pattern failure in
+lookahead has a different meaning than failure to consume input, generally speaking,
+and this little tweak allows more patterns to be used both for lookahead and ordinary
+matching without having to write them twice.
 
 ## Working With Matched Data
 

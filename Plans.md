@@ -41,7 +41,7 @@ The hitlist:
            all-purpose escape hatch that lets you do almost anything.  We have the check
            mechanism, which covers the (only) use shown in the LPeg manual, matching long
            strings. I'm starting to think we just don't need it.
-    - [ ]  I think the answer here is we have an action `Avm(λ)`, which calls `λ(vm)` and
+    - [ ]  I think the answer here is we have an action `Avm!(λ)`, which calls `λ(vm)` and
            expects a true or false return value.  This is Ultimate Power without adding much
            program complexity, and I can imagine a few uses for it, debugging being the main
            one, but it serves as an all-purpose escape hatch for weird hacks.
@@ -62,16 +62,25 @@ The hitlist:
          expanded Unicode definitions, there are a few options.
 - [ ]  Remove duplicate overloads in definitions. Only * is actually n-ary, the rest
        left-associate binary forms.
-- [X]  Complete Mark and Check
+- [#]  Complete Mark and Check
   - [X]  Add the remaining builtins
   - [X]  Support function checks
+  - [ ]  Implement indentation parsing. We may need something which checks and then
+         marks, this would make sense considering we're keeping track of indentation.
+         Call that `KM`, I guess.  And `CKM` I suppose?  I can synthesize this with
+         `~K(p, :p)`, `K("", :p, :close)`, `M(p, :p)`, so we can see if it's useful enough
+         to include a more performant shorthand.
+
+         This is a documentation thing as much as anything. Mark/Check is a novel mechanism
+         and it deserves some detail about how to use it.  I also want to figure out how this
+         can be used for indentation-sensitive syntax, for my own nefarious reasons...
 - [ ]  Printing stuff
   - [ ]  `clipstringat(str, i, len=20)` returns a NamedTuple tuple with the char at i,
          up to two substrings surrounding it, and booleans telling whether or not we
          truncated the string in the front or the back.  There are always substrings,
          but if `i` is the first or last character, one of them will be empty.
   - [ ]  Refactor color printing to use `printstyled`.
-  - [X]  Highlight PegFail on a space with background red
+  - [X]  Highlight PegFail on a space with background red.
 - [ ]  "Modularize" the @grammar code so that users don't get unexpected results if they
        define, say, `compile!` (humorous example) and try to use it as a variable name.
 - [ ]  Documenter stuff
@@ -97,18 +106,15 @@ The hitlist:
   - [ ]  `needfollow`: used in coding Seqs (add last, computing the followset is harmless)
   - [ ]  TestPatt / headfail optimizations
   - [X]  Tail-call elimination
-  - [ ]  Intermediate jump elimination
+  - [ ]  Intermediate jump elimination.  The compiler has been println'ed to tell me when
+         it's in a position to perform these optimizations, so far, no pattern would use them,
+         and adding untested code paths is a bad idea at this point in the story.
   - [X]  Set ISpan optimization
     - [X]  Even better: Since Set has `:l`, we just make it `LeadSetInst(vec, 0)`.
   - [X]  fixed-length detection
   - [ ]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
   - [X]  Capture-closing optimization (vm)
-- [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
-- [X]  Un-pirate: shadow operators with a definition which falls back to Base,
-       don't extend Base for operators directly.
-  - [X]  Separate module JLpeg.Combinators for exporting the operators directly.
-         They'll still work in `@rule` and `@grammar`.
 - [#]  Proposed optimizations not found in LPeg
   - [X]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
   - [ ]  MultiSetTest [conversion](#multiset-test-conversion)
@@ -117,10 +123,10 @@ The hitlist:
     - [ ]  Definitely good for predicates, disinclined to do this for ordinary rules.
            With predicates we can remove captures and turn throws into simple fails.
            I think we have to keep the in-pred throw codes though, we can't in the
-           general case inline a rule, they can be recursive.  It would be possible
-           to create a full copy without captures and throws but this is not an
-           optimization imho.
-  - [ ]  [CaptureCommitInst](CaptureCommitInst): it's a commit which create a full
+           general case inline a rule, they can be recursive, or long enough that we
+           don't want to.  It would be possible to create a full copy without
+           captures and throws but this is not an optimization imho.
+  - [ ]  [CaptureCommitInst](CaptureCommitInst): it's a commit which creates a full
          capture from its paired Choice.  Very nice for capture-heavy workflows, like
          parsing full grammars (where we very often want a full rule).
   - [ ]  `(a / b / c)* -> (a+ / b+ / c+)*` should give better performance on common
@@ -168,6 +174,9 @@ The hitlist:
            accordingly.  It's a major operation from my perspective, we'd need to obtain a pointer to the Vector somehow and correct all the instruction labels, but probably
            worth the most speedup after a type-stable dispatch.
   - [X]  Struct packing
+    - [ ]  Eventually this needs to include explicit padding which puts `.op` in the 15th
+           byte, this involves splitting big vector instructions into a second instruction
+           which doesn't have a meaningful opcode.  Caveat decoder!
   - [ ]  Use Stack from DataStructures.jl for the instruction/capture/mark stacks.
          Proposed block size of 512 for VM and Caps and 256 for marks, which should stay
          much smaller than that in a well-functioning program.
@@ -241,6 +250,11 @@ The hitlist:
   - [x]  Macros
     - [X]  Get rid of the clunky tuple forms of `@grammar` and `@rule` by getting the
            escaping rules for the macro correct.
+  - [X]  All `CaptureInst`s same struct w. distinct Pattern subtype
+  - [X]  Un-pirate: shadow operators with a definition which falls back to Base,
+         don't extend Base for operators directly.
+    - [X]  Separate module JLpeg.Combinators for exporting the operators directly.
+           They'll still work in `@rule` and `@grammar`.
 
 [Trees]: https://github.com/JuliaCollections/AbstractTrees.jl
 
@@ -272,7 +286,14 @@ maybe: the compiler pays a lot of attention to method dispatch.
 
 Update: I think this one is useless. If there are no intervening captures, the VM
 will close it, if there are, we can't really use this without backtracking at some
-point.
+point.  Although if we're doing [Stay Winning][#stay-winning] anyhow, that separates
+capturing from building the final capture, so backtracking a group capture is no big
+deal: the point of this sort of optimization is to make the pattern cheap when it
+fails, the work involved in inserting a virtual opencapture is modest most of the
+time.  There are also simple captures (think variable names) which could benefit
+somewhat from this instruction.  Although how many? This is relatively seldom
+covering all branches of a choice, it's mostly a single choice, and the VM will collapse
+the capture anyway since it isn't nested.
 
 We can use this whenever a `PCapture` is enclosing a `PChoice`, but it's a slightly
 tricky optimization to get right.  What we do is go through the copied bytecode and
@@ -309,7 +330,8 @@ structures.
 ### Prefix Matching
 
 This is an optimization performed on choices, which can be used (perhaps further
-analysis is needed) to detect bad choice ordering.
+analysis is needed) to detect bad choice ordering, and is a necessary analysis for
+[stay winning](#stay-winning).
 
 - Precepts:
   - PChar, PTrue, PFalse, PSet, PThrow, match literally
@@ -333,11 +355,24 @@ differ, they match a different string, except for.... prefix and suffix matching
 When prefix matching is completed, we may attempt suffix matching on the remaining
 choice bodies. It works the same way but backward.
 
+This will give us much better patterns in JLpegUnicode, where there are a lot of
+prefix- and suffix-matched instructions in the gnarly combining forms.
+
 If an earlier rule matches a later rule completely, we've found a bug: the later rule
 can never be reached, due to ordered choice. The rules for shadowing are somewhat
 different, for example, patt^1 shadows patt^0, a superset shadows a subset, the
-principle is that a pattern shadows another pattern if it can match everything that
-pattern recognizes.
+principle is that a pattern shadows another pattern if it can always match on the
+same string as the second pattern, even if the second pattern would match longer or
+just differently for the rest of it.  Something like `"a" / "aa"` is the classic
+example.  This is somewhat related to headfails and disjoint sets in fact, but overlapping
+heads are ok as long as the first rule has anything distinct which it *must* match.
+
+Where it gets complicated is rules like `"a" ("b" | :c | "d") / "ac"`, where `:c` matches
+a literal `"c"` in its prefix.  When the time comes we'll need a bunch of badly-structured
+grammars like this, with captures and marks and all the bells and whistles.
+
+Any time we prefix-match an entire earlier pattern with a later one, we've got a
+shadow, but to reiterate, there are more conditions where this arises.
 
 #### What Can We Do With This
 
@@ -358,11 +393,14 @@ and so on.
 
 ### Relabeling Bytecode
 
+Status: this is almost entirely pointless. `OpNoOp` shows up almost entirely
+(entirely?) in places which the code can't reach anyway.
+
 At some point I intend to add serializing of bytecode, just a (versioned!!) minimal
-string form which allows a zero-logic construction of a Grammar.  That would be a
-good time to remove NoOps, which get left around by various optimizations. There's a
-reason every instruction set in existence has them, but it's aesthetically
-unsatisfying to leave them in.
+string form which allows a zero-logic construction of a Grammar.  Precompilation
+admittedly makes this less compelling... That would be a good time to remove NoOps,
+which get left around by various optimizations. There's a reason every instruction
+set in existence has them, but it's aesthetically unsatisfying to leave them in.
 
 It isn't the only or even the best reason to want to relabel the bytecode, which can
 be done in one pass as follows: We initialize an `Option{Int16,missing}` Vector the
