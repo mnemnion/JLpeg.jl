@@ -249,10 +249,6 @@ using InteractiveUtils
         @test match(capvec, "123abc").captures == [["123"], ["abc"]]
         poscap = P"123" * Cp() * P"abc"
         @test match(poscap, "123abc").offsets[1] == 4
-        func = A("" >> P"func", uppercase)
-        @test match(func, "Make my func the Pfunc")[1] == "MAKE MY FUNC"
-        funky = "" >> C("func") <| uppercase
-        @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
         caprange = (Cr("123") | P(1))^1
         @test match(caprange, "abc123abc123abc").captures == [[4:6], [10:12]]
         capconst = P"123" * Cc(12, 23, 32)
@@ -267,6 +263,17 @@ using InteractiveUtils
         @test match(ccap, "abc")[1] == (12, "string", :symbol)
         @rule :capABC <--> ((S"ABC"^1,) | R"az"^1)^1
         @test match(capABC, "abcBCAzyzCCCd")[:capABC].captures == ["BCA", "CCC"]
+    end
+
+    @testset "Actions" begin
+        func = A("" >> P"func", uppercase)
+        @test match(func, "Make my func the Pfunc")[1] == "MAKE MY FUNC"
+        funky = "" >> C("func") <| uppercase
+        @test match(funky, "make my fun the Pfunc")[1] == "FUNC"
+        bythree(str) = parse(Int, str) % 3 == 0
+        pthree = At(R"09"^1, bythree)
+        @test match(pthree, "12") isa PegMatch
+        @test match(pthree, "13") isa PegFail
     end
 
     @testset "PegMatch Interface" begin
