@@ -757,8 +757,6 @@ Compiles _and prepares_ a Grammar.
 compile!(patt::PGrammar)::Pattern = _compile!(patt)
 
 function _compile!(patt::PGrammar)::Pattern
-    # TODO we want to cache this eventually but the code is... in flux
-    empty!(patt.code)
     aux = patt.aux
     aux[:caps] = Dict()  # TODO TagDict maybe?
     aux[:throws] = Dict()  # It's a distinctive type!
@@ -847,11 +845,8 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
     if !isa(patt.val, Vector)
         @error "missing primitive maybe? $(typeof(patt)).val isa $(typeof(patt.val))"
     end
-    hascap = false
-    hascall = false
     for (idx, p) in enumerate(patt)
         if p isa PCall
-            hascall = true
             # Self-call?
             if p.ref.aux[:visiting]
                 # we're somewhere inside the walk of this expression
@@ -865,20 +860,13 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
                     p.ref.val[1] = recursepattern!(p.ref[1], gaux)
                     p.ref.aux[:visiting] = false
                     p.ref.aux[:walked] = true
-                    p.ref.aux[:hascall] = get(p.ref[1].aux, :hascall, false)
                 end
             end
-        elseif p isa PCapture
-            hascap = true
         end
         patt.val[idx] = recursepattern!(p, gaux)
     end
     patt.aux[:visiting] = false
     patt.aux[:walked] = true
-    if !haskey(patt.aux, :hascall)
-        patt.aux[:hascall] = hascall
-        patt.aux[:hascap] = hascap
-    end
     return patt
 end
 
