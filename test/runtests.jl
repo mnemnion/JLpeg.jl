@@ -274,6 +274,9 @@ using InteractiveUtils
         pthree = At(R"09"^1, bythree)
         @test match(pthree, "12") isa PegMatch
         @test match(pthree, "13") isa PegFail
+        vmc(vm) = (vm.s = 1; return true)
+        vmset = (P"123", :a) * Avm!(P"", vmc) * (P"123", :b)
+        @test match(vmset, "123") == [:a => "123", :b => "123"]
     end
 
     @testset "PegMatch Interface" begin
