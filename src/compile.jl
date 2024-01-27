@@ -196,6 +196,7 @@ OpenCaptureInst(kind::CapKind) = CaptureInst(IOpenCapture, kind, UInt16(0))
 OpenCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(IOpenCapture, kind, tag)
 CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseCapture, kind, Int16(0), tag)
 FullCaptureInst(kind::CapKind, n::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(n), tag)
+CloseRunTimeInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseRunTime, kind, Int16(0), tag)
 
 struct ThrowInst <: Instruction
     tag::UInt16
@@ -546,17 +547,10 @@ function _compile!(patt::PNot)::Pattern
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
     c = patt.code
     code = hoist!(patt, patt[1])
-    # We can remove captures from PNot patterns,
-    # which never succeed (except match-time captures)
-    # TODO unlikely optimization unless we inline simple calls (which we should)
-    for (idx, inst) in enumerate(code)
-        if ( ( inst.op == IOpenCapture
-            || inst.op == ICloseCapture
-            || inst.op == IFullCapture )
-                && !(inst.kind == Cruntime))
-            code[idx] = OpNoOp
-        end
-    end
+    # TODO We can remove captures from PNot patterns,
+    # which never succeed (except match-time captures),
+    # but this is unlikely to occur until we inline simple calls (which we should)
+    #
     # We can turn ASCII sets into INotSet, which will
     # therefore match multibyte chars
     if length(code) == 2 && code[1].op == ISet && code[2] == OpEnd
@@ -698,21 +692,24 @@ end
 
 function _compile!(patt::PCapture)::Pattern
     # Special-case Cp()
-    patt.aux[:caps] = caps = get(patt.aux, :caps, Dict())  # TODO remove
     if patt.kind == Cposition
         full = FullCaptureInst(Cposition, 0, patt.tag)
-        caps[patt.tag] = patt.cap  # TODO remove
         push!(patt.code, full, OpEnd)
         return patt
     end
     c = patt.code
     ccode = hoist!(patt, patt[1])
     # TODO full capture optimization
+    # if patt[1] is fixedlen, we use FullCaptureInst
+    # unless it's a group capture
     trimEnd!(ccode)
     push!(c, OpenCaptureInst(patt.kind, patt.tag))
     append!(c, ccode)
-    close = CloseCaptureInst(patt.kind, patt.tag)
-    caps[patt.tag] = patt.cap # TODO remove
+    if patt.kind == Ctest || patt.kind == Cvm
+        close = CloseRunTimeInst(patt.kind, patt.tag)
+    else
+        close = CloseCaptureInst(patt.kind, patt.tag)
+    end
     push!(c, close)
     pushEnd!(c)
     return patt

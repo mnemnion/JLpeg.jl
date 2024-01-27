@@ -193,15 +193,31 @@ end
 A(p::Patternable, λ::Function) = A(P(p), λ)
 
 """
-    Anow(patt::Pattern, λ::Function)
+    At(patt::Pattern, λ::Function)
 
-Acts as a grouping capture, applying `λ` immediately upon a match succeeding
-to the captures inside `patt`, or the span of `patt` if there are no captures
-within it.  The return value of `λ` becomes the capture, but if `nothing` is
-returned, the entire pattern fails.
+A `t`est `A`ction. `λ` will receive the `SubString` matched by `patt`, and is expected
+to return a `Bool` representing the success or failure of the pattern.  This happens
+during the parse, and may be used, for an example, to maintain a typedef symbol table
+when parsing C, with appropriate closed-over state variables.
 """
-function Anow(patt::Pattern, λ::Function)
-    PCapture(patt, Cruntime, λ)
+function At(patt::Pattern, λ::Function)
+    PCapture(patt, Ctest, λ)
+end
+
+"""
+    Avm!(patt::Pattern, λ::Function)
+
+A vm Action. If `patt` succeeds, `λ` will be called on the entire `VMState`, and is
+expected to return `true` or `false` to describe the success or failure of the entire
+pattern.  This is an ultimate escape hatch, intended for purposes such as debugging,
+or imposing user limits on stack depth. The most obvious use is early parse
+termination, by setting `vm.running` to `false`.
+
+While it may be abused to do all sorts of surprising hacks, if you think you need it
+in order to parse something, you're probably wrong about that.
+"""
+function Avm!(patt::Pattern, λ::Function)
+    PCapture(patt, Cvm, λ)
 end
 
 """
@@ -354,7 +370,7 @@ The [`@grammar`](@ref) and [`@rule`](@ref) macros are able to use these operator
 you may not need them.  To import them, add this to your module:
 
 ```julia
-import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, inv
 ```
 """
 module Combinators
@@ -403,10 +419,6 @@ import ..JLpeg: CaptureTuple, Patternable, Settable,
 @inline
 inv(a::Any) = Base.inv(a)
 @doc (@doc Base.inv) inv
-
-@inline
-(>:)(a::Any, b::Any) = Base.>:(a, b)
-@doc (@doc Base.:(>:)) :(>:)
 
 # Now a whole bunch of overloads.
 

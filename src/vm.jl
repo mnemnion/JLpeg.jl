@@ -511,9 +511,34 @@ end
 
 "onCapture"
 function onInst(inst::CaptureInst, vm::VMState)::Bool
+    if inst.op == ICloseRunTime
+        return onCloseRunTime(inst, vm)
+    end
     pushcap!(vm, inst)
     vm.i += 1
     return true
+end
+
+function onCloseRunTime(inst::CaptureInst, vm::VMState)::Bool
+    if vm.cap[end].inst.tag ≠ inst.tag
+        throw(PegError("Runtime actions may not contain captures"))
+    end
+    open = pop!(vm.cap)
+    λ = vm.patt.aux[:caps][inst.tag]
+    ret::Bool = false
+    if inst.kind == Cvm
+        ret = λ(vm)
+        vm.i += 1
+        return ret
+    elseif inst.kind == Ctest
+        span = @views vm.subject[open.s:vm.s-1]
+        ret = λ(span)
+        vm.i += 1
+        return ret
+    else
+        error("unsupported runtime action kind: $(inst.kind)")
+        return ret
+    end
 end
 
 "onOpenMark"
