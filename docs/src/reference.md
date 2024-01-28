@@ -69,7 +69,8 @@ JLpeg.CM
 JLpeg.K
 JLpeg.CK
 JLpeg.A
-JLpeg.Anow
+JLpeg.Q
+JLpeg.Avm!
 JLpeg.T
 ```
 

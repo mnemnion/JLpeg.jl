@@ -336,16 +336,15 @@ With both `⟷` and `↔︎` as synonyms, these are `\longleftrightarrow` and
 ## Actions
 
 A pattern may be modified with an action to be taken, either at runtime, or, more
-commonly, once the match has completed.  These actions are supplied with all captures
-in `patt`, or the substring matched by `patt` itself if `patt` contains no captures
-of its own.
+commonly, once the match has completed.  Here's a summary of the available actions,
+which we will describe in some detail in this section.
 
-| [❓]  | Action               | Consequence                                       |
+| [✅]  | Action               | Consequence                                       |
 |------|-----------------------|:--------------------------------------------------|
-| [✅] | `A(patt, λ)`,         | the returned value of `λ`, as applied             |
+| [✅] | `A(patt, λ)`,         | captures the return value of `λ`, as applied      |
 | [✅] | `patt <\| λ`          | to the captures in `patt`                         |
-| [⭕️] | `Anow(patt, λ)`,      | captures `λ(C(patt)...)` at match time,           |
-| [⭕️] | `patt >: λ`           | return `nothing` to fail the match                |
+| [✅] | `Q(patt, λ)`          | tests the substring of `patt` with `λ(str)::Bool` |
+| [✅] | `Avm!(patt, λ)`       | if `patt` matches, calls `λ(vm)::Bool`            |
 | [✅] | `M(patt, :label)`     | `M`ark a the region of `patt` for later reference |
 | [✅️] | `K(patt, :label, op)` | chec`K` `patt` against the last mark with `op`    |
 | [✅] | `T(:label)`,          | fail the match and throw `:label`                 |
@@ -355,6 +354,61 @@ The use of `<|` is meant to be mnemonic of [`|>`](@extref
 `Function-composition-and-piping`) for ordinary piping (and shares its
 usefully low precedence), without pirating the meaning of the pipe operator.  This way
 `patt |> λ` will do the expected thing, `λ(patt)`.
+
+`A` acts on captures.  It works like a group capture, taking the substring of `patt`,
+or if `patt` contains captures, it receives those captures as a [`Vararg`](@extref
+`Core.Vararg`), and the return value is inserted into the capture vector, without
+splatting.  In the current implementation this only happens after a match is
+completed, but future releases may choose to evaluate some captures earlier.
+Accordingly, `λ` passed to `A` should be free of side effects.
+
+`Q`, a "query" action, happens during the match, as soon as `patt` is matched.  It
+receives `patt` as a SubString, and must return a `Bool`, which determines if that
+pattern succeeds or fails.
+
+As an example, here's a use of `Q` to match strings of digits divisible by 3 in base 10.
+
+```@setup byThree
+using JLpeg
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, inv
+```
+
+```@repl byThree
+bythree(str) = parse(Int, str) % 3 == 0
+mthree = Q(R"09"^1, bythree);
+match(mthree, "333")
+match(mthree, "335")
+```
+
+While this kind of inline validation can be useful, `Q` can be put to more
+interesting uses.  With care, and some closed-over state, this can be used to handle
+the [context sensitivity of parsing
+C](https://eli.thegreenplace.net/2007/11/24/the-context-sensitivity-of-cs-grammar),
+or other languages in which the meaning of a 'token' changes based on its definition.
+The resulting parser would not be reentrant, which I don't find completely
+satisfactory.  I hope to provide a more durable solution in a later release.
+
+`Q` only takes the actual SubString of `patt`, and it is a runtime error for `patt`
+to have any captures.  This is for clarity of semantics as well as performance.  A
+future release may change this behavior, either by extending the semantics of `Q` or
+adding another action, and this also ensures that such a feature won't change the
+behavior of valid patterns.  Note that `Q` is not itself a capture, and it may be
+contained within as many levels of capturing as you would like.
+
+`Avm!` also calls a provided `λ` if `patt` matches, but instead of being provided
+with a SubString, the argument is the entire [`VMState`](@ref).  The function must
+return a boolean, which as usual is the success or failure of the pattern.  The
+obvious use for this action is debugging, or setting resource limits on a parser (for
+example, checking the depth of `vm.stack`), this is also the suggested way to yield a
+parser running inside a Task.  The internals of the VM are documented, but aren't
+considered part of JPpeg's public interface, so if you succumb to the temptation to
+use this power for some sort of fancy hack, I suggest writing tests which confirm
+that whatever internals that hack relies on continue to function as expected. Caveat
+lector!
+
+Mostly, I expect users will be content to use `Q` to provide arbitrary runtime
+behavior to a pattern, or if there's a need to compare two regions of the string, the
+mark and check system, described next.
 
 ### Marks and Checks
 
@@ -427,7 +481,7 @@ they do.
 | `:lte`    | length(r2) ≤ length(r1)        |
 
 The builtin `:(==)` is the default used in the two-argument form of [`K`](@ref).  The
-length comparisons in the table may look backward, but is easy to remember in
+length comparisons in the table may look backward, but are easy to remember in
 practice: `K(patt, :tag, :gt)` means "this is greater than that", and so on.  These
 are abbreviations and not symbols, because, for one example, `K(patt, :tag, >)` is a
 perfectly valid check, but will use lexicographic comparison (as always with strings
@@ -436,13 +490,22 @@ context, but may be safely elided.
 
 Note that all of the length-examining builtins use byte width, or codeunits. Not
 codepoints, graphemes, or [`textwidth`](@extref `Base.Unicode.textwidth`).  This is
-the fastest of the options and probably the least surprising.  Bespoke comparisons
-based on some other standard may always be employed as user-provided check functions.
+the fastest of the options and probably the least surprising.  The `length` in
+codepoints was considered and rejected; considered because Julia uses it as the
+standard concept of string length, rejected for a few reasons.  One, the regions
+under comparison have already been verified with patterns, so they aren't unknowns.
+Two, both Julia and JLpeg allow invalid UTF-8 in string types, and while the behavior
+of `length` on invalid UTF-8 is defined, it's borderline useless in this context.
+Three, it would be treated as grapheme length, which it emphatically is not, creating
+code which works sometimes but not consistently.
+
+Bespoke comparisons based on some other standard may always be employed as
+user-provided check functions.
 
 With the exception of `:always`, a check will fail if there is no mark with the same
 key.  This includes user-provided functions, which won't trigger if a mark isn't
 found. All checks, _including_ `:always`, are only performed if the enclosed pattern
-succeeds.
+succeeds.  If your comparison doesn't rely on a prior region, you want `Q`, not `K`.
 
 Marks and checks are independent of the capture mechanism, but since the regions of
 interest are frequently worth capturing, we provide [`CM(patt, :sym)`](@ref CM) as a
@@ -464,7 +527,7 @@ strings](https://www.inf.puc-rio.br/~roberto/lpeg/lpeg.html#ex).  This serves to
 illustrate both the motive for our choice of check behavior inside predicates, and
 the reason for adding JLpeg's innovative mark and check mechanism. LPeg can provide
 equivalent functionality for many cases, using a more general but somewhat cumbersome
-mechanism.
+mechanism, the "match-time capture", with no direct equivalent in JLpeg.
 
 ```@setup longstring
 using JLpeg #hide
@@ -515,11 +578,12 @@ mark come before, or after, its enclosing mark?) is worth it.
 Note that marks are only removed once a corresponding check succeeds, and grammars or
 strings which don't close their marks will leave them on the mark stack.  This is
 mostly harmless, the worst that can come of it is JLpeg throwing an `InexactError`
-once there are more than `typemax(UInt16)` marks on the stack, but it's certainly
-possible to create bad performance.  For example, by stacking up a bunch of mark `:a`
-while checking for mark `:b`, every check will be forced to fruitlessly look for the
-nonexistent mark on a growing stack of marks.  It takes some real effort to produce a
-grammar which will do this, however.
+once there are more than `typemax(UInt16)` marks on the stack (assuming the OS can
+provide adequate amounts of heap), but it's certainly possible to create bad
+performance.  For example, by stacking up a bunch of mark `:a` while checking for
+mark `:b`, every check will be forced to fruitlessly look for the nonexistent mark on
+a growing stack of marks.  It takes some real effort to produce a grammar which will
+do this, however.
 
 If you have a grammar where some paired regions may be implicitly closed, you can use
 `K(patt, :tag, :always)` to close the mark by fiat; this check succeeds whether the
@@ -534,8 +598,17 @@ Typical uses will consume marks nearly as fast as they're generated, and it's ra
 for marks to overlap, that is, normally the check will be compared against the latest
 mark.  To cite our XML example, the mark stack will be as deep as the tags are
 nested, comparisons are always against the top mark, and any mismatch fails the
-entire parse. This has the same time complexity as a grammar which allows mismatched
-tags, with a tiny added constant factor which is well-used.
+entire parse. This has the same time complexity as a grammar which doesn't validate
+that tags match, with a small added constant factor which is well-used.
+
+Grammars normally have tidy properties, forming a neat heirarchical tree in which
+options either close themselves by succeeding or are backtracked off the stack (and
+of course, marks within a choice which fails are removed during backtracking). Proper
+use of `M` and `K` requires the author to balance this mechanism on their own.  While
+it's possible to write a self-balancing analogue of this mechanism, we felt that the
+added flexibility was more than worth the additional care which must be taken.
+Consider what would be involved in writing the `longstr` grammar above, if `:close`
+had to be structurally balanced against `:open` somehow.
 
 Practical use of mark and check is as fast as it reasonably can be, and enables
 recognition of many common patterns in strings.
@@ -607,13 +680,16 @@ match(strmatch, "'a string' 'another string")
 
 Here we have a grammar matching at least one single-quoted string, which may not
 contain a literal newline. If we fail to match a string, the `:missedend` rule looks
-for a newline, which it captures and tags, enabling the parse to continue.
+for a newline, which it captures and tags, enabling the parse to continue.  Note that
+when the recovery rule doesn't match, the label remains in place, and will be
+provided if the whole parse fails at that location.
+
 Subsequent code can look for `:str_newline_error`, or any number of such
 error-signalling keys.  Since a [`SubString`](@extref `Base.SubString`) has its start
 point in the `.offset` field, this may be used to inform the user where the missing
 close quote belongs.
 
-Throws, like checks behave differently inside predicates: they become a normal
+Throws, like checks, behave differently inside predicates: they become a normal
 failure, without setting the label or trying any recovery rule.  Pattern failure in
 lookahead has a different meaning than failure to consume input, generally speaking,
 and this little tweak allows more patterns to be used both for lookahead and ordinary

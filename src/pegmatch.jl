@@ -21,7 +21,7 @@ Properties:
     This can in principle contain anything, as captures may call functions, in which
     case the return value of that function becomes the capture.  For more
     information, consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`,
-    `Cc`, `A`, and `Anow`.
+    `Cc`, and `A`.
 -  `offsets::Vector{Int}`:  Provided for compatibility with `AbstractMatch`.
    `SubString`s contain their own offsets, so this is unnecessary for normal work,
    but we generate them when `match.offsets` is used.  It then consists of the

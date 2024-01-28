@@ -36,12 +36,12 @@ The hitlist:
            walking a parse tree or iterating, but it's important to know where they
            are and categorize them for tasks like syntax highlighting and formatting.
            The LPeg tree format I was using was a right pain for that.
-  - [ ]  `Anow`, `patt >: λ`
+  - [X]  `Anow`, `patt >: λ` (a version of this was implemented as `Q`).
     - [ ]  I have to decide what `Anow` is even for, is what it amounts to.  In LPeg it's an
            all-purpose escape hatch that lets you do almost anything.  We have the check
            mechanism, which covers the (only) use shown in the LPeg manual, matching long
            strings. I'm starting to think we just don't need it.
-    - [ ]  I think the answer here is we have an action `Avm!(λ)`, which calls `λ(vm)` and
+    - [X]  I think the answer here is we have an action `Avm!(λ)`, which calls `λ(vm)` and
            expects a true or false return value.  This is Ultimate Power without adding much
            program complexity, and I can imagine a few uses for it, debugging being the main
            one, but it serves as an all-purpose escape hatch for weird hacks.
@@ -55,10 +55,10 @@ The hitlist:
            the captures themselves aren't created until after matchtime.  And we don't have
            true multiple return values, we can fake it with a tuple but we have to, y'know,
            fake it with a tuple.
-  - [ ]  "deferred action" form `patt |> :func` || `patt > :func`.  This one will be rather
-         complex to get right, but we get one critical and one nice thing out of it: assigning
-         several actions to a single grammar, compile-time compiling grammars then load-time
-         providing the Actions, serializing grammars without pickling functions, providing
+  - [ ]  "deferred action" form `patt <| :func`.  This one will be rather complex to
+         get right, but we get some nice things out of it: assigning several actions to a
+         single grammar, compile-time compiling grammars then load-time providing
+         the Actions, serializing grammars without pickling functions, providing
          expanded Unicode definitions, there are a few options.
 - [ ]  Remove duplicate overloads in definitions. Only * is actually n-ary, the rest
        left-associate binary forms.
@@ -87,9 +87,9 @@ The hitlist:
   - [X]  Order the pages correctly
   - [ ]  Docstrings for private module names in Internals
   - [ ]  Add a "comparisons.md" page for in-depth comparison of PEGs to other systems.
-- [ ]  [Mark / Check](#mark-and-check-back-references)
-  - [ ]  `MC(patt, :sym)`: Mark `patt` with `:sym` and capture with the same name.
-  - [ ]  By analogy `KC(patt, :sym)` for checking-with-capture.
+- [X]  [Mark / Check](#mark-and-check-back-references)
+  - [X]  `MC(patt, :sym)`: Mark `patt` with `:sym` and capture with the same name.
+  - [X]  By analogy `KC(patt, :sym)` for checking-with-capture.
 - [ ]  Detect "loop may accept empty string" such as `a = (!S"'")^0`.  Left recursion
        may obviate this.
 - [ ]  PegMatch should implement the [AbstractTrees][Trees] interface.
@@ -154,8 +154,13 @@ The hitlist:
          collapsed into a single choice sequence, this limits backtracking.  It ties
          into the next one:
   - [ ]  Choice shadow detection.  This is just a nice thing I'd like to do for my
-         users.  In many circumstances the compiler could detect when an earlier ordered choice means that a later choice can't be matched, this is always a bug and should be brought to the user's attention.  The easy cases all involve fixed-length later choices, but
-         a certain amount of detection can be performed with predicates and repetition in the mi as well.  For literal sequences it's as simple as applying the earlier rule to the string form of the later rule and seeing if there's a match.
+         users.  In many circumstances the compiler could detect when an earlier
+         ordered choice means that a later choice can't be matched, this is always a
+         bug and should be brought to the user's attention.  The easy cases all
+         involve fixed-length later choices, but a certain amount of detection can be
+         performed with predicates and repetition in the mi as well.  For literal
+         sequences it's as simple as applying the earlier rule to the string form of
+         the later rule and seeing if there's a match.
 - [ ]  Fragment parser (see [section](#fragment-parser))
 - [ ]  String [generators](#string-generation)
 - [ ]  Add beginning index or `UnitRange` as optional third argument for `match`.
@@ -169,20 +174,26 @@ The hitlist:
 - [ ]  Pure [Code Bumming](#optimal-vm) (need to be able to check if it even matters)
   - [ ]  Vector in contiguous memory for prepared programs.
     - [ ]  This might have to be custom because of indexing, it's likely to be a dip
-           down into C.  Lpeg labels are jiggered based on some instructions (entirely charsets I believe) being extra-length, when I print pcode there are gaps in the numbers
+           down into C.  Lpeg labels are jiggered based on some instructions
+           (entirely charsets I believe) being extra-length, when I print pcode there
+           are gaps in the numbers accordingly.  It's a major operation from my
+           perspective, we'd need to obtain a pointer to the Vector somehow and
+           correct all the instruction labels, but probably worth the most speedup
+           after a type-stable dispatch.
   - [ ]  Optimal VM dispatch, the current system is aggressively not-type-stable.
-           accordingly.  It's a major operation from my perspective, we'd need to obtain a pointer to the Vector somehow and correct all the instruction labels, but probably
-           worth the most speedup after a type-stable dispatch.
   - [X]  Struct packing
     - [ ]  Eventually this needs to include explicit padding which puts `.op` in the 15th
            byte, this involves splitting big vector instructions into a second instruction
            which doesn't have a meaningful opcode.  Caveat decoder!
   - [ ]  Use Stack from DataStructures.jl for the instruction/capture/mark stacks.
          Proposed block size of 512 for VM and Caps and 256 for marks, which should stay
-         much smaller than that in a well-functioning program.
+         much smaller than that in a well-functioning program.  I don't want to add this
+         until we have code for turning a Pattern into a "matcher" so it can reuse VMStates.
   - [ ]  I'm surely losing cycles converting non-ASCII Chars into UInt32, should add
          Char1Inst..Char4Inst.  With NotChar and TestChar, that's 12 instructions, which is
-         fine I think.
+         fine I think.  Note: this might not even be true, Chars are said to be stored in an
+         "optimized form" which probably means they're raw UTF-8 unless/until converted into
+         an Int.
   - [ ]  Fail optimization: only update the register once when returning from calls.
          this one should be deferred until we have real profiling on the hot loop.
          Technically this _is_ found in LPeg...

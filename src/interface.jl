@@ -57,7 +57,7 @@ P(p::Pattern) = p
 """
     S(s::AbstractString)
 
-Create a Pattern matching any charcter in the string.
+Create a Pattern matching any character in the string.
 """
 S(s::AbstractString) = PSet(s)
 
@@ -67,7 +67,7 @@ S(s::AbstractString) = PSet(s)
 
 Create a Pattern matching every character in the range from the first to the second
 character.  `s` must be two codepoints long, and the first must be lower-valued than
-the second.
+the second.  Both must be valid UTF-8.
 """
 function R(str::AbstractString)
     if length(str) > 2
@@ -193,14 +193,14 @@ end
 A(p::Patternable, λ::Function) = A(P(p), λ)
 
 """
-    At(patt::Pattern, λ::Function)
+    Q(patt::Pattern, λ::Function)
 
-A `t`est `A`ction. `λ` will receive the `SubString` matched by `patt`, and is expected
+A `Q`uery action. `λ` will receive the `SubString` matched by `patt`, and is expected
 to return a `Bool` representing the success or failure of the pattern.  This happens
 during the parse, and may be used, for an example, to maintain a typedef symbol table
 when parsing C, with appropriate closed-over state variables.
 """
-function At(patt::Pattern, λ::Function)
+function Q(patt::Pattern, λ::Function)
     PCapture(patt, Ctest, λ)
 end
 
@@ -264,7 +264,7 @@ The check will always fail if the corresponding mark is not present, except for 
 builtin `:always`, which always succeeds if `patt` succeeds.
 
 `K` may also be written in [do syntax](@extref
-`Do-Block-Syntax-for-Function-Arguments`), `K(patt, :tag) do s1, s2... end`.
+`Do-Block-Syntax-for-Function-Arguments`), `K(patt, :tag) do s1, s2; ... end`.
 
 See also [`CK`](@ref)
 """

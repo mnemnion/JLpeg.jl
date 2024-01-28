@@ -353,9 +353,11 @@ Base.count_ones(inst::IVectored) = count_ones(inst.vec)
 """
     compile!(patt::Pattern)::Pattern
 
-Compile a [`Pattern`](@ref).
+Compile a [`Pattern`](@ref).  It isn't necessary to call this, `match`
+will compile a `Pattern` if necessary, but this is a useful thing to do during
+precompilation.
 
-Translate the Pattern to Instruction codes, appending them to
+This translates the Pattern to Instruction codes, appending them to
 the `code` field and returning same.  Performs various optimizations
 in the process.
 
@@ -752,7 +754,7 @@ end
 """
     compile!(patt::PGrammar)::Pattern
 
-Compiles _and prepares_ a Grammar.
+Compile a Grammar.  This will fail if all rules are not provided.
 """
 compile!(patt::PGrammar)::Pattern = _compile!(patt)
 
@@ -831,11 +833,7 @@ function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
         return _compile!(patt)
     end
     if patt isa PRule
-        if patt.aux[:visiting]
-            @error "shouldn't see a rule while visiting it ($(patt.name))"
-            patt.aux[:recursive] = true  # May as well avoid overflowing the stack if this changes
-            return patt
-        elseif patt.aux[:walked]
+        if patt.aux[:walked]
             return patt
         else
             push!(gaux[:seen], patt.name)
