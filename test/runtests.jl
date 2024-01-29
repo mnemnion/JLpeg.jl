@@ -224,6 +224,10 @@ using InteractiveUtils
         @test_throws "malformed rule" @eval @rule :a != :b
         @rule :nums <--> R"09"^1
         @test match(nums, "1234abc")[:nums].captures == ["1234"]
+        @rule :afail ← "a" | ∅
+        @test match(afail, "b") isa PegFail
+        @rule :asucceed ← "a" | ε
+        @test match(asucceed, "b") == [""]
     end
     @testset "Captures" begin
         cap1 = C("123")

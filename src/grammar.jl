@@ -11,7 +11,7 @@ import MacroTools: @capture, postwalk, prewalk, isexpr
 const 🔠 = P  # Won't interfere with user uses of P
 
 const ops = Set([:*, :|, :^, :~, :¬, :!, :>>, :<|, :%,])
-const JPublic = Set(names(JLpeg)) ∪ ops
+const JPublic = Set(names(JLpeg)) ∪ ops ∪ [:ε, :∅]
 
 function wrap_rule_body(rulebody::Expr)::Expr
     function for_x(x)
