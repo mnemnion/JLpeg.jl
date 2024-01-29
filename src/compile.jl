@@ -174,7 +174,7 @@ struct OpenCallInst <: Instruction
 end
 OpenCallInst(r::Symbol) = OpenCallInst(IOpenCall, r)
 
-"A placeholder for a (usually labeled) Instruction"
+"A placeholder for an Instruction when the label is not yet known"
 struct HoldInst <: Instruction
     op::Opcode
 end
@@ -399,32 +399,18 @@ function prepare!(patt::PAuxT)::Pattern
     if haskey(patt.aux, :prepared)
         return patt
     end
-    # We're replacing it with this:
+    # Hoist capture and throw labels
     prewalkpatt!(patt, patt.aux) do p, aux
         if p isa PCapture
-            caps = getordict!(aux, :caps)
+            caps = get!(()-> Dict(), aux, :caps)
             caps[p.tag] = p.cap
         elseif p isa PThrow
-            throws = getordict!(aux, :throws)
+            throws = get!(()-> Dict(), aux, :throws)
             throws[p.tag] = p.val
         end
     end
     patt.aux[:prepared] = true
     return patt
-end
-
-"""
-    getordict!(dict::Dict, key::Symbol)
-
-Retrieves a Dict from `dict[:key]`, or if it doesn't exist, creates it and
-returns it after adding it to dict.
-"""
-function getordict!(dict::Dict, key::Symbol)
-    if haskey(dict, key)
-        dict[key]::Dict
-    else
-        dict[key] = Dict()
-    end
 end
 
 """
@@ -515,7 +501,6 @@ end
 
 function _compile!(patt::PSet)::Pattern
     # Specialize the empty set
-    # We'll turn into a Jump when we have the requisite info
     if isempty(patt.val)  # A valid way of saying "fail"
         return compile!(PFalse())
     end
@@ -574,13 +559,12 @@ function _compile!(patt::PNot)::Pattern
 end
 
 function _compile!(patt::PDiff)::Pattern
-    v = patt.val
     # TODO Set complementation is rather complex with MultiSets!
     compile!(PSeq(PNot(patt.val[2]), patt.val[1]))
 end
 
 function _compile!(patt::PSeq)::Pattern
-    # As an optimization, a Seq of one member can just be that member
+    # Seq of one member is just that member
     if length(patt.val) == 1
         return patt.val[1]
     end
@@ -589,7 +573,6 @@ function _compile!(patt::PSeq)::Pattern
         code = hoist!(patt, p)
         append!(c, code)
         trimEnd!(c)
-        # optimizations?
     end
     pushEnd!(c)
     return patt
@@ -598,7 +581,7 @@ end
 function _compile!(patt::PStar)::Pattern
     # TODO figure out when TestChar etc come into play
     #
-    # bad things happen when val is  a PStar, specifically
+    # bad things can happen when val is also a PStar, specifically
     # when the inner is optional, e.g. ("ab"?)*, so we check for this
     # and fix it when we need to.
     p = patt[1]
@@ -1026,7 +1009,7 @@ otherwise return `false`.
 """
 function fixedlen(patt::Pattern, seen=IdDict())::Union{Integer,Bool}
     if haskey(seen, patt) # Recursive patterns cannot be fixedlen
-        return 0
+        return false
     end
     if isof(patt, PChar, PSet)
         return 1
@@ -1050,7 +1033,7 @@ function fixedlen(patt::Pattern, seen=IdDict())::Union{Integer,Bool}
             if l === false
                 return false
             else
-                len += 1
+                len += l
             end
         end
         return len

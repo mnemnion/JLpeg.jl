@@ -186,7 +186,8 @@ end
 """
 Global count of capture pattern tags.
 
-If you ever overflow this, please tell me what you were doing. -Sam
+Will roll over at 0xffff, so a given pattern is limited to that
+many captures.
 """
 capcounter::UInt16 = 0
 
@@ -206,7 +207,7 @@ end
 """
 Global count of throw label tags.
 
-If you ever overflow this, _really_ tell me what you were doing. -Sam
+Can't have more than 0xffff in one pattern. Sorry.
 """
 global throwcounter::UInt16 = 0
 struct PThrow <: Pattern
@@ -247,7 +248,12 @@ global checkcounter::UInt16 = 0
 
 function _getcheck!(check::Union{Symbol,Function})::UInt16
     get!(checktotag, check) do
-        global checkcounter += 1
+        if checkcounter == 0xffff
+            # roll over without clobbering builtins
+            global checkcounter = 0x0009
+        else
+            global checkcounter += 1
+        end
         tagtocheck[checkcounter] = check
         return checkcounter
     end
@@ -282,9 +288,10 @@ PCheck(patt::Pattern, mark::Symbol) = PCheck(patt, mark, :(==))
 abstract type PRunTime <:Pattern end
 abstract type PTXInfo <:Pattern end
 
+"Patterns which contain at least one enclosed or combined Pattern."
 const PAuxT = Union{PAnd,PNot,PDiff,PStar,PSeq,PChoice,PCall,PRule,PGrammar,PCapture,PRunTime,PBehind,PMark,PCheck}
 
-"Patterns which don't contain other patterns"
+"Patterns which don't contain other patterns."
 const PPrimitive = Union{PChar,PSet,PAny,PTrue,PFalse,PThrow,PCall,POpenCall}
 
 function Base.getindex(patt::Pattern, i::Integer)

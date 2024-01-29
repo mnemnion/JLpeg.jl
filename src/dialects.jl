@@ -8,25 +8,25 @@ bootstrap of other dialects.
 """
 @grammar re begin
     :re           ←  (:grammar | :pattern) * !1
-    :pattern      ←  :expr
+    :pattern     ⟷  :expr
     :grammar     ⟷  :rule^1
-    :rule         ←  [(:name, :rulename) * :S * :arrow * :S * [:expr] * :S, :rule]
+    :rule        ⟷  (:name, :rulename) * :S * :arrow * :S * [:expr] * :S
     :expr         ←  :alt | :seq | :element
-    :alt          ←  [(:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1, :alt]
-    :seq          ←  [:element * (:S * :element * :S)^1, :seq]
+    :alt         ⟷  (:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1
+    :seq         ⟷  :element * (:S * :element * :S)^1
 
     :element      ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :action | :suffix
     :suffix       ←  (([:primary * :S * ( (S"+*?", :kleene)
                                          | "^" * ((S"+-"^-1,) * (:number,), :rep)
-                                         | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange] * :S), :suffixed])
+                                         | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange]) * :S])
                      | :primary * :S)
 
-    :action        ←  :suffix * (("|>" | "<|") * :S * (:name, :action) |
-                                ">:" * :S * (:name, :runtime))
+    :action       ⟷  :suffix * (("|>" | "<|") * :S * (:name, :action) |
+                                "|?" * :S * (:name, :test))
 
 
     :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :defined
-                      | ["{" * :expr * ":" * (:name^-1, :groupname) * "}", :groupcapture]
+                      | ["{" * :expr * (":" * (:name, :groupname))^-1 * "}", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("()", :positioncapture)
                       | ["("  * :expr * "," * :S * (((":" * :name, :capname) % :badcapture) * :S)^-1  * ")", :capture]

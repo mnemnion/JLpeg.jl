@@ -55,6 +55,10 @@ function wrap_rule_body(rulebody::Expr)::Expr
     :($(postwalk(for_x, rulebody)))
 end
 
+function wrap_rule_body(body::Any)
+    return :($body)
+end
+
 function wrap_rule(expr::Expr)::Expr
     if @capture(expr, (sym_ ← rulebody_) | (sym_ <-- rulebody_))
         return wrap_rule_body(expr)

@@ -312,9 +312,9 @@ using InteractiveUtils
         @test_throws "extra expression" @eval @rule :baddate ← (R"09"^1, :year) * "-" * (R"09"^1,) * "-" (R"09"^1, :day)
     end
     @testset "`re` dialect" begin
-        @test match(re, "'string'")[:string] == "string"
-        @test match(re, "[a-z]")[:range].captures == ["a", "z"]
-        @test match(re, "sym")[:call] == "sym"
+        @test match(re, "'string'")[:pattern][:string] == "string"
+        @test match(re, "[a-z]")[:pattern][:range]== ["a", "z"]
+        @test match(re, "sym")[:pattern][:call] == "sym"
         @test match(re, "a <- b c*")[:grammar] isa PegMatch
         @test match(re, "a <- c^1") isa PegMatch
         @test match(re, "a <- 'a'+ 'b'* c?") isa PegMatch
