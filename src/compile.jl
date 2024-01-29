@@ -683,13 +683,19 @@ function _compile!(patt::PCapture)::Pattern
         return patt
     end
     c = patt.code
-    ccode = hoist!(patt, patt[1])
-    # TODO full capture optimization
-    # if patt[1] is fixedlen, we use FullCaptureInst
-    # unless it's a group capture
-    trimEnd!(ccode)
+    code = hoist!(patt, patt[1])
+    trimEnd!(code)
+    # If patt[1] is fixedlen, and not a group, we use FullCaptureInst
+    if patt.kind ≠ Cgroup
+        len = fixedlen(patt[1])
+        if len ≠ false
+            append!(c, code)
+            push!(c, FullCaptureInst(patt.kind, len, patt.tag), OpEnd)
+            return patt
+        end
+    end
     push!(c, OpenCaptureInst(patt.kind, patt.tag))
-    append!(c, ccode)
+    append!(c, code)
     if patt.kind == Ctest || patt.kind == Cvm
         close = CloseRunTimeInst(patt.kind, patt.tag)
     else
