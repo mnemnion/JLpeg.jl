@@ -320,7 +320,7 @@ using InteractiveUtils
         @test match(re, "a <- 'a'+ 'b'* c?") isa PegMatch
         @test match(re, "exp <- S grammar | alternative") isa PegMatch
         @test match(re, "a <- '123'^[1:3] |> action ") isa PegMatch
-        @test match(re, "a <- '123'^[1:3] >: run_action") isa PegMatch
+        @test match(re, "a <- '123'^[1:3] |? run_action") isa PegMatch
         @test match(re, "a <- '123' * ('4'+, :fours)") isa PegMatch
 
         lpegre = """
