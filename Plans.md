@@ -112,13 +112,20 @@ The hitlist:
   - [X]  Set ISpan optimization
     - [X]  Even better: Since Set has `:l`, we just make it `LeadSetInst(vec, 0)`.
   - [X]  fixed-length detection
-  - [ ]  full-capture optimization (bytecode)
+  - [X]  full-capture optimization (bytecode)
   - [ ]  disjoint-PChoice optimization
   - [X]  Capture-closing optimization (vm)
 - [#]  Proposed optimizations not found in LPeg
   - [X]  Immutable vector Instructions using the `getindex` from BitPermutations.jl
   - [ ]  MultiSetTest [conversion](#multiset-test-conversion)
   - [X]  Parameteric `IChar` specialized to `Char` (which is what I care about)
+  - [ ]  Capture lowering: in a Choice, if each branch is fixedlen, we can lower the
+         capture into the choice, and use a FullCapture to pick up the capture.
+         There's some heuristic here, because even if it's only a few which are
+         fixedlen, it still might be worthwhile to move the capture in.  This will
+         have some subtle interactions with the code for e.g. headfails, but then again,
+         a leading TestSet is a great opportunity to not even open a capture unless the
+         test passes.
   - [ ]  Inlining: short rules with no captures, "short" is like, 5 instructions? 10?
     - [ ]  Definitely good for predicates, disinclined to do this for ordinary rules.
            With predicates we can remove captures and turn throws into simple fails.

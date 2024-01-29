@@ -363,8 +363,8 @@ completed, but future releases may choose to evaluate some captures earlier.
 Accordingly, `λ` passed to `A` should be free of side effects.
 
 `Q`, a "query" action, happens during the match, as soon as `patt` is matched.  It
-receives `patt` as a SubString, and must return a `Bool`, which determines if that
-pattern succeeds or fails.
+receives the region matched by `patt` as a SubString, and must return a `Bool`, which
+determines if that pattern succeeds or fails.
 
 As an example, here's a use of `Q` to match strings of digits divisible by 3 in base 10.
 
