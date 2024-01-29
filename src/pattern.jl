@@ -4,13 +4,13 @@
 "A kind of capture"
 @enum CapKind::UInt8 begin
     Cposition   # ✅ Captures the empty string to record an offset
-    Cconst      # [ ]
+    Cconst      # [✅] Captures provided constants into the capture vector
     Csimple     # ✅ captures a substring of the region matched
     Crange      # ✅ captures a UnitRange [first:last] of region
-    Caction     # [ ] an action taken on a successful match.
+    Caction     # [✅] an action taken on a successful match.
     Csymbol     # ✅ captures its match as a pair `:symbol => "match"` (:symbol can be a string)
-    Ctest       # [ ] a runtime test of the captured substring
-    Cvm         # [ ] a runtime test receiving the full VMState
+    Ctest       # [✅] a runtime test of the captured substring
+    Cvm         # [✅] a runtime test receiving the full VMState
     Cgroup      # ✅ groups all its captures into a Vector.
 end
 

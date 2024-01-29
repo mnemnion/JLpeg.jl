@@ -39,7 +39,7 @@ const Patternable = Union{AbstractString,AbstractChar,Integer,Bool,Symbol}
 """
     Grammar(rule...)
 
-Create a grammar from the provided rules.
+Create a grammar from the provided [`Rules`](@ref `Rule`).
 """
 const Grammar = PGrammar
 const Rule = PRule
@@ -285,7 +285,7 @@ CK(check::Function, patt::Pattern, sym::Symbol) = C(K(patt, sym, check), sym)
 """
     P"str"
 
-Calls P(str) on the String, in close imitation of Lua's calling convention.
+Call P(str) on the String, in close imitation of Lua's calling convention.
 """
 macro P_str(str)
     P(compile_raw_string(str))
@@ -294,7 +294,7 @@ end
 """
     R"str"
 
-Calls R(str) on the String, in close imitation of Lua's calling convention.
+Create a range pattern from "str".  See [`R`](@ref).
 """
 macro R_str(str)
     R(compile_raw_string(str))
@@ -303,7 +303,7 @@ end
 """
     S"str"
 
-Calls S(str) on the String, in close imitation of Lua's calling convention.
+Create a Set pattern of the characters in "str".  See [`S`](@ref).
 """
 macro S_str(str)
     S(compile_raw_string(str))
@@ -389,15 +389,16 @@ import ..JLpeg: CaptureTuple, Patternable, Settable,
 @doc (@doc Base.:*) :*
 
 @inline
-|(args::Any...) = Base.:|(args...)
+|(a::Any, b::Any) = Base.:|(a, b)
 @doc (@doc Base.:|) :|
 
 @inline
--(args::Any...) = Base.:-(args...)
+-(a::Any, b::Any) = Base.:-(a, b)
+-(a::Any) = Base.:-(a)
 @doc (@doc Base.:-) :-
 
 @inline
-%(a::Any, b::Any...) = Base.:%(a, b...)
+%(a::Any, b::Any) = Base.:%(a, b)
 @doc (@doc Base.:%) :%
 
 @inline
@@ -447,52 +448,32 @@ inv(a::Any) = Base.inv(a)
 *(a::Pattern, b::Vector)            = a * Cg(b)
 *(a::Pattern, b::Vector, c::Any...) = *(a, Cg(b), c...)
 
-|(a::Pattern, b::Pattern)            = PChoice(a, b)
-|(a::Pattern, b::Pattern, c::Any...) = PChoice(a, |(b, c...))
-|(a::Pattern, b::Symbol)             = PChoice(a, POpenCall(b))
-|(a::Pattern, b::Symbol, c::Any...)  = PChoice(a, |(POpenCall(b), c...))
-|(a::Symbol, b::Pattern)             = PChoice(POpenCall(a), b)
-|(a::Symbol, b::Pattern, c::Any...)  = PChoice(POpenCall(a), |(b, c...))
-|(a::Pattern, b::Union{Integer,String})            =  a | P(b)
-|(a::Pattern, b::Union{Integer,String}, c::Any...) =  |(a, P(b), c...)
-|(a::Union{Integer,String}, b::Pattern)            = P(a) | b
-|(a::Union{Integer,String}, b::Pattern, c::Any...) = |(P(a), b, c...)
-|(a::CaptureTuple, b::Pattern)            = C(a...) | b
-|(a::CaptureTuple, b::Pattern, c::Any...) = |(C(a...), b, c...)
-|(a::Pattern, b::CaptureTuple)            = a | C(b...)
-|(a::Pattern, b::CaptureTuple, c::Any...) = |(a, C(b...), c...)
-|(a::Union{Integer,String}, b::CaptureTuple)            = P(a) | C(b...)
-|(a::Union{Integer,String}, b::CaptureTuple, c::Any...) = |(P(a), C(b...), c...)
-|(a::CaptureTuple, b::Union{Integer,String})            = C(a...) | P(b)
-|(a::CaptureTuple, b::Union{Integer,String}, c::Any...) = |(C(a...), P(b), c...)
-|(a::CaptureTuple, b::CaptureTuple)            = C(a...) | C(b...)
-|(a::CaptureTuple, b::CaptureTuple, c::Any...) = |(C(a...), C(b...), c...)
-|(a::Vector, b::Pattern)            = Cg(a) | b
-|(a::Vector, b::Pattern, c::Any...) = |(Cg(a), b, c...)
+|(a::Pattern, b::Pattern) = PChoice(a, b)
+|(a::Pattern, b::Symbol) = PChoice(a, POpenCall(b))
+|(a::Symbol, b::Pattern) = PChoice(POpenCall(a), b)
+|(a::Pattern, b::Union{Integer,String}) =  a | P(b)
+|(a::Union{Integer,String}, b::Pattern) = P(a) | b
+|(a::CaptureTuple, b::Pattern) = C(a...) | b
+|(a::Pattern, b::CaptureTuple) = a | C(b...)
+|(a::Union{Integer,String}, b::CaptureTuple) = P(a) | C(b...)
+|(a::CaptureTuple, b::Union{Integer,String})  = C(a...) | P(b)
+|(a::CaptureTuple, b::CaptureTuple) = C(a...) | C(b...)
+|(a::Vector, b::Pattern) = Cg(a) | b
 |(a::Pattern, b::Vector) = a | Cg(b)
-|(a::Pattern, b::Vector, c::Any...) = |(a, Cg(b), c...)
 # Conversions
-|(a::PSet, b::PSet)            = PSet(vcat(a.val, b.val))
-|(a::PSet, b::PSet, c::Any...) = |(PSet(vcat(a.val, b.val)), c...)
-|(a::PChar, b::PSet)            = PSet(append!(Settable([b.val]), a.val))
-|(a::PChar, b::PSet, c::Any...) = |(PSet(append!(Settable([b.val]), a.val)), c...)
-|(a::PSet, b::PChar)            = PSet(push!(copy(a.val), b.val))
-|(a::PSet, b::PChar, c::Any...) = |(PSet(push!(copy(a.val), b.val)), c...)
+|(a::PSet, b::PSet) = PSet(vcat(a.val, b.val))
+|(a::PChar, b::PSet) = PSet(append!(Settable([b.val]), a.val))
+|(a::PSet, b::PChar) = PSet(push!(copy(a.val), b.val))
 
--(a::Pattern, b::Pattern)        = PDiff(a, b)
--(a::Pattern, b::Any, c::Any...) = PDiff(a, -(b, c...))
--(a::Pattern, b::Union{Integer,String})            = PDiff(a, P(b))
--(a::Pattern, b::Union{Integer,String}, c::Any...) = PDiff(a, -(P(b), c...))
--(a::Union{Integer,String}, b::Pattern)            = PDiff(P(a), b)
--(a::Union{Integer,String}, b::Pattern, c::Any...) = PDiff(P(a), -(b, c...))
--(a::Pattern, b::Symbol)             = PDiff(a, POpenCall(b))
--(a::Pattern, b::Symbol, c::Any...)  = PDiff(a, -(POpenCall(b), c...))
--(a::Symbol, b::Pattern)             = PDiff(POpenCall(a), b)
--(a::Symbol, b::Pattern, c::Any...)  = PDiff(POpenCall(a), -(b, c...))
+-(a::Pattern, b::Pattern) = PDiff(a, b)
+-(a::Pattern, b::Union{Integer,String}) = PDiff(a, P(b))
+-(a::Union{Integer,String}, b::Pattern) = PDiff(P(a), b)
+-(a::Pattern, b::Symbol) = PDiff(a, POpenCall(b))
+-(a::Symbol, b::Pattern) = PDiff(POpenCall(a), b)
 
 # Base.:(a::Pattern, b::Function) = Anow(a, b)
 %(a::Pattern, b::Symbol) = a | T(b)
-^(a::Pattern, b::Integer)  = PStar(a, b)
+^(a::Pattern, b::Integer) = PStar(a, b)
 function ^(a::Pattern, b::Vector{UnitRange{T}} where T <: Integer)
     isempty(b) && error("empty Vector in a^[n:m]")
     length(b) > 1 && error("a^[n:m] can take only one UnitRange, not $(length(b))")

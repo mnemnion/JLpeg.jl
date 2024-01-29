@@ -9,7 +9,7 @@ export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar
 export <--, ←, ¬, <|, <-->, ⟷, ↔
 export PegMatch, PegFail, PegError
 export match, compile!, generate
-export @P_str, @R_str, @S_str, @grammar, @grammar!, @rule, @rule!
+export @P_str, @R_str, @S_str, @grammar, @rule
 export re
 
 include("types.jl")
