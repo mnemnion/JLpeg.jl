@@ -39,7 +39,7 @@ const Patternable = Union{AbstractString,AbstractChar,Integer,Bool,Symbol}
 """
     Grammar(rule...)
 
-Create a grammar from the provided [`Rules`](@ref `Rule`).
+Create a grammar from the provided [`Rules`](@ref Rule).
 """
 const Grammar = PGrammar
 const Rule = PRule

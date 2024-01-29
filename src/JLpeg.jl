@@ -23,6 +23,8 @@ include("pegmatch.jl")
 include("vm.jl")
 include("printing.jl")
 include("grammar.jl")
+using JLpeg.GrammarMacros
+
 include("dialects.jl")
 
 end

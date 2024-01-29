@@ -161,7 +161,7 @@ end
 """
     Rule(name::Symbol, patt::Pattern)
 
-Un-sugared form of [`@rule`](@ref), creates a rule from `patt`, assigning it
+Sugar-free form of [`@rule`](@ref), creates a rule from `patt`, assigning it
 the name `name`.
 """
 function PRule(name::Symbol, val::Pattern)

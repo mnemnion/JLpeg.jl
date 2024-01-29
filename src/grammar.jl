@@ -1,10 +1,12 @@
 # Grammar macro module
+module GrammarMacros
 
-# TODO Make this a real module, don't forget ε and ∅ !
+export @grammar, @rule
 
-using MacroTools
-
-const postwalk, prewalk = MacroTools.postwalk, MacroTools.prewalk
+using ..JLpeg
+import ..JLpeg: ε, ∅
+import ..JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
+import MacroTools: @capture, postwalk, prewalk, isexpr
 
 const 🔠 = P  # Won't interfere with user uses of P
 
@@ -161,3 +163,5 @@ macro rule(expr::Expr, erest::Expr...)
         error("malformed rule: $(expr) $(erest...)")
     end
 end
+
+end # Module
