@@ -389,16 +389,16 @@ import ..JLpeg: CaptureTuple, Patternable, Settable,
 @doc (@doc Base.:*) :*
 
 @inline
-|(a::Any, b::Any) = Base.:|(a, b)
+|(a::Any, b::Any...) = Base.:|(a, b...)
 @doc (@doc Base.:|) :|
 
 @inline
--(a::Any, b::Any) = Base.:-(a, b)
+-(a::Any, b::Any...) = Base.:-(a, b...)
 -(a::Any) = Base.:-(a)
 @doc (@doc Base.:-) :-
 
 @inline
-%(a::Any, b::Any) = Base.:%(a, b)
+%(a::Any, b::Any...) = Base.:%(a, b...)
 @doc (@doc Base.:%) :%
 
 @inline
