@@ -376,9 +376,11 @@ import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, inv
 module Combinators
 
 using ..JLpeg
-import ..JLpeg: CaptureTuple, Patternable, Settable,
+import ..JLpeg: CaptureTuple, Patternable,
                 PSet, PSeq, POpenCall, PChoice, PDiff, PAnd, PNot, PChar, PStar
 
+
+const Settable = Union{AbstractString,}
 # Fallbacks to Base
 # These are well-understood by the compiler and will not
 # slow down your code with extra calls.  We even put the
@@ -473,12 +475,12 @@ inv(a::Any) = Base.inv(a)
 |(a::Pattern, b::Vector) = a | Cg(b)
 |(a::Pattern, b::Vector, c::Any...) = |(a, Cg(b), c...)
 # Conversions
-|(a::PSet, b::PSet)            = PSet(vcat(a.val, b.val))
-|(a::PSet, b::PSet, c::Any...) = |(PSet(vcat(a.val, b.val)), c...)
-|(a::PChar, b::PSet)            = PSet(append!(Settable([b.val]), a.val))
-|(a::PChar, b::PSet, c::Any...) = |(PSet(append!(Settable([b.val]), a.val)), c...)
-|(a::PSet, b::PChar)            = PSet(push!(copy(a.val), b.val))
-|(a::PSet, b::PChar, c::Any...) = |(PSet(push!(copy(a.val), b.val)), c...)
+|(a::PSet, b::PSet)            = PSet(a.val ∪ b.val)
+|(a::PSet, b::PSet, c::Any...) = |(PSet(a.val ∪ b.val), c...)
+|(a::PChar, b::PSet)            = PSet(b.val ∪ a.val)
+|(a::PChar, b::PSet, c::Any...) = |(PSet(b.val ∪ a.val), c...)
+|(a::PSet, b::PChar)            = PSet(a.val ∪ b.val)
+|(a::PSet, b::PChar, c::Any...) = |(PSet(a.val ∪ b.val), c...)
 
 -(a::Pattern, b::Pattern)        = PDiff(a, b)
 -(a::Pattern, b::Any, c::Any...) = PDiff(a, -(b, c...))

@@ -4,6 +4,7 @@ module JLpeg
 using BitPermutations
 using OrderedCollections
 using InteractiveUtils
+using UnitRangesSortedSets
 
 export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar, Pattern
 export <--, ←, ¬, <|, <-->, ⟷, ↔

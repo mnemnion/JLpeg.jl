@@ -40,17 +40,17 @@ struct PChar <: Pattern
     PChar(val::AbstractChar, code::IVector) = new(val, code)
 end
 
-const Settable = Vector{Union{AbstractChar, Tuple{AbstractChar,AbstractChar}}}
+const CharSet = UnitRangesSortedSet{Char}
 
 struct PSet <: Pattern
-    val::Settable
+    val::CharSet
     code::IVector
-    PSet(val::AbstractString) = new(collect(val), Inst())
-    PSet(val::Vector{AbstractChar}) = new(val, Inst())
-    PSet(val::Tuple{AbstractChar,AbstractChar}) = new([val], Inst())
-    PSet(val::Settable) = new(val, Inst())
-    PSet(inst::IVector) = new([], inst)
-    PSet(val::Settable, inst::IVector) = new(val, inst)
+    PSet(val::AbstractString) = new(CharSet(collect(val)), Inst())
+    PSet(val::Vector{AbstractChar}) = new(CharSet(val), Inst())
+    PSet(val::Tuple{AbstractChar,AbstractChar}) = new(CharSet(val[1]:val[2]), Inst())
+    PSet(val::CharSet) = new(val, Inst())
+    PSet(inst::IVector) = new(CharSet(), inst)
+    PSet(val::CharSet, inst::IVector) = new(val, inst)
 end
 
 struct PBehind <: Pattern

@@ -508,8 +508,8 @@ function _compile!(patt::PSet)::Pattern
         return compile!(PFalse())
     end
     # Specialize one-char sets into PChar
-    if sizeof(patt.val) ≤ 4 && length(patt.val) == 1 && patt.val[1] isa AbstractChar
-        return compile!(PChar(first(patt.val)))
+    if length(patt.val) == 1 && first(patt.val).start == first(patt.val).stop
+        return compile!(PChar(first(patt.val).start))
     end
     bvec, prefix_map = makebitvectors(patt.val)
     if bvec !== nothing && prefix_map === nothing
@@ -1078,23 +1078,18 @@ end
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
 
-Take a string, or a vector of characters, and break it down into bitvectors which
-compactly and quickly test for those characters.
+Take the `.val` of a PSet and break it down into bitvectors which compactly and
+quickly test for those characters.
 
-Return `(ascii, higher)` where `ascii` is all one-byte utf8 characters and higher is a somewhat
-complex dict of bitvectors useful for detecting practical multibyte ranges and sets.
+Return `(ascii, higher)` where `ascii` is all one-byte utf8 characters and higher is
+a somewhat complex dict of bitvectors useful for detecting practical multibyte ranges
+and sets.
 """
-function makebitvectors(set::Settable)::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
+function makebitvectors(set::CharSet)::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
     bvec = nothing
     prefix_map = nothing
-    for elem in set
-        if elem isa Char
-            bvec, prefix_map = bvec_char!(bvec, prefix_map, elem)
-        elseif elem isa Tuple
-            for char in elem[1]:elem[2]
-                bvec, prefix_map = bvec_char!(bvec, prefix_map, char)
-            end
-        end
+    for elem in Iterators.flatten(set)
+        bvec, prefix_map = bvec_char!(bvec, prefix_map, elem)
     end
     return bvec, prefix_map
 end
