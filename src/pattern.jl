@@ -243,7 +243,6 @@ function PMark(patt::Pattern, mark::Symbol)
 end
 
 const checktotag = IdDict{Union{Symbol,Function},UInt16}()
-const tagtocheck = IdDict{UInt16,Union{Symbol,Function}}()
 global checkcounter::UInt16 = 0
 
 function _getcheck!(check::Union{Symbol,Function})::UInt16
@@ -254,7 +253,6 @@ function _getcheck!(check::Union{Symbol,Function})::UInt16
         else
             global checkcounter += 1
         end
-        tagtocheck[checkcounter] = check
         return checkcounter
     end
 end
