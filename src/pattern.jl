@@ -242,8 +242,8 @@ function PMark(patt::Pattern, mark::Symbol)
     PMark([patt], Inst(), mark, tag, AuxDict())
 end
 
-const checktotag = Dict{Union{Symbol,Function},UInt16}()
-const tagtocheck = Dict{UInt16,Union{Symbol,Function}}()
+const checktotag = IdDict{Union{Symbol,Function},UInt16}()
+const tagtocheck = IdDict{UInt16,Union{Symbol,Function}}()
 global checkcounter::UInt16 = 0
 
 function _getcheck!(check::Union{Symbol,Function})::UInt16
