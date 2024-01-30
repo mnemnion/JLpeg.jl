@@ -407,6 +407,9 @@ function prepare!(patt::PAuxT)::Pattern
         elseif p isa PThrow
             throws = get!(()-> Dict(), aux, :throws)
             throws[p.tag] = p.val
+        elseif p isa PCheck
+            checks = get!(()-> Dict(), aux, :checks)
+            checks[p.check_tag] = p.check
         end
     end
     patt.aux[:prepared] = true
@@ -766,6 +769,9 @@ function _compile!(patt::PGrammar)::Pattern
             a[:caps][p.tag] = p.cap
         elseif p isa PThrow
             a[:throws][p.tag] = p.val
+        elseif p isa PCheck
+            checks = get!(()-> Dict(), a, :checks)
+            checks[p.check_tag] = p.check
         elseif p isa POpenCall
             if haskey(a[:rules], p.val)
                 # Replace it with a call having the ref

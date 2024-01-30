@@ -608,7 +608,7 @@ function onInst(inst::CheckMarkInst, vm::VMState)::Bool
     elseif inst.check == 0x0008 && stop2 - start2 ≤ stop1 - start1
         matched = true
     elseif inst.check ≥ 0x0009  # user-provided function
-        λ = tagtocheck[inst.check]
+        λ = vm.patt.aux[:checks][inst.check]
         sub1 = @views vm.subject[start1:stop1]
         sub2 = @views vm.subject[start2:stop2]
         matched = λ(sub1, sub2)
