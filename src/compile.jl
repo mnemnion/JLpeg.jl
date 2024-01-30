@@ -562,7 +562,6 @@ function _compile!(patt::PNot)::Pattern
 end
 
 function _compile!(patt::PDiff)::Pattern
-    # TODO Set complementation is rather complex with MultiSets!
     compile!(PSeq(PNot(patt.val[2]), patt.val[1]))
 end
 

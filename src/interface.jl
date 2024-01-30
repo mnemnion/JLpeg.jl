@@ -483,6 +483,8 @@ inv(a::Any) = Base.inv(a)
 |(a::PSet, b::PChar, c::Any...) = |(PSet(a.val ∪ b.val), c...)
 
 -(a::Pattern, b::Pattern)        = PDiff(a, b)
+# Sets we can optimize
+-(a::PSet, b::Union{PSet,PChar}) = PSet(setdiff(a.val, b.val))
 -(a::Pattern, b::Any, c::Any...) = PDiff(a, -(b, c...))
 -(a::Pattern, b::Union{Integer,String})            = PDiff(a, P(b))
 -(a::Pattern, b::Union{Integer,String}, c::Any...) = PDiff(a, -(P(b), c...))

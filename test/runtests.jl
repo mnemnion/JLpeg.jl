@@ -51,6 +51,9 @@ using InteractiveUtils
         @test match(numeven, "13") isa PegFail
         @test match(eset, "something") isa PegFail
         @test match(eset, "") isa PegFail
+        diffset = R"az" - R"di"
+        @test match(diffset, "c") == ["c"]
+        @test match(diffset, "i") isa PegFail
     end
     @testset "Ordered Choice" begin
         afew = S("123") | P("abc") | S("xyz")
