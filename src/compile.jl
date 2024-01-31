@@ -385,7 +385,12 @@ end
 Prepare a pattern for matching.
 """
 function prepare!(patt::Pattern)::Pattern
-    compile!(patt)
+    if !isempty(patt.code)
+        return patt
+    end
+    patt = compile!(patt)
+    peephole!(patt.code)
+    return patt
 end
 
 function prepare!(patt::PAuxT)::Pattern
@@ -394,11 +399,13 @@ function prepare!(patt::PAuxT)::Pattern
     end
     patt = compile!(patt)
     if !isa(patt, PAuxT)
+        peephole!(patt.code)
         return patt
     end
     if haskey(patt.aux, :prepared)
         return patt
     end
+    peephole!(patt.code)
     # Hoist capture and throw labels
     prewalkpatt!(patt, patt.aux) do p, aux
         if p isa PCapture
@@ -412,6 +419,16 @@ function prepare!(patt::PAuxT)::Pattern
             checks[p.check_tag] = p.check
         end
     end
+    patt.aux[:prepared] = true
+    return patt
+end
+
+function prepare!(patt::PGrammar)::Pattern
+    if haskey(patt.aux, :prepared)
+        return patt
+    end
+    _compile!(patt)
+    peephole!(patt.code)
     patt.aux[:prepared] = true
     return patt
 end
@@ -785,7 +802,7 @@ function _compile!(patt::PGrammar)::Pattern
     recursepattern!(patt, aux)
     c = patt.code
     push!(c, CallInst(2))
-    push!(c, OpEnd)  # TODO hold this an jump to actual end
+    push!(c, HoldInst(IJump))
     for rulename in aux[:seen]
         rule = compile!(aux[:rules][rulename])
         aux[:callsite][rulename] = length(c) + 1
@@ -793,10 +810,11 @@ function _compile!(patt::PGrammar)::Pattern
         trimEnd!(c)
         push!(c, OpReturn)
     end
+    @assert c[2] isa HoldInst "c[2] isa $(typeof(c[2])) $(c[2].op))"
+    c[2] = JumpInst(length(c) - 1)
     push!(c, OpEnd)
     link!(c, aux)
     delete!(aux, :rules)
-    aux[:prepared] = true
     return patt
 end
 
@@ -894,7 +912,6 @@ function link!(code::IVector, aux::AuxDict)
             end
         end
     end
-    peephole!(code)
 end
 
 """
@@ -919,8 +936,14 @@ function peephole!(code::IVector)
             end
             target = code[i + l]
             t_op = target.op
-            if t_op == IReturn || t_op == IFail || t_op == IFailTwice || t_op == IEnd
-                println("instruction $i is a Jump to be transformed to $t_op")
+            if t_op == IReturn
+                code[i] = OpReturn
+            elseif t_op == IFail
+                code[i] = OpFail
+            elseif t_op == IFailTwice
+                code[i] = OpFailTwice
+            elseif t_op == IEnd
+                code[i] = OpEnd
             elseif t_op == ICommit || t_op == IPartialCommit || t_op == IBackCommit
                 println("instruction $i jumps to $t_op: the complex case")
             end
