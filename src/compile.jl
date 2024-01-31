@@ -1065,6 +1065,70 @@ function fixedlen(patt::Pattern, seen=IdDict())::Union{Integer,Bool}
     end
 end
 
+"""
+    firstset(patt::Pattern)::Pattern
+
+Computes the "firstset" of a `Pattern`, which may be used to test if the
+whole pattern will fail, returning it in Instruction form.  This is in the
+form of a Pattern, and will be PTrue if `patt` matches `""`.
+"""
+function firstset(patt::Pattern)::Pattern
+    # TODO this is incompatible with direct left recursion,
+    # this algorithm will hang and we need to figure out how
+    # this is computed for a ← a b
+    if isof(patt, PChar, PSet)
+        return patt
+    elseif patt isa PAny # Only the first char in a PAny is the test
+        return PAny(!)
+    elseif isof(patt, PTrue, PThrow)
+        return PTrue()
+    elseif patt isa PFalse
+        return PSet("")
+    elseif isof(patt, PCapture, PMark, PCheck, PRule)
+        return firstset(patt[1])
+    elseif isof(patt, PCall)
+        return firstset(patt.ref)
+    elseif patt isa PChoice
+        firsts = map(firstset, patt.val)
+        if any((p)-> p isa PAny, firsts)
+            return PAny(1)
+        elseif any((p)-> p isa PTrue, firsts)
+            return PTrue()
+        else # | will consolidate PChar and PSets into their union
+            return reduce(|, firsts)
+        end
+    elseif patt isa PSeq
+        if !nullable(patt[1])
+            return firstset(patt[1])
+        else
+            f1 = firstset(patt[1])
+            if f1 isa PTrue
+                return f1
+            end
+            error("encountered 'strange' PSeq case: $(patt.val)")
+            return patt
+        end
+    elseif patt isa PStar
+        if patt.n ≤ 0
+            return PTrue()
+        else
+            return firstset(patt[1])
+        end
+    elseif patt isa PAnd
+        # lpeg does something weird with the follow-set here
+        # but isn't it just ~"123" == S"1" firstset? Looks like it!
+        return firstset(patt[1])
+    elseif patt isa PNot
+        # We should use a proper complement here. But for
+        # efficiency reasons (which we can solve, later) we
+        # treat this as "can't make a firstset", which is PTrue.
+        # TODO revisit this? I'm not convinced we're doing this function right.
+        return PTrue()
+    else
+        error("firstset NYI for pattern type $(typeof(patt))")
+    end
+end
+
 function isof(patt::Pattern, types::DataType...)
     for t in types
         if patt isa t
