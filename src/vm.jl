@@ -53,8 +53,8 @@ frames.  I borrowed a page from Forth and made the top of the
 stack a register, allowing stack frames to be immutable while still
 permitting the PartialCommit optimization.
 """
-mutable struct VMState
-   subject::AbstractString # The subject we're parsing
+mutable struct VMState{S <: AbstractString}
+   subject::S        # The subject we're parsing
    program::IVector  # Our program
    patt::Pattern     # The pattern it's derived from
    top::UInt32       # Byte length of subject string
@@ -78,14 +78,14 @@ mutable struct VMState
    stack::Vector{StackFrame}  # Stack of Instruction offsets
    cap::Vector{CapFrame}  # Capture stack
    mark::Vector{MarkFrame} # Mark stack
-   function VMState(patt::Pattern, subject::AbstractString, s::Integer, top::Integer)
+   function VMState(patt::Pattern, subject::S, s::Integer, top::Integer) where {S <: AbstractString}
       program = prepare!(patt).code
       stack = sizehint!(Vector{StackFrame}(undef, 0), 64)
       cap   = Vector{CapFrame}()
       mark  = Vector{MarkFrame}()
-      return new(subject, program, patt, top, 1, s, 0, 0, 0, 0, false, false, false, false, false, 0, 1, 0, stack, cap, mark)
+      return new{S}(subject, program, patt, top, 1, s, 0, 0, 0, 0, false, false, false, false, false, 0, 1, 0, stack, cap, mark)
    end
-   function VMState(patt::Pattern, subject::AbstractString)
+   function VMState(patt::Pattern, subject::S) where {S <: AbstractString}
         top = ncodeunits(subject)
         VMState(patt, subject, 1, top)
     end

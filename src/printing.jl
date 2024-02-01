@@ -161,7 +161,7 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
             push!(line, " close")
         else
             push!(line, " full")
-            push!(line, " ($(inst.l + off))")
+            push!(line, " ($(inst.n))")
         end
         push!(line, " #$(Int(inst.tag))")
         return line
