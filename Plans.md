@@ -695,6 +695,16 @@ even make sense to take over manual memory management of the VM stacks, but that
 seems less likely to yield greater performance than finally shaking off the boxed
 instructions and runtime type decoding.
 
+Taking a close look at the instructions, I can fit anything which isn't a Vector into
+one word, which has nice properties, to put it mildly.  It will take a bit of finesse
+to handle the ASCII vector tests, which are two words wide, but there are a few
+approaches which will serve.  One is to treat the mask like two masks and just
+remove a high bit from 0x40-0x7F, picking the vector accordingly.
+
+Compiling is the actually challenging part here, I think this is solved by breaking
+Set instructions down into however many parts are needed, rather than doing something
+fancy to keep track of which indices are multi-instruction.
+
 ### Stay Winning
 
 I want to figure out how to implement the Stay Winning algorithm with the bytecode
