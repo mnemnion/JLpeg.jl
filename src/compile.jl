@@ -39,18 +39,18 @@
     INoOp       # to fill empty slots left by optimizations
 end
 
-instructionDict = Dict(
-    IAny => (i) -> "[op, n] Match any $(i.n) characters",
-    IChar => (i) -> "[op, c] Match '$(i.c)'",
-    IEnd => (i) -> "[op] Ends a pattern",
-    IFail => (i) -> "[op] Fails a pattern" # To be continued
-)
-
-Docs.getdoc(i::Instruction) = instructionDict[i.op](i)
+# Stooges to pad out instructions
+const MOE::UInt32 = 0xffffffff
+const LARRY::UInt16 = 0xffff
+const CURLY::UInt8 = 0xff
 
 struct MereInst <: Instruction
+    moe::UInt32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
+MereInst(op::Opcode) = MereInst(MOE, LARRY, CURLY, op)
 
 OpEnd = MereInst(IEnd)
 OpFail = MereInst(IFail)
@@ -60,38 +60,46 @@ OpNoOp = MereInst(INoOp)
 
 struct AnyInst <: Instruction
     n::UInt32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-AnyInst(n::Integer) = n ≥ 0 ? AnyInst(UInt32(n), IAny) : error("n must be a natural number")
+AnyInst(n::Integer) = n ≥ 0 ? AnyInst(UInt32(n), LARRY, CURLY, IAny) : error("n must be a natural number")
 
 "Not yet in use"
 struct TestAnyInst <: Instruction
     l::Int32
     n::UInt16
+    curly::UInt8
     op::Opcode
 end
-TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(Int32(l), UInt16(n), ITestAny)
+TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(Int32(l), UInt16(n), CURLY, ITestAny)
 
 struct CharInst <: Instruction
     c::Char
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-CharInst(c::AbstractChar) = CharInst(Char(c), IChar)
+CharInst(c::AbstractChar) = CharInst(Char(c), LARRY, CURLY, IChar)
 
 struct NotCharInst <: Instruction
     c::Char
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-NotCharInst(c::AbstractChar) = NotCharInst(Char(c), INotChar)
+NotCharInst(c::AbstractChar) = NotCharInst(Char(c), LARRY, CURLY, INotChar)
 
 
 "Not yet in use"
 struct TestCharInst{C} <: Instruction
-    l::Int32
     c::Char
+    l::Int16
+    curly::UInt8
     op::Opcode
 end
-TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(Int32(l),Char(c), ITestChar)
+TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(Char(c), Int16(l), CURLY, ITestChar)
 
 struct SetInst <: Instruction
     vec::Int128
@@ -138,28 +146,35 @@ LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(vec.chunk, Int32(l),
 
 struct ByteInst <: Instruction
     l::Int32
+    larry::UInt16
     b::UInt8
     op::Opcode
 end
-ByteInst(b::UInt8, l::Integer) = ByteInst(Int32(l), b, IByte)
+ByteInst(b::UInt8, l::Integer) = ByteInst(Int32(l), LARRY, b, IByte)
 
 struct BehindInst <: Instruction
     n::UInt32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-BehindInst(n::Integer) = n ≥ 0 ? BehindInst(n, IBehind) : error("n must be a natural number")
+BehindInst(n::Integer) = n ≥ 0 ? BehindInst(n, LARRY, CURLY, IBehind) : error("n must be a natural number")
 
 struct LabelInst <: Instruction
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-LabelInst(op::Opcode, l::Integer) = LabelInst(l, op)
+LabelInst(op::Opcode, l::Integer) = LabelInst(l, LARRY, CURLY, op)
 
 struct ChoiceInst <: Instruction
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-ChoiceInst(l::Integer) = ChoiceInst(Int32(l), IChoice)
+ChoiceInst(l::Integer) = ChoiceInst(Int32(l), LARRY, CURLY, IChoice)
 
 PredChoiceInst(l::Integer) = LabelInst(IPredChoice, Int32(l))
 CommitInst(l::Integer) = LabelInst(ICommit, Int32(l))
@@ -179,56 +194,62 @@ struct HoldInst <: Instruction
     op::Opcode
 end
 
-# To be continued...
-
-abstract type CloseRunTimeInst end
-
 struct CaptureInst <: Instruction
-    op::Opcode
-    kind::CapKind
     n::Int16
     tag::UInt16
+    larry::UInt16
+    kind::CapKind
+    op::Opcode
 end
-CaptureInst(op::Opcode, kind::CapKind) = CaptureInst(op, kind, Int16(0), UInt16(0))
-CaptureInst(op::Opcode, kind::CapKind, tag::UInt16) = CaptureInst(op, kind, Int16(0), tag)
+CaptureInst(op::Opcode, kind::CapKind) = CaptureInst(Int16(0), UInt16(0), LARRY, kind, op)
+CaptureInst(op::Opcode, kind::CapKind, tag::UInt16) = CaptureInst(Int16(0), tag, LARRY, kind, op)
 
 OpenCaptureInst(kind::CapKind) = CaptureInst(IOpenCapture, kind, UInt16(0))
 OpenCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(IOpenCapture, kind, tag)
-CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseCapture, kind, Int16(0), tag)
-FullCaptureInst(kind::CapKind, n::Integer, tag::UInt16) = CaptureInst(IFullCapture, kind, Int16(n), tag)
-CloseRunTimeInst(kind::CapKind, tag::UInt16) = CaptureInst(ICloseRunTime, kind, Int16(0), tag)
+CloseCaptureInst(kind::CapKind, tag::UInt16) = CaptureInst(Int16(0), tag, LARRY, kind, ICloseCapture)
+FullCaptureInst(kind::CapKind, n::Integer, tag::UInt16) = CaptureInst(Int16(n), tag, LARRY, kind, IFullCapture)
+CloseRunTimeInst(kind::CapKind, tag::UInt16) = CaptureInst(Int16(0), tag, LARRY, kind, ICloseRunTime)
 
 struct ThrowInst <: Instruction
+    mode::UInt32
     tag::UInt16
+    curly::UInt8
     op::Opcode
 end
-ThrowInst(tag::UInt16) = ThrowInst(tag, IThrow)
+ThrowInst(tag::UInt16) = ThrowInst(MOE, tag, CURLY, IThrow)
 
 struct ThrowRecInst <: Instruction
     l::Int32
     tag::UInt16
+    curly::UInt8
     op::Opcode
 end
-ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(Int32(l), tag, IThrowRec)
+ThrowRecInst(tag::UInt16, l::Integer) = ThrowRecInst(Int32(l), tag, CURLY, IThrowRec)
 
 struct OpenMarkInst <: Instruction
+    moe::UInt32
     tag::UInt16
+    curly::UInt8
     op::Opcode
 end
-OpenMarkInst(tag::UInt16) = OpenMarkInst(UInt16(tag), IOpenMark)
+OpenMarkInst(tag::UInt16) = OpenMarkInst(MOE, tag, CURLY, IOpenMark)
 
 struct CloseMarkInst <: Instruction
+    moe::UInt32
     tag::UInt16
+    curly::UInt8
     op::Opcode
 end
-CloseMarkInst(tag::UInt16) = CloseMarkInst(UInt16(tag), ICloseMark)
+CloseMarkInst(tag::UInt16) = CloseMarkInst(MOE, tag, CURLY, ICloseMark)
 
 struct CheckMarkInst <: Instruction
     tag::UInt16
+    larry::UInt16
     check::UInt16
+    curly::UInt8
     op::Opcode
 end
-CheckMarkInst(tag::UInt16, check::UInt16) = CheckMarkInst(tag, check, ICheckMark)
+CheckMarkInst(tag::UInt16, check::UInt16) = CheckMarkInst(tag, LARRY, check, CURLY, ICheckMark)
 
 """
     relabel(inst::Instruction, l::Integer)
