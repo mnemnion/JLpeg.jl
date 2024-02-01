@@ -486,139 +486,128 @@ function hoist!(parent::Pattern, child::Pattern)::IVector
     end
 end
 
-function _compile!(patt::Pattern)::Pattern
+function build(patt::Pattern, code::IVector=Inst())::IVector
     error("Not Yet Implemented for $(typeof(patt))")
+    return code  # unreachable ofc
 end
 
-function _compile!(patt::PAny)::Pattern
+function build(patt::PAny, code::IVector=Inst())::IVector
     # Optimize away P(0) to P(true) to avoid
     # inefficent VM instruction
     if patt.val == 0
-        return compile!(PTrue())
+        push!(code, OpEnd)
+        return code
     end
-    push!(patt.code, AnyInst(patt.val), OpEnd)
-    return patt
+    push!(code, AnyInst(patt.val))
+    return code
 end
 
-function _compile!(patt::PChar)::Pattern
-    push!(patt.code, CharInst(patt.val), OpEnd)
-    return patt
+function build(patt::PChar, code::IVector=Inst())::IVector
+    push!(code, CharInst(patt.val))
+    return code
 end
 
-function _compile!(patt::PTrue)::Pattern
-    push!(patt.code, OpEnd)
-    return patt
+function build(::PTrue, code::IVector=Inst())::IVector
+    push!(code, OpEnd)
+    return code
 end
 
-function _compile!(patt::PFalse)::Pattern
-    push!(patt.code, OpFail, OpEnd)
-    return patt
+function build(::PFalse, code::IVector=Inst())::IVector
+    push!(code, OpFail)
+    return code
 end
 
-function _compile!(patt::POpenCall)::Pattern
-    push!(patt.code, OpenCallInst(patt.val), OpEnd)
-    return patt
+function build(patt::POpenCall, code::IVector=Inst())::IVector
+    push!(code, OpenCallInst(patt.val))
+    return code
 end
 
-function _compile!(patt::PCall)::Pattern
-    push!(patt.code, OpenCallInst(patt.val), OpEnd)
-    return patt
+function build(patt::PCall, code::IVector=Inst())::IVector
+    push!(code, OpenCallInst(patt.val))
+    return code
 end
 
-function _compile!(patt::PBehind)::Pattern
+function build(patt::PBehind, code::IVector=Inst())::IVector
     @assert length(patt.val) == 1 "too many patterns in PBehind"
-    len = fixedlen(patt.val[1])
+    len = fixedlen(patt[1])
     if len === false
        throw(PegError("in B(patt), patt must be of fixed length, not a $(typeof(patt.val[1]))"))
     elseif len == 0  # Return the pattern
         return return patt.val[1]
     end
-    push!(patt.code, BehindInst(len))
-    pcode = hoist!(patt, patt[1])
-    append!(patt.code, pcode)
-    @assert patt.code[end] == OpEnd
-    return patt
+    push!(code, BehindInst(len))
+    code = build(patt[1], code)
+    return code
 end
 
-function _compile!(patt::PSet)::Pattern
+function build(patt::PSet, code::IVector=Inst())::IVector
     # Specialize the empty set
     if isempty(patt.val)  # A valid way of saying "fail"
-        return compile!(PFalse())
+        push!(code, OpFail)
+        return code
     end
     # Specialize one-char sets into PChar
     if length(patt.val) == 1 && first(patt.val).start == first(patt.val).stop
-        return compile!(PChar(first(patt.val).start))
+        return build(PChar(first(patt.val).start), code)
     end
     bvec, prefix_map = makebitvectors(patt.val)
     if bvec !== nothing && prefix_map === nothing
-        push!(patt.code, SetInst(bvec))
+        push!(code, SetInst(bvec))
     else
-        encode_multibyte_set!(patt.code, bvec, prefix_map)
+        encode_multibyte_set!(code, bvec, prefix_map)
     end
-    pushEnd!(patt.code)
-    return patt
+    return code
 end
 
-function _compile!(patt::PAnd)::Pattern
+function build(patt::PAnd, code::IVector=Inst())::IVector
     @assert length(patt.val) == 1 "enclosing rule PAnd has more than one child"
-    c = patt.code
-    code = hoist!(patt, patt.val[1])
-    l = length(code) + 1  # 2 -> Choice, BackCommit
-    push!(c, PredChoiceInst(l))
-    append!(c, code)
-    c[end] = BackCommitInst(2)
-    push!(c, OpFail, OpEnd)  # Choice target
-    return patt
+    push!(code, HoldInst(IPredChoice))
+    hold = length(code)
+    code = build(patt[1], code)
+    l = length(code) - hold
+    code[hold] = PredChoiceInst(l)
+    push!(code, BackCommitInst(2), OpFail)
+    return code
 end
 
-function _compile!(patt::PNot)::Pattern
+function build(patt::PNot, code::IVector=Inst())::IVector
     @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
-    c = patt.code
-    code = hoist!(patt, patt[1])
+    template = build(patt[1])
     # TODO We can remove captures from PNot patterns,
     # which never succeed (except match-time captures),
     # but this is unlikely to occur until we inline simple calls (which we should)
     #
-    # We can turn ASCII sets into INotSet, which will
-    # therefore match multibyte chars
-    if length(code) == 2 && code[1].op == ISet && code[2] == OpEnd
-        push!(c, NotSetInst(code[1].vec, code[1].l), OpEnd)
-        return patt
+    # We can turn ASCII sets into INotSet, which can
+    # succeed against multibyte chars
+    if length(template) == 1 && template[1].op == ISet
+        push!(code, NotSetInst(template[1].vec, template[1].l))
+        return code
     end
     # We do the same for PChar
-    if patt.val[1] isa PChar
-        push!(c, NotCharInst(patt.val[1].val), OpEnd)
-        return patt
+    if patt[1] isa PChar
+        push!(code, NotCharInst(patt[1].val))
+        return code
     end
-    trimEnd!(code)
-    l = length(code) + 2  # 3 -> FailTwice, next
-    push!(c, PredChoiceInst(l))
-    append!(c, code)
-    push!(c, OpFailTwice)
-    pushEnd!(c)  # Choice target
-    return patt
+    l = length(template) + 2  # FailTwice, next
+    push!(code, PredChoiceInst(l))
+    append!(code, template)
+    push!(code, OpFailTwice)
+    return code
 end
 
-function _compile!(patt::PDiff)::Pattern
-    compile!(PSeq(PNot(patt.val[2]), patt.val[1]))
+function build(patt::PDiff, code::IVector=Inst())::IVector
+    code = build(PSeq(PNot(patt[2]), patt[1]), code)
+    return code
 end
 
-function _compile!(patt::PSeq)::Pattern
-    # Seq of one member is just that member
-    if length(patt.val) == 1
-        return patt.val[1]
-    end
-    c = patt.code
+function build(patt::PSeq, code::IVector=Inst())::IVector
     for p in patt.val
-        code = hoist!(patt, p)
-        append!(c, code)
-        trimEnd!(c)
+        code = build(p, code)
     end
-    pushEnd!(c)
-    return patt
+    return code
 end
 
-function _compile!(patt::PStar)::Pattern
+function _compile!(patt::PStar, code::IVector=Inst())::IVector
     # TODO figure out when TestChar etc come into play
     #
     # bad things can happen when val is also a PStar, specifically
@@ -628,54 +617,51 @@ function _compile!(patt::PStar)::Pattern
     if typeof(p) == PStar && p.n ≤ 0
         if p.n ≤ -1 && (patt.n == 0 || patt.n == 1)
             # "As many optionals as you want, as long as you match one" aka P^0
-            return compile!(p.val[1]^0)
+            return build(p.val[1]^0, code)
         elseif p.n == 0 && (patt.n == 0 || patt.n == 1)
             # Both of these mean "match as few as zero or as many as you can",
             # Which is what p means already.
-            return p
+            return build(p, code)
         elseif p.n == 0 && patt.n == -1
             # Same outcome as the above, but this time it's an optimization,
             # the code actually works fine, but the -1 isn't doing anything here
-            return p
+            return build(p, code)
         end
     end
     # Nullables: pointless for patt.n < 0, infinite loop otherwise, fail:
     if nullable(p)
         error("this $(typeof(p)) is nullable, repetition is not allowed")
     end
-    c = patt.code
-    code = hoist!(patt, p)
-    trimEnd!(code)
+    template = build(p)
     # TODO TestPattern optimization goes here, pass a flag to `addstar!`
     if patt.n == 0
-        addstar!(c, code)
+        addstar!(code, template)
     elseif patt.n ≥ 1
         for _ = 1:patt.n
-            append!(c, code)
+            append!(code, template)
         end
-        addstar!(c, code)
+        addstar!(code, template)
     elseif patt.n == -1
-        push!(c, ChoiceInst(length(code) + 2))
-        append!(c, code)
-        push!(c, CommitInst(1))
+        push!(code, ChoiceInst(length(template) + 2))
+        append!(code, template)
+        push!(code, CommitInst(1))
     elseif patt.n < -1
-        _choice = length(c) + 1
-        push!(c, OpNoOp)
+        push!(code, HoldInst(IChoice))
+        hold = length(code)
         for _ = patt.n:-2
-            append!(c, code)
-            push!(c, PartialCommitInst(1))
+            append!(code, template)
+            push!(code, PartialCommitInst(1))
         end
-        append!(c, code)
-        push!(c, CommitInst(1))
-        c[_choice] = ChoiceInst(length(c) - _choice)
+        append!(code, template)
+        push!(code, CommitInst(1))
+        code[hold] = ChoiceInst(length(code) - hold)
     else
         error("unreachable, logic is broken")
     end
-    pushEnd!(c)
-    return patt
+    return code
 end
 
-function addstar!(c::IVector, code::Vector{})
+function addstar!(c::IVector, code::IVector)
     l = length(code)
     if l == 1 && code[1].op == ISet
         # Span instruction
@@ -688,95 +674,81 @@ function addstar!(c::IVector, code::Vector{})
     # Choice Target
 end
 
-# TODO Change PChoice to use Ends, write hoist! for child::PChoice which makes them CommitInst
-
-function _compile!(patt::PChoice)::Pattern
-    c = patt.code
+function build(patt::PChoice, code::IVector=Inst())::IVector
     for (idx, p) in enumerate(patt)
-        pcode = copy(p.code)
-        trimEnd!(pcode)
+        pcode = build(p)
         if idx == length(patt.val)
-            append!(c, pcode)
+            append!(code, pcode)
             break
         end
         len = length(pcode)
-        push!(c, ChoiceInst(len + 2))  # +2 == Choice and Commit
-        append!(c, pcode)
-        push!(c, HoldInst(ICommit))
+        push!(code, ChoiceInst(len + 2))  # +2 == Choice and Commit
+        append!(code, pcode)
+        push!(code, HoldInst(ICommit))
     end
-    pushEnd!(c)
 
-    for (idx, inst) in enumerate(c)
+    for (idx, inst) in enumerate(code)
         if isa(inst, HoldInst) && inst.op == ICommit
-            c[idx] = CommitInst(length(c) - idx)
+            code[idx] = CommitInst(length(code) - idx + 1)  # + 1 for rest of pattern
         end
     end
 
-    return patt
+    return code
 end
 
-function _compile!(patt::PCapture)::Pattern
+function build(patt::PCapture, code::IVector=Inst())::IVector
     # Special-case Cp()
     if patt.kind == Cposition
         full = FullCaptureInst(Cposition, 0, patt.tag)
-        push!(patt.code, full, OpEnd)
-        return patt
+        push!(code, full)
+        return code
     end
-    c = patt.code
-    code = hoist!(patt, patt[1])
-    trimEnd!(code)
+    capture = build(patt[1])
     # If patt[1] is fixedlen, and not a group, we use FullCaptureInst
     if patt.kind ≠ Cgroup
         len = fixedlen(patt[1])
         if len ≠ false
-            append!(c, code)
-            push!(c, FullCaptureInst(patt.kind, len, patt.tag), OpEnd)
-            return patt
+            append!(code, capture)
+            push!(code, FullCaptureInst(patt.kind, len, patt.tag), OpEnd)
+            return code
         end
     end
-    push!(c, OpenCaptureInst(patt.kind, patt.tag))
-    append!(c, code)
+    push!(code, OpenCaptureInst(patt.kind, patt.tag))
+    append!(code, capture)
     if patt.kind == Ctest || patt.kind == Cvm
         close = CloseRunTimeInst(patt.kind, patt.tag)
     else
         close = CloseCaptureInst(patt.kind, patt.tag)
     end
-    push!(c, close)
-    pushEnd!(c)
-    return patt
+    push!(code, close)
+    return code
 end
 
-function _compile!(patt::PThrow)::Pattern
+function build(patt::PThrow, code::IVector=Inst())::IVector
     # Grammars may recode this as ThrowRecInst
-    push!(patt.code, ThrowInst(patt.tag), OpEnd)
-    return patt
+    push!(code, ThrowInst(patt.tag))
+    return code
 end
 
-function _compile!(patt::PMark)::Pattern
-    code = hoist!(patt, patt[1])
-    trimEnd!(code)
-    push!(patt.code, OpenMarkInst(patt.tag))
+function build(patt::PMark, code::IVector=Inst())::IVector
+    push!(code, OpenMarkInst(patt.tag))
     # TODO Marks can't enclose marks, check
-    append!(patt.code, code)
-    push!(patt.code, CloseMarkInst(patt.tag), OpEnd)
-    return patt
+    code = build(patt[1], code)
+    push!(code, CloseMarkInst(patt.tag))
+    return code
 end
 
-function _compile!(patt::PCheck)::Pattern
-    code = hoist!(patt, patt[1])
-    trimEnd!(code)
-    push!(patt.code, OpenMarkInst(patt.tag))
+function build(patt::PCheck, code::IVector=Inst())::IVector
+    push!(code, OpenMarkInst(patt.tag))
     # TODO Marks can't enclose marks, check
-    append!(patt.code, code)
-    push!(patt.code, CheckMarkInst(patt.tag, patt.check_tag), OpEnd)
-    return patt
+    code = build(patt[1], code)
+    push!(code, CheckMarkInst(patt.tag, patt.check_tag), OpEnd)
+    return code
 end
 
-function _compile!(patt::PRule)::Pattern
-    c = patt.code
-    append!(c, hoist!(patt, patt[1]))
-    pushEnd!(c)
-    return patt
+function build(patt::PRule, code::IVector=Inst())::IVector
+    code = build(patt[1], code)
+    return code
 end
 
 
@@ -785,9 +757,9 @@ end
 
 Compile a Grammar.  This will fail if all rules are not provided.
 """
-compile!(patt::PGrammar)::Pattern = _compile!(patt)
+# TODO add
 
-function _compile!(patt::PGrammar)::Pattern
+function build(patt::PGrammar, code::IVector=Inst())::IVector
     aux = patt.aux
     aux[:caps] = Dict()  # TODO TagDict maybe?
     aux[:throws] = Dict()  # It's a distinctive type!
@@ -801,6 +773,7 @@ function _compile!(patt::PGrammar)::Pattern
         rule.aux[:walked] = false
         rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
     end
+    # TODO all this rigamarole should be part of compile!
     patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
         if p isa PCapture
             a[:caps][p.tag] = p.cap
@@ -821,22 +794,19 @@ function _compile!(patt::PGrammar)::Pattern
     end
     aux[:seen] = Symbol[]
     recursepattern!(patt, aux)
-    c = patt.code
-    push!(c, CallInst(2))
-    push!(c, HoldInst(IJump))
+    push!(code, CallInst(2))
+    push!(code, HoldInst(IJump))
+    hold = length(code)
     for rulename in aux[:seen]
-        rule = compile!(aux[:rules][rulename])
-        aux[:callsite][rulename] = length(c) + 1
-        append!(c, rule.code)
-        trimEnd!(c)
-        push!(c, OpReturn)
+        aux[:callsite][rulename] = length(code) + 1
+        code = build(aux[:rules][rulename], code)
+        push!(code, OpReturn)
     end
-    @assert c[2] isa HoldInst "c[2] isa $(typeof(c[2])) $(c[2].op))"
-    c[2] = JumpInst(length(c) - 1)
-    push!(c, OpEnd)
-    link!(c, aux)
+    @assert code[hold] isa HoldInst "c[hold] isa $(typeof(c[hold])) $(c[hold].op))"
+    code[hold] = JumpInst(length(code) - 1)
+    link!(code, aux)
     delete!(aux, :rules)
-    return patt
+    return code
 end
 
 """
