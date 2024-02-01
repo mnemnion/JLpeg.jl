@@ -439,7 +439,6 @@ function build(patt::PAny, code::IVector=Inst())::IVector
     # Optimize away P(0) to P(true) to avoid
     # inefficent VM instruction
     if patt.val == 0
-        push!(code, OpEnd)
         return code
     end
     push!(code, AnyInst(patt.val))
@@ -452,7 +451,6 @@ function build(patt::PChar, code::IVector=Inst())::IVector
 end
 
 function build(::PTrue, code::IVector=Inst())::IVector
-    push!(code, OpEnd)
     return code
 end
 
@@ -477,7 +475,7 @@ function build(patt::PBehind, code::IVector=Inst())::IVector
     if len === false
        throw(PegError("in B(patt), patt must be of fixed length, not a $(typeof(patt.val[1]))"))
     elseif len == 0  # Return the pattern
-        return return patt.val[1]
+        return build(patt.val[1], code)
     end
     push!(code, BehindInst(len))
     code = build(patt[1], code)
@@ -653,7 +651,7 @@ function build(patt::PCapture, code::IVector=Inst())::IVector
         len = fixedlen(patt[1])
         if len ≠ false
             append!(code, capture)
-            push!(code, FullCaptureInst(patt.kind, len, patt.tag), OpEnd)
+            push!(code, FullCaptureInst(patt.kind, len, patt.tag))
             return code
         end
     end
@@ -686,7 +684,7 @@ function build(patt::PCheck, code::IVector=Inst())::IVector
     push!(code, OpenMarkInst(patt.tag))
     # TODO Marks can't enclose marks, check
     code = build(patt[1], code)
-    push!(code, CheckMarkInst(patt.tag, patt.check_tag), OpEnd)
+    push!(code, CheckMarkInst(patt.tag, patt.check_tag))
     return code
 end
 
@@ -725,6 +723,15 @@ function build(patt::PGrammar, code::IVector=Inst())::IVector
             else
                 error(PegError("$(patt.start) has no rule $(p.val)"))
             end
+        elseif p isa PCapture
+            caps = get!(()-> Dict(), aux, :caps)
+            caps[p.tag] = p.cap
+        elseif p isa PThrow
+            throws = get!(()-> Dict(), aux, :throws)
+            throws[p.tag] = p.val
+        elseif p isa PCheck
+            checks = get!(()-> Dict(), aux, :checks)
+            checks[p.check_tag] = p.check
         end
     end
     aux[:seen] = Symbol[]
@@ -1226,7 +1233,6 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         end
         c[leadidx] = LeadMultiInst(bvec, failidx)
     end
-    push!(c, OpEnd)
 end
 
 """
