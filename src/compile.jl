@@ -382,50 +382,21 @@ This translates the Pattern to Instruction codes, appending them to
 the `code` field and returning same.  Performs various optimizations
 in the process.
 
-In most cases, the return value of `compile!` is the same Pattern passed in.
-The exceptions are special cases of primitive types, but be sure to reassign
-the return value to the variable bound to the original for the general case.
 """
 function compile!(patt::Pattern)::Pattern
-    if isempty(patt.code)
-        if patt.val isa PVector
-            for (idx, val) in enumerate(patt)
-                patt.val[idx] = compile!(val)
-            end
-        end
-        _compile!(patt)
-    else
-        patt
-    end
-end
+    !isempty(patt.code) && return patt
 
-
-"""
-    prepare!(patt::Pattern)::Pattern
-
-Prepare a pattern for matching.
-"""
-function prepare!(patt::Pattern)::Pattern
-    if !isempty(patt.code)
-        return patt
-    end
-    patt = compile!(patt)
+    build(patt, patt.code)
+    push!(patt.code, OpEnd)
     peephole!(patt.code)
     return patt
 end
 
-function prepare!(patt::PAuxT)::Pattern
-    if haskey(patt.aux, :prepared)
-        return patt
-    end
-    patt = compile!(patt)
-    if !isa(patt, PAuxT)
-        peephole!(patt.code)
-        return patt
-    end
-    if haskey(patt.aux, :prepared)
-        return patt
-    end
+function compile!(patt::PAuxT)::Pattern
+    !isempty(patt.code) && return patt
+
+    build(patt, patt.code)
+    push!(patt.code, OpEnd)
     peephole!(patt.code)
     # Hoist capture and throw labels
     prewalkpatt!(patt, patt.aux) do p, aux
@@ -440,17 +411,6 @@ function prepare!(patt::PAuxT)::Pattern
             checks[p.check_tag] = p.check
         end
     end
-    patt.aux[:prepared] = true
-    return patt
-end
-
-function prepare!(patt::PGrammar)::Pattern
-    if haskey(patt.aux, :prepared)
-        return patt
-    end
-    _compile!(patt)
-    peephole!(patt.code)
-    patt.aux[:prepared] = true
     return patt
 end
 
@@ -468,22 +428,6 @@ function prewalkpatt!(λ::Function, patt::Pattern, args...)::Nothing
         end
     end
     return
-end
-
-const PCopyChild = Union{PNot,PStar,PCapture}
-
-"""
-    hoist!(parent::Pattern, child::Pattern)::IVector
-
-The generic `hoist!` returns the code of `child`, this is specialized for
-some parent/child contexts where the code must be copied or rewritten.
-"""
-function hoist!(parent::Pattern, child::Pattern)::IVector
-    if parent isa PCopyChild
-        copy(child.code)
-    else
-        child.code
-    end
 end
 
 function build(patt::Pattern, code::IVector=Inst())::IVector
@@ -607,7 +551,7 @@ function build(patt::PSeq, code::IVector=Inst())::IVector
     return code
 end
 
-function _compile!(patt::PStar, code::IVector=Inst())::IVector
+function build(patt::PStar, code::IVector=Inst())::IVector
     # TODO figure out when TestChar etc come into play
     #
     # bad things can happen when val is also a PStar, specifically
@@ -773,16 +717,8 @@ function build(patt::PGrammar, code::IVector=Inst())::IVector
         rule.aux[:walked] = false
         rule.aux[:recursive] = false  # We change this where applicable in recursecompile!
     end
-    # TODO all this rigamarole should be part of compile!
-    patt = inwalkpatt!(patt, aux) do p::Pattern, a::AuxDict
-        if p isa PCapture
-            a[:caps][p.tag] = p.cap
-        elseif p isa PThrow
-            a[:throws][p.tag] = p.val
-        elseif p isa PCheck
-            checks = get!(()-> Dict(), a, :checks)
-            checks[p.check_tag] = p.check
-        elseif p isa POpenCall
+    prewalkpatt!(patt, aux) do p::Pattern, a::AuxDict
+        if p isa POpenCall
             if haskey(a[:rules], p.val)
                 # Replace it with a call having the ref
                 return PCall(p, a[:rules][p.val])
@@ -790,7 +726,6 @@ function build(patt::PGrammar, code::IVector=Inst())::IVector
                 error(PegError("$(patt.start) has no rule $(p.val)"))
             end
         end
-        return p
     end
     aux[:seen] = Symbol[]
     recursepattern!(patt, aux)
@@ -810,30 +745,13 @@ function build(patt::PGrammar, code::IVector=Inst())::IVector
 end
 
 """
-    inwalkpatt!(λ::Function, patt::Pattern, aux::AuxDict)::Pattern
-
-Applies `λ`, which must return a Pattern, to `patt, aux`, then recursively
-inwalks any sub-patterns of `patt` in `.val`, replacing them with the returned
-pattern (which may be, and often is, the same).
-"""
-function inwalkpatt!(λ::Function, patt::Pattern, aux::AuxDict)::Pattern
-    patt = λ(patt, aux)
-    if patt.val isa PVector
-        for (idx, p) in enumerate(patt)
-            patt.val[idx] = inwalkpatt!(λ, p, aux)
-        end
-    end
-    return patt
-end
-
-"""
     recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
 
 Recursively walk the pattern.
 """
 function recursepattern!(patt::Pattern, gaux::AuxDict)::Pattern
     if patt isa PPrimitive
-        return _compile!(patt)
+        return patt
     end
     if patt isa PRule
         if patt.aux[:walked]

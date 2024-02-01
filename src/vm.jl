@@ -79,7 +79,7 @@ mutable struct VMState{S <: AbstractString}
    cap::Vector{CapFrame}  # Capture stack
    mark::Vector{MarkFrame} # Mark stack
    function VMState(patt::Pattern, subject::S, s::Integer, top::Integer) where {S <: AbstractString}
-      program = prepare!(patt).code
+      program = compile!(patt).code
       stack = sizehint!(Vector{StackFrame}(undef, 0), 64)
       cap   = Vector{CapFrame}()
       mark  = Vector{MarkFrame}()
