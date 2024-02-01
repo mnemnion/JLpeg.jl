@@ -81,7 +81,7 @@ The hitlist:
          but if `i` is the first or last character, one of them will be empty.
   - [ ]  Refactor color printing to use `printstyled`.
   - [X]  Highlight PegFail on a space with background red.
-- [ ]  "Modularize" the @grammar code so that users don't get unexpected results if they
+- [X]  "Modularize" the @grammar code so that users don't get unexpected results if they
        define, say, `compile!` (humorous example) and try to use it as a variable name.
 - [ ]  Documenter stuff
   - [X]  Order the pages correctly
@@ -97,7 +97,7 @@ The hitlist:
   - [ ]  `PegMatch` groups should be a `PegCapture` (no longer a full PegMatch), which
          subtypes `AbstractVector`, and is just a wrapper which provides the appropriate
          `keys` and `getindex` methods.
-- [#]  Optimizations from The Book (paper and/or lpeg C code):
+- [#]  Optimizations from [The Book](#headfail-notes) (paper and/or lpeg C code):
   - [X]  Instrument `lpeglabel` to report optimizations of interest, to get usable
          test cases and gain clarity on some thorny parts.  I tried the latest LPeg
          but was unable to get it to load without SIGKILL.  Rifle is fine.
@@ -207,7 +207,7 @@ The hitlist:
 - [ ] `AbstractPattern` methods
   - [ ] count(patt::Pattern, s::AbstractString, overlap::Boolean=false)
   - [ ] findall: I think this just returns the .offsets vector of the match
-- [ ]  [PDiff](#pdiff)
+- [X]  [PDiff](#pdiff)
 - [ ]  [Generators](#string-generate)
 - [X] Done:
   - [X] Handle the other PStar cases
@@ -285,6 +285,26 @@ the expensive operation until we compile, it should return itself as a PSet.
 Which I don't have to do myself!  How luxurious.  There's a
 [UnitRangesSortedSet](https://juliahub.com/ui/Packages/General/UnitRangesSortedSets)
 which will do the needful.
+
+### Headfail Notes
+
+The remaining "classical" optimizations all cluster around headfailing: that is,
+letting a complex pattern fail on the first test, in particular before pushing a
+Choice frame (or Capture, or often both).  This is important for real-world patterns,
+especially in using patterns for regex-type tasks.
+
+The lpeg code is difficult to port because it has that classic C pattern where mutation
+happens by passing a pointer and return values are just integers which are used in the
+logic.  There's also a lot of... laconic use of Boolean masks and the whole thing is
+further complicated by the Instruction type being a union, which is only sometimes what
+we call an "Instruction", labels are a second "instruction" and charsets take up a lot of
+space.
+
+Last but not least, lpeg stores patterns as a binary tree, this is particularly significant
+for seqs and choices, which we unroll.
+
+TL;DR the way forward is to identify the **function** of the various optimizations, and their
+results, and only the implement them in the JLpeg context.
 
 ### Capture closing
 

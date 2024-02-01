@@ -40,6 +40,18 @@ more suitable for scanning, captures, and other pattern-recognition tasks than t
 programs, which are only well-suited to parsing of full grammars, a task `JLpeg` also
 excels at.
 
+!!! warning "UTF-8 Native"
+
+    JLpeg is a parser for [UTF-8](https://en.wikipedia.org/wiki/UTF-8), **only**.
+    This is the native encoding for Julia, and the only one anyone should be
+    using, in the author's opinion.  Text in other encodings must be converted,
+    or JLpeg patterns will simply fail.  The interface accepts AbstractStrings,
+    which includes those in other encodings, and no attempt is made to detect
+    this particular failure mode.  JLpeg will parse invalid UTF-8 sequences
+    without throwing errors, and even provides the raw patterns needed to
+    match them, but provides no way to convert patterns to work with any
+    other encoding.
+
 ## Patterns
 
 Parsing Expression Grammars are built out of patterns. These begin with atomic units
@@ -85,7 +97,9 @@ The basic operations are as follows:
 In keeping with the spirit of LPeg, `P"string"` is equivalent to `P("string")`, and
 this is true for `S` and `R` as well.  These basic operations are not recursive, and
 without further modification will match to the longest substring recognized by the
-pattern.  This is sufficient to match all regular languages.
+pattern.  This is sufficient to match all regular languages.  Note that ordered choice
+in PEGs is traditionally spelled "/", but this has the wrong precedence for us.  Just
+remember that it has different semantics from the "|" in context-free grammars.
 
 ### A Note About Piracy
 
@@ -95,8 +109,7 @@ In Julian circles, operators are presumed to have [a certain contract](@extref
 our operators comply with this expectation: `*` and `^` are used for concatenation
 and repetition for `AbstractString`s, as they are with `Pattern`s, although the
 meaning of repetition is broader for patterns.  Others do not: particularly egregious
-is `!`, which is expected to always return a [`Bool`](@extref `Core.Bool`), and `>:`
-(an [`Action`](#Actions)), which has no relationship to supertypes whatsoever.  `|`
+is `!`, which is expected to always return a [`Bool`](@extref `Core.Bool`).  `|`
 and `-` are justifiable, in my opinion: `|` is firmly grounded in tradition and `a |
 b` would be pronounced "a or b", while subtraction has a huge variety of meanings in
 mathematics; our use, as one should expect, is neither commutative nor associative.
@@ -177,9 +190,9 @@ While simple patterns may be composed by assigning to variables and using those
 variable names to build up more complex patterns, this doesn't allow for recursion,
 which is essential for matching many strings of interest, perhaps most.
 
-For this purpose, we have rules, which are simply named patterns.  A rule with no
-references to another rule within it may be used for matching directly, while those
-with such references (including a reference to itself) must be composed into
+For this purpose, we have rules, which are simply patterns with a name.  A rule with
+no references to another rule within it may be used for matching directly, while
+those with such references (including a reference to itself) must be composed into
 grammars.
 
 As is the PEG convention, a rule reduction uses the left arrow `←`, which you can
@@ -217,7 +230,8 @@ grammars and rules as well, with `\varepsilon` (`\vare[TAB]`) and `\emptyset`
 (`\emp[TAB]`) respectively.
 
 Public variable names from `JLpeg` will always refer to the values they have in the
-module.  Any other variable will be escaped, so it will have the expected meaning.
+module.  Any other variable will be escaped, so it will have the expected meaning
+in context.
 
 To give an example, this rule:
 
@@ -266,7 +280,8 @@ match(parens, "(these (must))) balance)")
 ```
 
 `!1` is our equivalent of `$` in regex, a pattern which only succeeds at the end of
-input. `1` will match a single Unicode codepoint, and `!` is negative lookahead.
+input. `1` will match a single Unicode codepoint, and `!` is negative lookahead.  The
+line-oriented equivalent of `$` is `~"\n"`.
 
 The `@grammar` macro doesn't define variable names for the rules, only the grammar
 name given before the expression block.  The first rule is always the start rule.  As
