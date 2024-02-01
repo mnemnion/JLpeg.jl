@@ -1234,25 +1234,3 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         c[leadidx] = LeadMultiInst(bvec, failidx)
     end
 end
-
-"""
-    trimEnd!(code::IVector)
-
-Remove an OpEnd, if present.
-"""
-function trimEnd!(code::IVector)
-    if code[end] == OpEnd
-        pop!(code)
-    end
-end
-
-"""
-    pushEnd!(code::IVector)
-
-Put an OpEnd, if needed.
-"""
-function pushEnd!(code::IVector)
-    if code[end] != OpEnd
-        push!(code, OpEnd)
-    end
-end
