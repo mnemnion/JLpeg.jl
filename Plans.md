@@ -276,15 +276,20 @@ The hitlist:
 
 [Trees]: https://github.com/JuliaCollections/AbstractTrees.jl
 
-### PDiff
+### Compiling Redux
 
-Make a special `PSetDiff` which has a second Settable value, such that those
-characters and ranges are excluded from the construct.  This is just to defer
-the expensive operation until we compile, it should return itself as a PSet.
+The peephole optimizations invalidate the assumption that a code can simply be lifted
+up by the enclosing pattern and always be valid.
 
-Which I don't have to do myself!  How luxurious.  There's a
-[UnitRangesSortedSet](https://juliahub.com/ui/Packages/General/UnitRangesSortedSets)
-which will do the needful.
+The (one may hope, final) form is thus:
+
+- [ ]  A `build` (note, no ! now) method, which may be passed an instruction vector.  This
+       appends the code to that vector and returns it.
+
+- [ ]  A `compile!` method, which `build`s subsidiary patterns, but this time, into
+       its own `.code` field.  This is idempotent, so we return the pattern immediately
+       if the `.code` vector isn't empty.  This also does peephole optimizing on the final
+       product, and this (and only this) adds `OpEnd`.  No `prepare!`, no `prepared!` field.
 
 ### Headfail Notes
 
@@ -673,6 +678,17 @@ has the basics for allocating a dense Vector on the heap. From there it's a matt
 making the instructions the same size, locating `.op` in a consistent location, and
 writing an unsafe decoder in the VM, which reads the exact byte of .op and casts the
 initial pointer to the correct type.
+
+The core of what needs doing is to pre-allocate a Vector of a single concrete
+Instruction type (I intend to make one special for this purpose) of 16 words, with an
+.op field, then iterate the Instruction Vector and use `reinterpret` to cast
+everything to that instruction type.  Then in the dispatch loop, indexing gets the
+correct bits, with `.op` in the right place, and we use that information to
+re-reinterpet the instruction into the correct shape, thus dispatching to the correct
+method in a type-stable way.
+
+This will give nonsense results if accidentally called on a "long vector" but correct
+code will never do this.
 
 There's some finesse in there which I'm missing, but this is the basic idea.  It may
 even make sense to take over manual memory management of the VM stacks, but that
