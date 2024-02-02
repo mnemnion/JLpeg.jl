@@ -470,4 +470,18 @@ using InteractiveUtils
         @test match(presetfix, "12axz")[1] == "12axz"
         @test repr(presetfix.code) == "JLpeg.Instruction[JLpeg.ChoiceInst(7, 0xffff, 0xff, JLpeg.IChoice), JLpeg.CharInst('1', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('2', 0xffff, 0xff, JLpeg.IChar), JLpeg.SetInst(475368975085586025561263702016, 1, JLpeg.ISet), JLpeg.CharInst('x', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('y', 0xffff, 0xff, JLpeg.IChar), JLpeg.LabelInst(6, 0xffff, 0xff, JLpeg.ICommit), JLpeg.CharInst('1', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('2', 0xffff, 0xff, JLpeg.IChar), JLpeg.SetInst(475368975085586025561263702016, 1, JLpeg.ISet), JLpeg.CharInst('x', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('z', 0xffff, 0xff, JLpeg.IChar), JLpeg.MereInst(0xffffffff, 0xffff, 0xff, JLpeg.IEnd)]"
     end
+    @testset "Instruction Layout" begin
+        function offsetof(T::Type, sym::Symbol)
+            for i = 1:fieldcount(T)
+                if fieldname(T, i) == sym
+                    return fieldoffset(T, i)
+                end
+            end
+        end
+        for I in subtypes(J.Instruction)
+            if hasfield(I, :op) && sizeof(I) == 8
+                @test offsetof(I, :op) == 7
+            end
+        end
+    end
 end

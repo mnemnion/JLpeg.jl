@@ -93,7 +93,7 @@ NotCharInst(c::AbstractChar) = NotCharInst(Char(c), LARRY, CURLY, INotChar)
 
 
 "Not yet in use"
-struct TestCharInst{C} <: Instruction
+struct TestCharInst <: Instruction
     c::Char
     l::Int16
     curly::UInt8
