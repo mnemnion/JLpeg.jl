@@ -44,6 +44,14 @@ const MOE::UInt32 = 0xffffffff
 const LARRY::UInt16 = 0xffff
 const CURLY::UInt8 = 0xff
 
+struct UrInst <: Instruction
+    moe::UInt32
+    larry::UInt16
+    curly::UInt8
+    op::Opcode
+    UrInst() = error("UrInst must not be instantiated")
+end
+
 struct MereInst <: Instruction
     moe::UInt32
     larry::UInt16
