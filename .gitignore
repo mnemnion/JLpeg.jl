@@ -7,3 +7,4 @@ src/serialize.jl
 build/*
 .markdownlint.json
 docs/build/
+kingjames.txt

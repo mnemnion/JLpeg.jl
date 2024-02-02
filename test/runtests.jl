@@ -479,6 +479,9 @@ using InteractiveUtils
             end
         end
         for I in subtypes(J.Instruction)
+            if I ≠ J.OpenCallInst
+                @test isbitstype(I)
+            end
             if hasfield(I, :op) && sizeof(I) == 8
                 @test offsetof(I, :op) == 7
             end
