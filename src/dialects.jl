@@ -21,28 +21,29 @@ bootstrap of other dialects.
                                          | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange]) * :S])
                      | :primary * :S)
 
-    :action       ⟷  :suffix * (("|>" | "<|") * :S * (:name, :action) |
-                                "|?" * :S * (:name, :test))
+    :action       ⟷  :suffix * ( ("|>" | "<|") * :S * (:name, :action)
+                                | "|?" * :S * (:name, :test)
+                                | "%" * :S * (:name, :throw))
 
 
-    :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :defined
-                      | ["{" * :expr * (":" * (:name, :groupname))^-1 * "}", :groupcapture]
+    :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :range
+                      | ["[" * :expr * ","^-1 * :S * (":" * (:name, :groupname))^-1 * :S * "]", :groupcapture]
                       # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("()", :positioncapture)
-                      | ["("  * :expr * "," * :S * (((":" * :name, :capname) % :badcapture) * :S)^-1  * ")", :capture]
+                      | ["("  * :expr * ((("," * :S)^-1 * ((":" * :name, :capname) % :badcapture) * :S) | :S * "," * :S )^-1  * ")", :capture]
                       | (".", :any)
                       | (:name, :call) * :S * !(:arrow) )
 
-    :class        ←  "[" * "^" * (:item * (!"]" * :item)^0, :notset) * "]" |
-                     "[" * (:item * (!"]" * :item)^0, :set) * "]"
-    :item         ←  :defined | :range | P(1)
-    :range        ←  [(P(1),) * "-" * (!S"]" * (P(1),)), :range]
+    :class        ←  ("{" * "^" * ((!"}" * 1)^0, :notset) * "}"
+                     | "{" * ":" * (:name, :defined) * :S * "}"
+                     | "{" * ((!"}" * 1)^0, :set) * "}")
+
+    :range        ←  [ "<" * (P(1),) * "-"^-1 * (P(1),) * ">", :range]
 
     :S            ←  ((S"\t\n\v\r ")^1 | "#" * (!S"\n" * P(1))^0 * "\n")^0
-    :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0
+    :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^1
     :arrow        ←  "<-" | "←"
     :number       ←  R"09"^1
     # TODO disallow \n and add a thrown label in :string
     :string       ←  "\"" * ((!S"\"" * P(1))^0, :string) * "\"" | "'" * ((!S"'" * P(1))^0, :string) * "'"
-    :defined      ←  "%" * (:name, :defined)
 end
