@@ -38,7 +38,7 @@ bootstrap of other dialects.
                      | "{" * ":" * (:name, :defined) * :S * "}"
                      | "{" * ((!"}" * 1)^0, :set) * "}")
 
-    :range        ←  [ "<" * (P(1),) * "-"^-1 * (P(1),) * ">", :range]
+    :range        ←  "<" * [(P(1),) * "-" * (P(1),), :range]^1 * ">"
 
     :S            ←  ((S"\t\n\v\r ")^1 | "#" * (!S"\n" * P(1))^0 * "\n")^0
     :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0
