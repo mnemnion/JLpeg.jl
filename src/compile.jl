@@ -377,6 +377,16 @@ function Base.iterate(inst::MultiVecInst, i::Integer)
     end
 end
 
+function Base.iterate(inst::InstructionVec, i::Integer)
+    i += 1
+    i > 64 && return nothing
+    if @inbounds inst[i]
+        return UInt8(i-1), i
+    else
+        return false, i
+    end
+end
+
 Base.iterate(inst::IVectored) = iterate(inst, 0)
 
 Base.count_ones(inst::IVectored) = count_ones(inst.vec)
