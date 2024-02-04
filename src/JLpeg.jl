@@ -5,10 +5,11 @@ using BitPermutations
 using OrderedCollections
 using InteractiveUtils
 using UnitRangesSortedSets
+import AbstractTrees: children, printnode, print_tree
 
 export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar, Pattern
 export <--, ←, ¬, <|, <-->, ⟷, ↔
-export PegMatch, PegFail, PegError
+export PegMatch, PegCapture, PegFail, PegError
 export match, compile!, generate
 export @P_str, @R_str, @S_str, @grammar, @rule
 export re

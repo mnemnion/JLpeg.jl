@@ -291,7 +291,7 @@ using InteractiveUtils
     @testset "PegMatch Interface" begin
         @rule :pmix <-- ("a",) * ("b", :b) * ("c",)
         mix = match(pmix, "abc")
-        @test collect(enumerate(mix)) == [1 => "a", 2 => "b", 3 => "c"]
+        @test collect(enumerate(mix)) == [(1, "a"), (2, "b"), (3, "c")]
         @test collect(pairs(mix)) == [1 => "a", :b => "b", 3 => "c"]
         @test collect(mix) == ["a", "b", "c"]
     end
@@ -324,7 +324,7 @@ using InteractiveUtils
         @test match(re, "'string'")[:pattern][:string] == "string"
         @test match(re, "<a-z>")[:pattern][:range]== ["a", "z"]
         @test match(re, "sym")[:pattern][:call] == "sym"
-        @test match(re, "a <- b c*")[:grammar] isa PegMatch
+        @test match(re, "a <- b c*")[:grammar] isa PegCapture
         @test match(re, "a <- c^1") isa PegMatch
         @test match(re, "a <- 'a'+ 'b'* c?") isa PegMatch
         @test match(re, "exp <- S grammar | alternative") isa PegMatch

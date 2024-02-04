@@ -1,8 +1,17 @@
 
 const PegKey = Union{Symbol,AbstractString,Integer}
-const PegCap = Any
-const PegCapture = Vector{PegCap}
-const PegOffset = Vector{Union{Integer,Vector}}
+
+struct PegCapture{V} <: AbstractVector{V}
+    captures::Vector{V}
+end
+PegCapture() = PegCapture([])
+PegCapture{V}() where {V} = PegCapture(V[])
+
+Base.append!(m::PegCapture, items...) = append!(m.captures, items...)
+Base.lastindex(m::PegCapture) = lastindex(m.captures)
+Base.firstindex(m::PegCapture) = firstindex(m.captures)
+Base.setindex!(m::PegCapture, val, i...) = setindex!(m.captures, val, i...)
+Base.size(m::PegCapture) = size(m.captures)
 
 """
     PegMatch <: AbstractMatch
@@ -39,11 +48,13 @@ struct PegMatch <: AbstractMatch
              patt::Pattern) = new(subject, full, captures, patt)
 end
 
-function Base.:(==)(match::PegMatch, other::AbstractVector)
+const PegCap = Union{PegMatch,PegCapture}
+
+function Base.:(==)(match::PegCap, other::AbstractVector)
     return match.captures == other
 end
 
-function Base.:(==)(other::AbstractVector, match::PegMatch)
+function Base.:(==)(other::AbstractVector, match::PegCap)
     return other == match.captures
 end
 
@@ -53,7 +64,7 @@ function Base.getproperty(match::PegMatch, field::Symbol)
         for cap in match
             if cap isa SubString
                 push!(offs, cap.offset + 1)
-            elseif cap isa Vector
+            elseif cap isa PegCapture
                 push!(offs, _getidx(cap))
             elseif cap isa Integer
                 push!(offs, cap)
@@ -70,7 +81,8 @@ function Base.propertynames(::PegMatch)
     return (fieldnames(PegMatch)..., :offsets)
 end
 
-function _getidx(cap::Vector)
+function _getidx(capture::PegCapture)
+    cap = capture.captures
     while true
         if cap[1] isa SubString
             return cap.offset + 1
@@ -99,7 +111,7 @@ captures will return the index which can retrieve that capture.
 This somewhat awkward interface will provide usefully regex-like behavior for
 regex-like captures.
 """
-function Base.keys(m::PegMatch)::Vector
+function Base.keys(m::PegCap)::Vector
     keys = []
     keyset = Set{Union{Symbol,AbstractString}}()
     for (idx, elem) in pairs(m.captures)
@@ -117,7 +129,7 @@ function Base.keys(m::PegMatch)::Vector
     return keys
 end
 
-Base.eachindex(m::PegMatch) = eachindex(m.captures)
+Base.eachindex(m::PegCap) = eachindex(m.captures)
 
 """
     Base.getindex(m::PegMatch, i::PegKeys)
@@ -129,9 +141,23 @@ function Base.getindex(m::PegMatch, i::PegKey)
     if i isa Integer
         elem = m.captures[i]
         if elem isa Pair
-            if elem.second isa Vector
-                return PegMatch(m.subject, false, elem.second, m.patt)
+            return elem.second
+        else
+            return elem
+        end
+    else
+        for cap ∈ m.captures.captures
+            if cap isa Pair && cap.first == i
+                return cap.second
             end
+        end
+    end
+end
+
+function Base.getindex(m::PegCapture, i::PegKey)
+    if i isa Integer
+        elem = m.captures[i]
+        if elem isa Pair
             return elem.second
         else
             return elem
@@ -139,9 +165,6 @@ function Base.getindex(m::PegMatch, i::PegKey)
     else
         for cap ∈ m.captures
             if cap isa Pair && cap.first == i
-                if cap.second isa Vector
-                    return PegMatch(m.subject, false, cap.second, m.patt)
-                end
                 return cap.second
             end
         end
@@ -176,11 +199,13 @@ end
 Return all captures as Pairs. If the capture has a name, that name is `pair.first`.
 This is only a valid index for the first such capture, if you need those, use `enumerate`.
 """
-Base.pairs(m::PegMatch) = Base.Generator(_topair, range(1,length(m.captures)), m.captures)
+Base.pairs(m::PegMatch) = Base.Generator(_topair, range(1,length(m.captures)), m.captures.captures)
+Base.pairs(m::PegCapture) = Base.Generator(_topair, range(1,length(m.captures)), m.captures)
 
-Base.enumerate(m::PegMatch) = Base.Generator(_frompair, range(1, length(m.captures)), m.captures)
+# Base.enumerate(m::PegCap) = Base.Generator(_frompair, range(1, length(m.captures)), m.captures)
 
-function showcaptures(io::IO, caps::Vector)
+function showcaptures(io::IO, captures::PegCapture)
+    caps = captures.captures
     print(io, "[")
     for (idx, cap) in enumerate(caps)
         if cap isa Pair
@@ -191,7 +216,7 @@ function showcaptures(io::IO, caps::Vector)
             else
                 show(io, cap.second)
             end
-        elseif cap isa Vector
+        elseif cap isa PegCapture
             showcaptures(io, cap)
         else
             show(io, cap)
@@ -203,22 +228,44 @@ function showcaptures(io::IO, caps::Vector)
     print(io, "]")
 end
 
-function Base.iterate(m::PegMatch)
+function Base.iterate(m::PegCap)
     iterate(m, 0)
 end
 
-function Base.iterate(m::PegMatch, i::Integer)
+function Base.iterate(m::PegCap, i::Integer)
     i += 1
     i > length(m.captures) && return nothing
     return m[i], i
 end
 
-Base.length(m::PegMatch) = length(m.captures)
+Base.length(m::PegCap) = length(m.captures)
 
 function Base.show(io::IO, ::MIME"text/plain", m::PegMatch)
     print(io, "PegMatch(")
     showcaptures(io, m.captures)
     print(io, ")")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", m::PegCapture)
+    showcaptures(io, m)
+end
+
+function Base.show(io::IO, m::PegMatch)
+    if get(io, :compact, false)
+        return invoke(show, Tuple{IO,Any}, io, m)
+    else
+        return showcaptures(io, m.captures)
+    end
+end
+
+# AbstractTrees interface
+
+function children(m::PegMatch)
+    return m.captures
+end
+
+function printnode(io::IO, ::PegMatch)
+    print(io, "PegMatch")
 end
 
 """

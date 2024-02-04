@@ -4,6 +4,7 @@ authors = ["Sam Atman"]
 version = "1.0.0-DEV"
 
 [deps]
+AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
 BitPermutations = "81206824-6155-40a8-95f7-18696067be4d"
 DataStructures = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
