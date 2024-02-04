@@ -16,6 +16,11 @@ The possible struct fields have consistent meanings:
 | `tag`   | `UInt16`            | Key in a capture/throw Dict |
 | `check` | `UInt16`            | Which check to perform      |
 | `vec`   | `BitVector` (kinda) | A set's test `BitVector`    |
+
+There are also fields `moe`, `larry`, and `curly`, which are struct
+padding, so that the `op` field (for the instructions which have it) are
+in a consistent location.  These consist of all 1s and do not play a role
+in the semantics of the VM.
 """
 abstract type Instruction end
 

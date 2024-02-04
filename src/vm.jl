@@ -178,7 +178,6 @@ end
 @inline
 "Push a CapFrame."
 function pushcap!(vm::VMState, inst::Instruction)
-    isempty(vm.cap) && return push!(vm.cap, CapFrame(vm.s, inst))
     if inst.op == ICloseCapture
         top = last(vm.cap)
         if top.inst.op == IOpenCapture
@@ -339,7 +338,7 @@ function onInst(inst::CharInst, vm::VMState)::Bool
         updatesfar!(vm)
         return false
     end
-    if this == inst.c
+    if this === inst.c
         vm.i += 1
         vm.s = nextind(vm.subject, vm.s)
         return true
@@ -352,7 +351,7 @@ end
 "onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
     this = thischar(vm)
-    if this == inst.c
+    if this === inst.c
         vm.i += 1
         return true
     else  # this includes the this === nothing case
@@ -364,7 +363,7 @@ end
 "onNotChar"
 function onInst(inst::NotCharInst, vm::VMState)::Bool
     this = thischar(vm)
-    if this == inst.c
+    if this === inst.c
         updatesfar!(vm)
         return false
     else  # this includes the this === nothing case
@@ -521,7 +520,7 @@ end
 
 function onCloseRunTime(inst::CaptureInst, vm::VMState)::Bool
     if vm.cap[end].inst.tag ≠ inst.tag
-        throw(PegError("Runtime actions may not contain captures"))
+        throw(PegError("query actions may not contain captures"))
     end
     open = pop!(vm.cap)
     λ = vm.patt.aux[:caps][inst.tag]

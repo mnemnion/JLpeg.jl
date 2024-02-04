@@ -6,6 +6,14 @@
 # TODO this needs to take keyword options with defaults, examples:
 # full=true, PSets will generate the full set in order
 
+# Status: this combines checking the validity of the MultiSet code (and in fact
+# surfaced several bugs) with generating from a Set.  I don't expect the generator
+# architecture to run on Instructions, but rather, raw Patterns (or rather an appropriate
+# transmutation of them, with an eye towards ease, not speed: an interpreter, not a VM).
+#
+# So I want to update this code when the transition to multi-instruction Sets is complete,
+# but will also tear this out when the work on generators begins in earnest.
+
 function generate(patt::Pattern)::String
     error("Not yet implemented for $(typeof(patt))")
 end

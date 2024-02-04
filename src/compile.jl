@@ -145,6 +145,11 @@ struct MultiVecInst <: Instruction
 end
 MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(vec.chunk, Int32(l), IMultiVec)
 
+struct InstructionVec <: Instruction
+    vec::Int64
+end
+InstructionVec(vec::Bits{Int64}) = InstructionVec(vec.chunk)
+
 struct LeadMultiInst <: Instruction
     vec::Int64
     l::Int32
@@ -290,10 +295,10 @@ end
 # ## Vector Ops
 #
 
-const IVectored = Union{SetInst,NotSetInst,TestSetInst,MultiVecInst,LeadMultiInst}
+const IVectored = Union{SetInst,NotSetInst,TestSetInst,MultiVecInst,LeadMultiInst,InstructionVec}
 const IASCIISet = Union{SetInst,NotSetInst,TestSetInst}
 const IVec128 = Union{SetInst,NotSetInst,TestSetInst}
-const IVec64 = Union{MultiVecInst,LeadMultiInst}
+const IVec64 = Union{MultiVecInst,LeadMultiInst,InstructionVec}
 
 # Code borrowed from BitPermutations.jl for converting vector instructions
 # into bit types
@@ -330,6 +335,7 @@ function Base.getindex(inst::IVec128, i::Integer)
     return !iszero(inst.vec & u)
 end
 
+@inline
 function Base.getindex(inst::IVec64, i::Integer)
     @boundscheck i ≤ 64 || throw(BoundsError)
     u = one(Int64) << shift_safe(Int64, i - 1)
@@ -392,6 +398,18 @@ in the process.
 
 """
 function compile!(patt::Pattern)::Pattern
+    !isempty(patt.code) && return patt
+
+    build(patt, patt.code)
+    push!(patt.code, OpEnd)
+    peephole!(patt.code)
+    return patt
+end
+
+# We have to walk grammars when we build them, to
+# get the Throws for rule recovery, so, alone amongst
+# the PAuxTs, we treat this like a primitive.
+function compile!(patt::Grammar)::Pattern
     !isempty(patt.code) && return patt
 
     build(patt, patt.code)
@@ -1152,6 +1170,7 @@ Encode instructions to recognize a set containing multibyte characters.
 function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pre::Dict)
     if bvec !== nothing
         push!(c, HoldInst(ILeadSet))  # -> end of MultiSet, after OpFail
+        hold = length(c)
     end
     leadidx = nothing  # for if we put a hold for a LeadMultiInst
     # We need to vectorize pre, for a 1-to-1 match with the code
@@ -1231,8 +1250,8 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         push!(c, OpFail)
     end
     if bvec !== nothing
-        @assert c[1] isa HoldInst "HoldInst not found at 1"
-        c[1] = LeadSetInst(bvec, length(c))
+        @assert c[hold] isa HoldInst "HoldInst not found at 1"
+        c[hold] = LeadSetInst(bvec, length(c))
     end
     if leadidx !== nothing
         bvec = Bits{Int64}(0)
