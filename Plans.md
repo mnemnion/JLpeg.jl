@@ -60,8 +60,11 @@ The hitlist:
          single grammar, compile-time compiling grammars then load-time providing
          the Actions, serializing grammars without pickling functions, providing
          expanded Unicode definitions, there are a few options.
-- [ ]  Remove duplicate overloads in definitions. Only * is actually n-ary, the rest
-       left-associate binary forms.
+- [ ]  Add a `U8` pattern for matching an arbitrary byte.  Among other things, this
+       will let me special-case the character `\0`, so I can use it to signal unused
+       bytes in the unrolled `CharInst` I'm planning to add.  Fetching a character
+       involves validating it as `UTF-8` and bitshifting the bytes into a 32 bit word,
+       which is activity I don't need in order to match.
 - [#]  Complete Mark and Check
   - [X]  Add the remaining builtins
   - [X]  Support function checks
@@ -310,6 +313,19 @@ for seqs and choices, which we unroll.
 
 TL;DR the way forward is to identify the **function** of the various optimizations, and their
 results, and only the implement them in the JLpeg context.
+
+#### On Choice
+
+The algorithm does one section of a choice at a time, making sure that a) the choice
+is headfailing and b) the choice has a firstset which is disjoint from all the
+others.  If only a) is true, we get a TestSet/TestChar, then a Choice, an Any (to
+soak up our match), the body, the Commit. If a) and b) are true, we get the testchar
+with a jump to the next option, because we don't have to backtrack: once we're in the
+money, we have to succeed or fail.
+
+Note (this being the thing I finally figure out) that since choice is ordered, we
+only have to check each subsequent choice against the remaining headsets. So if '1'
+is the leadset for choices 1 and 3, 1 has to be choice/commit, but 3 can be test/jump.
 
 ### Capture closing
 
