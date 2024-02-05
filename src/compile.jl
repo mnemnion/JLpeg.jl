@@ -486,6 +486,11 @@ function build(patt::PChar, code::IVector=Inst())::IVector
     return code
 end
 
+function build(patt::PByte, code::IVector=Inst())::IVector
+    push!(code, ByteInst(patt.val, 1))
+    return code
+end
+
 function build(::PTrue, code::IVector=Inst())::IVector
     return code
 end

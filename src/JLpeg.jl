@@ -9,7 +9,7 @@ import REPL.TerminalMenus: request
 import AbstractTrees: children, print_tree
 import FoldingTrees: TreeMenu, Node
 
-export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar, Pattern
+export P, S, R, B, U8, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar, Pattern
 export <--, ←, ¬, <|, <-->, ⟷, ↔
 export PegMatch, PegCapture, PegFail, PegError
 export match, compile!, generate

@@ -68,6 +68,13 @@ struct PAny <: Pattern
     PAny(val::UInt, code::IVector) = new(val, code)
 end
 
+struct PByte <: Pattern
+   val::UInt8
+   code::IVector
+   PByte(val::Integer) = new(UInt8(val), Inst())
+   PByte(val::UInt8, code::IVector) = new(val, code)
+end
+
 struct PAnd <: Pattern
     val::PVector
     code::IVector

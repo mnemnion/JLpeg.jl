@@ -98,6 +98,14 @@ and `B('\\n')|!B(1)` to match the start of a line.
 """
 B(p::Union{AbstractString,AbstractChar,Integer}) = PBehind(P(p))
 B(p::Pattern) = PBehind(p)
+
+"""
+    U8(val::Integer)
+
+Matches a single byte, whether or not that byte is a valid part of a UTF-8 string.
+"""
+U8(val::Integer) = PByte(val)
+
 # Captures
 
 """

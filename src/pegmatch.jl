@@ -138,9 +138,14 @@ This somewhat awkward interface will provide usefully regex-like behavior for
 regex-like captures.
 """
 function Base.keys(m::PegCap)::Vector
+    if m isa PegMatch
+        caps = m.captures.captures
+    else
+        caps = m.captures
+    end
     keys = []
     keyset = Set{Union{Symbol,AbstractString}}()
-    for (idx, elem) in pairs(m.captures)
+    for (idx, elem) in pairs(caps)
         if elem isa Pair
             if elem.first in keyset
                 push!(keys, idx)
