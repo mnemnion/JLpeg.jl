@@ -84,6 +84,7 @@ The basic operations are as follows:
 | `S(s::String)`          | match the `S`et of all characters in `string`               |
 | `R("xy")`, `R('x','y')` | matches any character between `x` and `y` (`R`ange)         |
 | `B(patt)`               | match `patt` behind the cursor, without advancing           |
+| `U8(byte::UInt8)`       | match one byte of the string, invalid UTF-8 or not          |
 | `patt^n`                | match at least `n` repetitions of `patt`                    |
 | `patt^-n`               | match at most `n` repetitions of `patt`                     |
 | `patt^[n:m]`            | match between `n` and `m` repetitions of `patt`             |
