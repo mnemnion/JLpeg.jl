@@ -477,10 +477,11 @@ end
 function onInst(inst::MultiVecInst, vm::VMState)::Bool
     if vm.s ≤ vm.top
         byte = thisbyte(vm)::UInt8
+        mask = vm.program[vm.i + 1]
         # check in valid continuation byte range
         if 0b10000000 ≤ byte ≤ 0b10111111
             # Mask high bit, + 1 for Julia indexing
-            if @inbounds inst[(byte & 0b00111111) + UInt8(1)]
+            if @inbounds mask[(byte & 0b00111111) + UInt8(1)]
                 vm.i += inst.l
                 vm.s += 1
                 return true

@@ -880,6 +880,9 @@ function peephole!(code::IVector)
     for i ∈ 1:length(code)
         # @label redo
         inst = code[i]
+        if inst isa InstructionVec
+            continue
+        end
         op = inst.op
         if hasfield(typeof(inst), :l) && op != IJump
             l = finallabel(code, i)
@@ -1243,10 +1246,13 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     for vec in vecs
         push!(prevec, vec)
         sites[vec] = length(prevec)
+        push!(prevec, OpNoOp)
     end
     failidx = nothing  # need this for possible head test
     for (idx, elem) in enumerate(prevec)
-        if elem isa Pair
+        if elem == OpNoOp
+            continue
+        elseif elem isa Pair
             if elem.first isa UInt8
                 l = sites[elem.second] - idx
                 push!(c, ByteInst(elem.first, l))
@@ -1258,6 +1264,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
             push!(c, OpFail)
         elseif elem isa Bits{Int64}
             push!(c, MultiVecInst(elem, length(prevec) - idx + 1))
+            push!(c, InstructionVec(elem))
         end
     end
     if failidx === nothing

@@ -147,8 +147,8 @@ end
 
 "Vector of instruction string fragments"
 function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
-    if inst == OpNoOp
-        return ["---"]
+    if inst == OpNoOp || typeof(inst) == InstructionVec
+        return ["  Vector: $(printset(inst))"]
     end
     line = ["$(inst.op)"]
     t = typeof(inst)
