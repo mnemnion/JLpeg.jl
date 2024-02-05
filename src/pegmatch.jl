@@ -266,20 +266,37 @@ function children(m::PegCap)
     return m.captures
 end
 
-function printnode(io::IO, ::PegMatch)
-    print(io, "PegMatch")
+function print_tree(m::PegMatch; kwargs...)
+    tree = makefold(m)
+    print_tree(tree; maxdepth=20, kwargs...)
 end
 
-function printnode(io::IO, m::PegCapture)
-    print(io, "⊚")
+# FoldingTrees
+
+function makefold(m::PegMatch)
+    root = Node("PegMatch")
+    makefold(m.captures, root)
+    return root
 end
 
-function printnode(io::IO, pair::Pair{Symbol,PegCapture})
-    print(io, pair.first)
-end
-
-function print_tree(m::PegMatch)
-    print_tree(m, maxdepth=20)
+function makefold(m::PegCapture, parent::Node)
+    for (key, value) in pairs(m)
+        if value isa PegCapture
+            if key isa Int
+                capnode = Node("⊕", parent)
+            else
+                capnode = Node(repr(key), parent)
+            end
+            makefold(value, capnode)
+        else
+            if key isa Int
+                Node(repr(value), parent)
+            else
+                Node(repr(key => value), parent)
+            end
+        end
+    end
+    return parent
 end
 
 """
