@@ -18,6 +18,7 @@ great quantity of operator overloading.
 
 ```@docs
 JLpeg.PegMatch
+JLpeg.PegCapture
 JLpeg.PegFail
 JLpeg.PegError
 ```
@@ -43,6 +44,7 @@ R(::AbstractString)
 R(::AbstractChar, ::AbstractChar)
 JLpeg.@R_str
 JLpeg.B
+JLpeg.U8
 ```
 
 ## JLpeg.Combinators

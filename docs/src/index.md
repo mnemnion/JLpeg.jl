@@ -18,8 +18,9 @@ Compared to regular expressions, PEGs offer greater power and expressivity.  The
 match a superset of regex patterns, while formalizing and extending the deviations
 from regular languages offered by production regex engines such as PCRE.  PEGs are
 able to parse recursive rule patterns, employ lookahead and lookbehind predicates,
-and avoid the sort of worst-case complexity the regex is prone to, for most useful
-patterns.
+and freely intermix functions for context-sensitive matching.  JLpeg has an
+innovative mechanism for matching against two regions of a string, which can match
+opening and closing XML tags, and cleanly parse indentation-sensitive languages.
 
 Compared with parser combinators, a more common algorithm for matching PEG grammars,
 the approach taken by this package is superior.  A bytecode interpreter allows
@@ -50,7 +51,9 @@ excels at.
     this particular failure mode.  JLpeg will parse invalid UTF-8 sequences
     without throwing errors, and even provides the raw patterns needed to
     match them, but provides no way to convert patterns to work with any
-    other encoding.
+    other encoding.  If you have strings in another format, you can use
+    [`transcode`](@extref `Base.transcode`) from the Julia standard library to
+    convert them to be compatible with the rest of Julia, and JLpeg.
 
 ## Patterns
 
@@ -789,10 +792,10 @@ julia> collect(pairs(date))
   :day => "10"
 
 julia> collect(enumerate(date))
-3-element Vector{Pair{Int64, SubString{String}}}:
- 1 => "2024"
- 2 => "01"
- 3 => "10"
+3-element Vector{Tuple{Int64, Any}}:
+ (1, "2024")
+ (2, "01")
+ (3, "10")
 ```
 
 Default iteration will get you the matches, [`pairs`](@extref `Base.pairs`) uses the
