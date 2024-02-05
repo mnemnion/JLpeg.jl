@@ -499,9 +499,10 @@ function onInst(inst::LeadMultiInst, vm::VMState)::Bool
         updatesfar!(vm)
         return false
     end
+    mask = vm.program[vm.i + 1]
     # Must check for 0b11xxxxxx or false positives from malformed data
-    if (byte & 0xc0 == 0xc0) && @inbounds inst[(byte & 0b00111111) + UInt8(1)]
-        vm.i += 1
+    if (byte & 0xc0 == 0xc0) && @inbounds mask[(byte & 0b00111111) + UInt8(1)]
+        vm.i += 2
         return true
     else  # goto fail
         vm.i += inst.l

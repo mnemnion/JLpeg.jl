@@ -139,11 +139,12 @@ end
 TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(vec.chunk, Int32(l), ITestSet)
 
 struct MultiVecInst <: Instruction
-    vec::Int64
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-MultiVecInst(vec::Bits{Int64}, l::Integer) = MultiVecInst(vec.chunk, Int32(l), IMultiVec)
+MultiVecInst(l::Integer) = MultiVecInst(Int32(l), LARRY, CURLY, IMultiVec)
 
 struct InstructionVec <: Instruction
     vec::Int64
@@ -151,11 +152,12 @@ end
 InstructionVec(vec::Bits{Int64}) = InstructionVec(vec.chunk)
 
 struct LeadMultiInst <: Instruction
-    vec::Int64
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-LeadMultiInst(vec::Bits{Int64}, l::Integer) = LeadMultiInst(vec.chunk, Int32(l), ILeadMulti)
+LeadMultiInst(l::Integer) = LeadMultiInst(Int32(l), LARRY, CURLY, ILeadMulti)
 
 struct ByteInst <: Instruction
     l::Int32
@@ -1203,6 +1205,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     if length(pre) ≥ 4
         push!(c, HoldInst(ILeadMulti))
         leadidx = length(c)
+        push!(c, OpNoOp)  # room for the instruction vector
     end
     heads = UInt8[]
     for pair in pre
@@ -1263,7 +1266,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
             end
             push!(c, OpFail)
         elseif elem isa Bits{Int64}
-            push!(c, MultiVecInst(elem, length(prevec) - idx + 1))
+            push!(c, MultiVecInst(length(prevec) - idx + 1))
             push!(c, InstructionVec(elem))
         end
     end
@@ -1280,6 +1283,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         for char in heads
             bvec[char + 1] = true
         end
-        c[leadidx] = LeadMultiInst(bvec, failidx)
+        c[leadidx] = LeadMultiInst(failidx)
+        c[leadidx + 1] = InstructionVec(bvec)
     end
 end
