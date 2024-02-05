@@ -21,9 +21,12 @@ bootstrap of other dialects.
                                          | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange]) * :S])
                      | :primary * :S)
 
-    :action       ⟷  :suffix * ( ("|>" | "<|") * :S * (:name, :action)
-                                | "|?" * :S * (:name, :test)
-                                | "%" * :S * (:name, :throw))
+    :action       ←  :fncall | :test | :throw | :fast_fwd
+
+    :fncall       ⟷  :suffix * ("|>" | "<|") * :S * (:name,)
+    :test         ⟷  :suffix * "|?" * :S * (:name,)
+    :throw        ⟷  :suffix * "%" * :S * (:name,)
+    :fast_fwd     ⟷  [:suffix, :first] * ">>" * :S * :expr
 
 
     :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :range

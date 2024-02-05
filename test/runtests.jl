@@ -370,7 +370,7 @@ using InteractiveUtils
         string          <- '"' [^"]* '"' / "'" [^']* "'"
         defined         <- '%' name
         """
-        @test_broken match(re, lpegre) isa PegMatch
+        @test match(re, lpegre) isa PegMatch
     end
     @testset "MultiSet refactor tests" begin
         emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)

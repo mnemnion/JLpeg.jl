@@ -8,16 +8,33 @@ const PegKey = Union{Symbol,AbstractString,Integer}
 The captures (including group captures) of a [`PegMatch`](@ref). Indexes
 and iterates in the same fashion.
 """
-struct PegCapture <: AbstractVector{Any}
-    captures::Vector
+struct PegCapture{E} <: AbstractVector{E}
+    captures::Vector{E}
 end
-PegCapture() = PegCapture([])
+PegCapture() = PegCapture(Any[])
 
 Base.append!(m::PegCapture, items...) = append!(m.captures, items...)
 Base.lastindex(m::PegCapture) = lastindex(m.captures)
 Base.firstindex(m::PegCapture) = firstindex(m.captures)
 Base.setindex!(m::PegCapture, val, i...) = setindex!(m.captures, val, i...)
 Base.size(m::PegCapture) = size(m.captures)
+
+function Base.getindex(m::PegCapture, i::PegKey)
+    if i isa Integer
+        elem = m.captures[i]
+        if elem isa Pair
+            return elem.second
+        else
+            return elem
+        end
+    else
+        for cap ∈ m.captures
+            if cap isa Pair && cap.first == i
+                return cap.second
+            end
+        end
+    end
+end
 
 """
     PegMatch <: AbstractMatch
@@ -156,23 +173,6 @@ function Base.getindex(m::PegMatch, i::PegKey)
         end
     else
         for cap ∈ m.captures.captures
-            if cap isa Pair && cap.first == i
-                return cap.second
-            end
-        end
-    end
-end
-
-function Base.getindex(m::PegCapture, i::PegKey)
-    if i isa Integer
-        elem = m.captures[i]
-        if elem isa Pair
-            return elem.second
-        else
-            return elem
-        end
-    else
-        for cap ∈ m.captures
             if cap isa Pair && cap.first == i
                 return cap.second
             end

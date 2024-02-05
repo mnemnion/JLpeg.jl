@@ -755,18 +755,18 @@ function onInst(::OpenCallInst, ::VMState)
 end
 
 """
-    oncapmatch(vm::VMState)
+    oncapmatch(vm::VMState, start=1)::PegMatch
 
 Process the capture list and return what we find.
 """
-function aftermatch(vm::VMState)::PegMatch
+function aftermatch(vm::VMState, start::Integer=1)::PegMatch
     function _substr(s, f)
         # s should always be a valid index, f might not be,
         # and is in all cases one past what we need
         f1 = prevind(vm.subject, f)
         return @views (vm.subject[s:f1])
     end
-    if vm.s == length(vm.subject) + 1
+    if vm.s == vm.top + 1
         full = true
     else
         full = false
@@ -776,7 +776,7 @@ function aftermatch(vm::VMState)::PegMatch
     # there may not be any captures, in which case the whole
     # matched string is the capture:
     if lcap(vm) == 0
-        push!(captures, @views vm.subject[1:prevind(vm.subject, vm.s)])
+        push!(captures, @views vm.subject[start:prevind(vm.subject, vm.s)])
         return PegMatch(vm.subject, full, captures, patt)
     end
     # Otherwise:
@@ -884,8 +884,6 @@ function aftermatch(vm::VMState)::PegMatch
                 end
             else
                 @warn "doesn't handle the case of $(ikey.kind) yet!"
-                # Keep the offsets correct:
-                push!(captures, :__not_found_capture__ => "")
             end
         else
             error("Unbalanced caps begin $(bcap.inst.kind) end $(cap.inst.kind)")
@@ -919,7 +917,14 @@ function Base.match(patt::Pattern, subject::AbstractString)::Union{PegMatch, Peg
     vm = VMState(patt, subject)
     runvm!(vm) ? aftermatch(vm) : afterfail(vm)
 end
-
+function Base.match(patt::Pattern, subject::AbstractString, bounds::UnitRange{<:Integer})::Union{PegMatch, PegFail}
+    vm = VMState(patt, subject, bounds.start, bounds.stop)
+    runvm!(vm) ? aftermatch(vm, bounds.start) : afterfail(vm)
+end
+function Base.match(patt::Pattern, subject::AbstractString, start::Integer)::Union{PegMatch, PegFail}
+    vm = VMState(patt, subject, start, ncodeunits(subject))
+    runvm!(vm) ? aftermatch(vm, start) : afterfail(vm)
+end
 
 """
     findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
@@ -939,7 +944,7 @@ Check if `needle` matches in `haystack`.  PEG patterns, unlike regex, must match
 from the first character in the string; to convert a pattern `p` to match anywhere,
 use `psearch = "" >> p`.
 """
-function Base.occursin(needle::Pattern, haystack::AbstractString)
+function Base.occursin(needle::Pattern, haystack::AbstractString)::Bool
     findfirst(needle, haystack) !== nothing ? true : false
 end
 
