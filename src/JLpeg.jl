@@ -5,8 +5,9 @@ using BitPermutations
 using OrderedCollections
 using InteractiveUtils
 using UnitRangesSortedSets
-import AbstractTrees: children, printnode, print_tree, shouldprintkeys
-import FoldingTrees: writeoption, TreeMenu, Node, fold!
+import REPL.TerminalMenus: request
+import AbstractTrees: children, print_tree
+import FoldingTrees: TreeMenu, Node
 
 export P, S, R, B, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar, Pattern
 export <--, ←, ¬, <|, <-->, ⟷, ↔

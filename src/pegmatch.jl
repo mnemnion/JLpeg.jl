@@ -279,7 +279,7 @@ function makefold(m::PegMatch)
     return root
 end
 
-function makefold(m::PegCapture, parent::Node)
+function makefold(m::PegCapture, parent::Node=Node("PegCapture"))
     for (key, value) in pairs(m)
         if value isa PegCapture
             if key isa Int
@@ -298,6 +298,12 @@ function makefold(m::PegCapture, parent::Node)
     end
     return parent
 end
+
+function makemenu(m::PegCap)
+    return TreeMenu(makefold(m))
+end
+
+request(m::PegCap) = request(makemenu(m))
 
 """
     PegFail
