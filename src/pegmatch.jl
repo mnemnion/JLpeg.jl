@@ -1,11 +1,17 @@
 
 const PegKey = Union{Symbol,AbstractString,Integer}
 
-struct PegCapture{V} <: AbstractVector{V}
-    captures::Vector{V}
+
+"""
+    PegCapture <: AbstractVector
+
+The captures (including group captures) of a [`PegMatch`](@ref). Indexes
+and iterates in the same fashion.
+"""
+struct PegCapture <: AbstractVector{Any}
+    captures::Vector
 end
 PegCapture() = PegCapture([])
-PegCapture{V}() where {V} = PegCapture(V[])
 
 Base.append!(m::PegCapture, items...) = append!(m.captures, items...)
 Base.lastindex(m::PegCapture) = lastindex(m.captures)
@@ -22,11 +28,14 @@ value.
 
 A `PegMatch` is equal (`==`) to a `Vector` if the captures are equal to the `Vector`.
 
+For details of how to make use of a `PegMatch`, see the section "Working With
+Matched Data" in the documentation.
+
 Properties:
 
 -  `subject::AbstractString`:  Stores the string matched.
 -  `full::Bool`:  Whether the match is of the entire string.
--  `captures::Vector`:  Contains any captures from matching `patt` to `subject`.
+-  `captures::PegCapture`:  Contains any captures from matching `patt` to `subject`.
     This can in principle contain anything, as captures may call functions, in which
     case the return value of that function becomes the capture.  For more
     information, consult the `JLPeg` documentation, and the docstrings for `C`, `Cg`,
@@ -211,7 +220,7 @@ function showcaptures(io::IO, captures::PegCapture)
         if cap isa Pair
             show(io, cap.first)
             print(io, " => ")
-            if cap.second isa Vector
+            if cap.second isa PegCapture
                 showcaptures(io, cap.second)
             else
                 show(io, cap.second)
@@ -250,22 +259,27 @@ function Base.show(io::IO, ::MIME"text/plain", m::PegCapture)
     showcaptures(io, m)
 end
 
-function Base.show(io::IO, m::PegMatch)
-    if get(io, :compact, false)
-        return invoke(show, Tuple{IO,Any}, io, m)
-    else
-        return showcaptures(io, m.captures)
-    end
-end
 
 # AbstractTrees interface
 
-function children(m::PegMatch)
+function children(m::PegCap)
     return m.captures
 end
 
 function printnode(io::IO, ::PegMatch)
     print(io, "PegMatch")
+end
+
+function printnode(io::IO, m::PegCapture)
+    print(io, "⊚")
+end
+
+function printnode(io::IO, pair::Pair{Symbol,PegCapture})
+    print(io, pair.first)
+end
+
+function print_tree(m::PegMatch)
+    print_tree(m, maxdepth=20)
 end
 
 """
