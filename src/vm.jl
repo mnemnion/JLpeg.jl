@@ -323,10 +323,10 @@ end
 
 "onChar"
 function onInst(inst::CharInst, vm::VMState)::Bool
-    match = nchars(inst, vm)
+    s, match = nchars(inst, vm)
     if match
         vm.i += 1
-        vm.s = nextind(vm.subject, vm.s)
+        vm.s = s
         return true
     else
         updatesfar!(vm)
@@ -336,7 +336,7 @@ end
 
 "onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
-    match = nchars(inst, vm)
+    _, match = nchars(inst, vm)
     if match
         vm.i += 1
         return true
@@ -348,7 +348,7 @@ end
 
 "onNotChar"
 function onInst(inst::NotCharInst, vm::VMState)::Bool
-    match = nchars(inst, vm)
+    _, match = nchars(inst, vm)
     if match
         updatesfar!(vm)
         return false
@@ -359,11 +359,11 @@ function onInst(inst::NotCharInst, vm::VMState)::Bool
 end
 
 @inline
-function nchars(inst::Instruction, vm::VMState)::Bool
+function nchars(inst::Instruction, vm::VMState)::Tuple{UInt32,Bool}
     s = vm.s
     top = vm.top
     if s > top
-        return false
+        return s, false
     end
     subject = vm.subject
     this = codeunit(subject, s)
@@ -374,29 +374,29 @@ function nchars(inst::Instruction, vm::VMState)::Bool
     elseif n === 0x02
         match &= inst.one === this
         s += 1
-        s > top && return false
+        s > top && return s, false
         match &= inst.two === codeunit(subject, s)
     elseif n === 0x03
         match &= inst.one === this
         s += 1
-        s > top && return false
+        s > top && return s, false
         match &= inst.two === codeunit(subject, s)
         s += 1
-        s > top && return false
+        s > top && return s, false
         match &= inst.three === codeunit(subject, s)
     elseif n === 0x04
         match &= inst.one === this
         s += 1
-        s > top && return false
+        s > top && return s, false
         match &= inst.two === codeunit(subject, s)
         s += 1
-        s > top && return false
+        s > top && return s, false
         match &= inst.three === codeunit(subject, s)
         s += 1
-        s > top && return false
+        s > top && return s, false
         match &= inst.four === codeunit(subject, s)
     end
-    return match
+    return s + 1, match
 end
 
 "onBehind"
