@@ -26,6 +26,8 @@ using InteractiveUtils
         # The empty sequence!
         ptrue = P""
         @test match(ptrue, "")[1] == ""
+        pback = P"\x79"  # edge case...
+        @test match(pback, "\x79") isa PegMatch
     end
     @testset "Any" begin
         @test match(P(3), "abcd")[1] == "abc"
@@ -60,6 +62,8 @@ using InteractiveUtils
         diffset = R"az" - R"di"
         @test match(diffset, "c") == ["c"]
         @test match(diffset, "i") isa PegFail
+        edgeset = S"\x00\x39\x40\x79\x80\x81"^1
+        @test match(edgeset, "\x00\x39\x79\x80\x81") isa PegMatch
     end
     @testset "Ordered Choice" begin
         afew = S("123") | P("abc") | S("xyz")
@@ -393,6 +397,7 @@ using InteractiveUtils
         for I in subtypes(J.Instruction)
             if hasfield(I, :vec)
                 @test I <: J.IVectored
+                @test I === J.InstructionVec
                 @test length(methods(iterate, (I, Integer))) > 0
             end
         end

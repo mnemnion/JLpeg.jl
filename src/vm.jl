@@ -352,7 +352,7 @@ function onInst(inst::NotCharInst, vm::VMState)::Bool
     if match
         updatesfar!(vm)
         return false
-    else  # this includes the this === nothing case
+    else
         vm.i += 1
         return true  # Not an unwinding fail
     end
