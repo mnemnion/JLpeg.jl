@@ -198,16 +198,6 @@ function pushmark!(vm::VMState, off::UInt16, inst::Instruction)
 end
 
 @inline
-"Return the char at `vm.s`."
-function thischar(vm::VMState)
-    if vm.s > vm.top
-        nothing
-    else
-        vm.subject[vm.s]
-    end
-end
-
-@inline
 "Return the byte at `vm.s`."
 function thisbyte(vm::VMState)
     if vm.s > vm.top
@@ -333,12 +323,8 @@ end
 
 "onChar"
 function onInst(inst::CharInst, vm::VMState)::Bool
-    this = thischar(vm)
-    if this === nothing
-        updatesfar!(vm)
-        return false
-    end
-    if this === inst.c
+    match = nchars(inst, vm)
+    if match
         vm.i += 1
         vm.s = nextind(vm.subject, vm.s)
         return true
@@ -350,11 +336,11 @@ end
 
 "onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
-    this = thischar(vm)
-    if this === inst.c
+    match = nchars(inst, vm)
+    if match
         vm.i += 1
         return true
-    else  # this includes the this === nothing case
+    else
         vm.i += inst.l
         return true  # Not an unwinding fail
     end
@@ -362,14 +348,55 @@ end
 
 "onNotChar"
 function onInst(inst::NotCharInst, vm::VMState)::Bool
-    this = thischar(vm)
-    if this === inst.c
+    match = nchars(inst, vm)
+    if match
         updatesfar!(vm)
         return false
     else  # this includes the this === nothing case
         vm.i += 1
         return true  # Not an unwinding fail
     end
+end
+
+@inline
+function nchars(inst::Instruction, vm::VMState)::Bool
+    s = vm.s
+    top = vm.top
+    if s > top
+        return false
+    end
+    subject = vm.subject
+    this = codeunit(subject, s)
+    n = inst.nchar
+    match = true
+    if n === 0x01
+        match &= inst.one === this
+    elseif n === 0x02
+        match &= inst.one === this
+        s += 1
+        s > top && return false
+        match &= inst.two === codeunit(subject, s)
+    elseif n === 0x03
+        match &= inst.one === this
+        s += 1
+        s > top && return false
+        match &= inst.two === codeunit(subject, s)
+        s += 1
+        s > top && return false
+        match &= inst.three === codeunit(subject, s)
+    elseif n === 0x04
+        match &= inst.one === this
+        s += 1
+        s > top && return false
+        match &= inst.two === codeunit(subject, s)
+        s += 1
+        s > top && return false
+        match &= inst.three === codeunit(subject, s)
+        s += 1
+        s > top && return false
+        match &= inst.four === codeunit(subject, s)
+    end
+    return match
 end
 
 "onBehind"
@@ -396,11 +423,10 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     match = false
     byte = thisbyte(vm)
     if byte !== nothing
-        low, high = vm.program[vm.i+1], vm.program[vm.i+2]
-        if byte < 0x40 && low[byte + 1]
+        if byte < 0x40 && vm.program[vm.i+1][byte + 1]
             vm.s += 1
             match = true
-        elseif 0x40 ≤ byte < 0x80 && high[(byte & 0b00111111) + 1]
+        elseif 0x40 ≤ byte < 0x80 && vm.program[vm.i+2][(byte & 0b00111111) + 1]
             vm.s += 1
             match = true
         end
@@ -424,9 +450,24 @@ end
 
 "onTestSet"
 function onInst(inst::TestSetInst, vm::VMState)::Bool
-    # TODO add, test, then refactor with thisbyte(vm)
-    error("onTestSet NYI $inst")
-    return false
+    match = false
+    byte = thisbyte(vm)
+    if byte !== nothing
+        if byte < 0x40 && vm.program[vm.i+1][byte + 1]
+            vm.s += 1
+            match = true
+        elseif 0x40 ≤ byte < 0x80 && vm.program[vm.i+2][(byte & 0b00111111) + 1]
+            vm.s += 1
+            match = true
+        end
+    end
+    if !match
+        vm.i += 3
+        return true
+    else
+        vm.i += inst.l
+        return true
+    end
 end
 
 "onNotSet"
@@ -434,16 +475,15 @@ function onInst(inst::NotSetInst, vm::VMState)::Bool
     nomatch = true
     byte = thisbyte(vm)
     if byte !== nothing
-        low, high = vm.program[vm.i+1], vm.program[vm.i+2]
-        if byte < 0x40 && low[byte + 1]
+        if byte < 0x40 && vm.program[vm.i+1][byte + 1]
             nomatch = false
-        elseif byte < 0x80 && high[(byte & 0b00111111) + 1]
+        elseif 0x40 ≤ byte < 0x80 && vm.program[vm.i+2][(byte & 0b00111111) + 1]
             nomatch = false
         end
     end
     if !nomatch
         updatesfar!(vm)
-        vm.i += 3    # NOTE this depends on only two kinds of SetInst!
+        vm.i += 3
         return false
     else
         vm.i += inst.l
@@ -507,11 +547,11 @@ end
 
 "onCapture"
 function onInst(inst::CaptureInst, vm::VMState)::Bool
+    vm.i += 1
     if inst.op == ICloseRunTime
         return onCloseRunTime(inst, vm)
     end
     pushcap!(vm, inst)
-    vm.i += 1
     return true
 end
 
@@ -524,12 +564,10 @@ function onCloseRunTime(inst::CaptureInst, vm::VMState)::Bool
     ret::Bool = false
     if inst.kind == Cvm
         ret = λ(vm)
-        vm.i += 1
         return ret
     elseif inst.kind == Ctest
         span = @views vm.subject[open.s:vm.s-1]
         ret = λ(span)
-        vm.i += 1
         return ret
     else
         error("unsupported runtime action kind: $(inst.kind)")

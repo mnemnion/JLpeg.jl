@@ -2,6 +2,7 @@
 
 "Instruction opcodes for JLpeg VM"
 @enum Opcode::UInt8 begin
+    IIllegal    # To catch problems with erroneously reinterpreting vector sets
     IAny        # if no char, fail
     IChar       # if char != aux, fail
     ISet        # if char not in buff, fail
@@ -84,31 +85,51 @@ end
 TestAnyInst(n::UInt32, l::Integer) = TestAnyInst(Int32(l), UInt16(n), CURLY, ITestAny)
 
 struct CharInst <: Instruction
-    c::Char
+    one::UInt8
+    two::UInt8
+    three::UInt8
+    four::UInt8
     larry::UInt16
-    curly::UInt8
+    nchar::UInt8
     op::Opcode
 end
-CharInst(c::AbstractChar) = CharInst(Char(c), LARRY, CURLY, IChar)
+CharInst(c::AbstractChar) = CharInst(padout(Char(c))..., LARRY, ncodeunits(c), IChar)
 
 struct NotCharInst <: Instruction
-    c::Char
+    one::UInt8
+    two::UInt8
+    three::UInt8
+    four::UInt8
     larry::UInt16
-    curly::UInt8
+    nchar::UInt8
     op::Opcode
 end
-NotCharInst(c::AbstractChar) = NotCharInst(Char(c), LARRY, CURLY, INotChar)
-
+NotCharInst(c::AbstractChar) = NotCharInst(padout(Char(c))..., LARRY, ncodeunits(c), INotChar)
 
 "Not yet in use"
 struct TestCharInst <: Instruction
-    c::Char
+    one::UInt8
+    two::UInt8
+    three::UInt8
+    four::UInt8
     l::Int16
     curly::UInt8
     op::Opcode
 end
-TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(Char(c), Int16(l), CURLY, ITestChar)
+TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(padout(Char(c))..., Int16(l), CURLY, ITestChar)
 
+function padout(c::Char)::Tuple{UInt8,UInt8,UInt8,UInt8}
+    cvec = codeunits(string(c))
+    if sizeof(cvec) == 1
+        return cvec[1], 0x00, 0x00, 0x00
+    elseif sizeof(cvec) == 2
+        return cvec[1], cvec[2], 0x00, 0x00
+    elseif sizeof(cvec) == 3
+        return cvec[1], cvec[2], cvec[3], 0x00
+    else
+        return cvec[1], cvec[2], cvec[3], cvec[4]
+    end
+end
 struct SetInst <: Instruction
     l::Int32
     larry::UInt16
