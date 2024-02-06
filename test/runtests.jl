@@ -404,10 +404,14 @@ using InteractiveUtils
             end
         end
         for I in subtypes(J.Instruction)
-            if I ≠ J.OpenCallInst
-                @test isbitstype(I)
+            if I === J.OpenCallInst
+                continue
             end
-            if hasfield(I, :op) && sizeof(I) == 8
+            @test isbitstype(I)
+            if hasfield(I, :op)
+                if offsetof(I, :op) ≠ 7
+                    println(I)
+                end
                 @test offsetof(I, :op) == 7
             end
         end
@@ -418,7 +422,7 @@ using InteractiveUtils
         setinst = compile!(S"123").code[1]
         @test isbits(setinst)
         allrange = compile!((R"az" | R"αω" | R"ሀሏ" | R"👆👏")^1 * !P(1))
-        @test repr("text/plain", allrange.code) == "01: ILeadSet (18) {a-z}\n02: ILeadMulti (7) {0f,10,22,31}\n03: IByte cf (14)\n04: IByte f0 (8)\n05: IByte ce (15)\n06: IByte e1 (10)\n07: IFail\n08: IByte 9f (12)\n09: IFail\n10: IByte 88 (16)\n11: IFail\n12: IByte 91 (17)\n13: IFail\n14: IMultiVec (18) {01-0a}\n15: IMultiVec (18) {32-40}\n16: IMultiVec (18) {01-10}\n17: IMultiVec (18) {07-10}\n18: IChoice (37)\n19: ILeadSet (36) {a-z}\n20: ILeadMulti (25) {0f,10,22,31}\n21: IByte cf (32)\n22: IByte f0 (26)\n23: IByte ce (33)\n24: IByte e1 (28)\n25: IFail\n26: IByte 9f (30)\n27: IFail\n28: IByte 88 (34)\n29: IFail\n30: IByte 91 (35)\n31: IFail\n32: IMultiVec (36) {01-0a}\n33: IMultiVec (36) {32-40}\n34: IMultiVec (36) {01-10}\n35: IMultiVec (36) {07-10}\n36: IPartialCommit (19)\n37: IPredChoice (40)\n38: IAny 1\n39: IFailTwice\n40: IEnd"
+        @test repr("text/plain", allrange.code) == "01: ILeadSet (25)\n02:   Vector: {}\n03:   Vector: {22-3b}\n04: ILeadMulti (9)\n05:   Vector: {0f,10,22,31}\n06: IByte cf (17)\n07: IByte f0 (11)\n08: IByte ce (19)\n09: IByte e1 (13)\n10: IFail\n11: IByte 9f (15)\n12: IFail\n13: IByte 88 (21)\n14: IFail\n15: IByte 91 (23)\n16: IFail\n17: IMultiVec (25)\n18:   Vector: {01-0a}\n19: IMultiVec (25)\n20:   Vector: {32-40}\n21: IMultiVec (25)\n22:   Vector: {01-10}\n23: IMultiVec (25)\n24:   Vector: {07-10}\n25: IChoice (51)\n26: ILeadSet (50)\n27:   Vector: {}\n28:   Vector: {22-3b}\n29: ILeadMulti (34)\n30:   Vector: {0f,10,22,31}\n31: IByte cf (42)\n32: IByte f0 (36)\n33: IByte ce (44)\n34: IByte e1 (38)\n35: IFail\n36: IByte 9f (40)\n37: IFail\n38: IByte 88 (46)\n39: IFail\n40: IByte 91 (48)\n41: IFail\n42: IMultiVec (50)\n43:   Vector: {01-0a}\n44: IMultiVec (50)\n45:   Vector: {32-40}\n46: IMultiVec (50)\n47:   Vector: {01-10}\n48: IMultiVec (50)\n49:   Vector: {07-10}\n50: IPartialCommit (26)\n51: IPredChoice (54)\n52: IAny 1\n53: IFailTwice\n54: IEnd"
     end
 
     @testset "PegMatch Offset Property" begin
@@ -487,6 +491,6 @@ using InteractiveUtils
         @test match(presetfix, "12bxy")[1] == "12bxy"
         @test match(presetfix, "12bxz")[1] == "12bxz"
         @test match(presetfix, "12axz")[1] == "12axz"
-        @test repr(presetfix.code) == "JLpeg.Instruction[JLpeg.ChoiceInst(7, 0xffff, 0xff, JLpeg.IChoice), JLpeg.CharInst('1', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('2', 0xffff, 0xff, JLpeg.IChar), JLpeg.SetInst(475368975085586025561263702016, 1, JLpeg.ISet), JLpeg.CharInst('x', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('y', 0xffff, 0xff, JLpeg.IChar), JLpeg.LabelInst(6, 0xffff, 0xff, JLpeg.ICommit), JLpeg.CharInst('1', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('2', 0xffff, 0xff, JLpeg.IChar), JLpeg.SetInst(475368975085586025561263702016, 1, JLpeg.ISet), JLpeg.CharInst('x', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('z', 0xffff, 0xff, JLpeg.IChar), JLpeg.MereInst(0xffffffff, 0xffff, 0xff, JLpeg.IEnd)]"
+        @test repr(presetfix.code) == "JLpeg.Instruction[JLpeg.ChoiceInst(9, 0xffff, 0xff, JLpeg.IChoice), JLpeg.CharInst('1', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('2', 0xffff, 0xff, JLpeg.IChar), JLpeg.SetInst(3, 0xffff, 0xff, JLpeg.ISet), JLpeg.InstructionVec(0x0000000000000000), JLpeg.InstructionVec(0x0000000600000000), JLpeg.CharInst('x', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('y', 0xffff, 0xff, JLpeg.IChar), JLpeg.LabelInst(8, 0xffff, 0xff, JLpeg.ICommit), JLpeg.CharInst('1', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('2', 0xffff, 0xff, JLpeg.IChar), JLpeg.SetInst(3, 0xffff, 0xff, JLpeg.ISet), JLpeg.InstructionVec(0x0000000000000000), JLpeg.InstructionVec(0x0000000600000000), JLpeg.CharInst('x', 0xffff, 0xff, JLpeg.IChar), JLpeg.CharInst('z', 0xffff, 0xff, JLpeg.IChar), JLpeg.MereInst(0xffffffff, 0xffff, 0xff, JLpeg.IEnd)]"
     end
 end

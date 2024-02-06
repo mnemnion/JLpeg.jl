@@ -110,33 +110,33 @@ end
 TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(Char(c), Int16(l), CURLY, ITestChar)
 
 struct SetInst <: Instruction
-    vec::Int128
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
 
-SetInst(vec::Bits{Int128}) = SetInst(vec.chunk::Int128, Int32(1), ISet)
-SetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l)ISet)
-SetInst(set::SetInst, l::Integer) = SetInst(set.vec, Int32(l), ISet,)
-LeadSetInst(vec::Bits{Int128}, l::Integer) = SetInst(vec.chunk::Int128, Int32(l), ILeadSet)
-LeadSetInst(vec::Int128, l::Integer) = SetInst(vec, l, ILeadSet)
+SetInst() = SetInst(Int32(3), LARRY, CURLY, ISet)
+SetInst(l::Integer) = SetInst(Int32(l), LARRY, CURLY, ISet)
+LeadSetInst(l::Integer) = SetInst(l, LARRY, CURLY, ILeadSet)
 
 struct NotSetInst <: Instruction
-    vec::Int128
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-NotSetInst(vec::Bits{Int128}, l::Int32) = NotSetInst(vec.chunk::Int128, l, INotSet)
-NotSetInst(vec::Int128, l::Int32) = NotSetInst(vec, l, INotSet)
+NotSetInst(l::Int32) = NotSetInst(l, LARRY, CURLY, INotSet)
 
 
 "Not yet in use"
 struct TestSetInst <: Instruction
-    vec::Int128
     l::Int32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
 end
-TestSetInst(vec::Bits{Int128}, l::Integer) = TestSetInst(vec.chunk, Int32(l), ITestSet)
+TestSetInst(l::Integer) = TestSetInst(Int32(l), LARRY, CURLY, ITestSet)
 
 struct MultiVecInst <: Instruction
     l::Int32
@@ -147,9 +147,9 @@ end
 MultiVecInst(l::Integer) = MultiVecInst(Int32(l), LARRY, CURLY, IMultiVec)
 
 struct InstructionVec <: Instruction
-    vec::Int64
+    vec::UInt64
 end
-InstructionVec(vec::Bits{Int64}) = InstructionVec(vec.chunk)
+InstructionVec(vec::Bits{Int64}) = InstructionVec(reinterpret(UInt64,vec.chunk))
 
 struct LeadMultiInst <: Instruction
     l::Int32
@@ -206,7 +206,11 @@ OpenCallInst(r::Symbol) = OpenCallInst(IOpenCall, r)
 
 "A placeholder for an Instruction when the label is not yet known"
 struct HoldInst <: Instruction
+    moe::UInt32
+    larry::UInt16
+    curly::UInt8
     op::Opcode
+    HoldInst(op::Opcode) = new(MOE, LARRY, CURLY, op)
 end
 
 struct CaptureInst <: Instruction
@@ -537,7 +541,8 @@ function build(patt::PSet, code::IVector=Inst())::IVector
     end
     bvec, prefix_map = makebitvectors(patt.val)
     if bvec !== nothing && prefix_map === nothing
-        push!(code, SetInst(bvec))
+        low, high = makemasks(bvec)
+        push!(code, SetInst(), low, high)
     else
         encode_multibyte_set!(code, bvec, prefix_map)
     end
@@ -564,8 +569,8 @@ function build(patt::PNot, code::IVector=Inst())::IVector
     #
     # We can turn ASCII sets into INotSet, which can
     # succeed against multibyte chars
-    if length(template) == 1 && template[1].op == ISet
-        push!(code, NotSetInst(template[1].vec, template[1].l))
+    if length(template) == 3 && template[1].op == ISet
+        push!(code, NotSetInst(template[1].l), template[2], template[3])
         return code
     end
     # We do the same for PChar
@@ -650,7 +655,8 @@ function addstar!(c::IVector, code::IVector)
     l = length(code)
     if l == 1 && code[1].op == ISet
         # Span instruction
-        push!(c, LeadSetInst(code[1].vec, 0))
+        low, high = makemasks(code[1].vec)
+        push!(c, LeadSetInst(0), low, high)
         return
     end
     push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
@@ -854,7 +860,9 @@ function link!(code::IVector, aux::AuxDict)
     throws = aux[:throws]
     for i ∈ 1:length(code)
         inst = code[i]
-        if inst.op == IOpenCall
+        if inst isa InstructionVec
+            continue
+        elseif inst.op == IOpenCall
             site = callsite[inst.rule]
             l = site - i
             # Tail call?
@@ -1123,6 +1131,11 @@ function isof(patt::Pattern, types::DataType...)
     return false
 end
 
+function makemasks(bvec::Bits{Int128})
+    masks =reinterpret(UInt64, [bvec.chunk])
+    return InstructionVec(masks[1]), InstructionVec(masks[2])
+end
+
 """
     vecsforstring(str::Union{AbstractString, Vector{AbstractChar}})::Tuple{Union{Bits, Nothing},Union{Dict, Nothing}}
 
@@ -1191,6 +1204,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     if bvec !== nothing
         push!(c, HoldInst(ILeadSet))  # -> end of MultiSet, after OpFail
         hold = length(c)
+        push!(c, OpNoOp, OpNoOp)
     end
     leadidx = nothing  # for if we put a hold for a LeadMultiInst
     # We need to vectorize pre, for a 1-to-1 match with the code
@@ -1276,7 +1290,10 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
     end
     if bvec !== nothing
         @assert c[hold] isa HoldInst "HoldInst not found at 1"
-        c[hold] = LeadSetInst(bvec, length(c))
+        c[hold] = LeadSetInst(length(c))
+        low, high = makemasks(bvec)
+        c[hold+1] = low
+        c[hold+2] = high
     end
     if leadidx !== nothing
         bvec = Bits{Int64}(0)

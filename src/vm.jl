@@ -396,17 +396,21 @@ function onInst(inst::SetInst, vm::VMState)::Bool
     match = false
     byte = thisbyte(vm)
     if byte !== nothing
-        if byte < 0x80 && inst[byte + 1]
+        low, high = vm.program[vm.i+1], vm.program[vm.i+2]
+        if byte < 0x40 && low[byte + 1]
+            vm.s += 1
+            match = true
+        elseif 0x40 ≤ byte < 0x80 && high[(byte & 0b00111111) + 1]
             vm.s += 1
             match = true
         end
     end
     if !match
-        vm.i += 1
         if inst.op == ISet
             updatesfar!(vm)
             return false
         elseif inst.op == ILeadSet
+            vm.i += 3
             return true
         else
             error("unrecognized set opcode $(inst.op)")
@@ -421,34 +425,25 @@ end
 "onTestSet"
 function onInst(inst::TestSetInst, vm::VMState)::Bool
     # TODO add, test, then refactor with thisbyte(vm)
-    this = thischar(vm)
-    if this === nothing
-        vm.i += 1
-        return true
-    end
-    code = UInt32(this)
-    if code < 128 && @inbounds inst[code + 1]
-        vm.i += 1
-        return true
-    else
-        vm.i += inst.l
-        return true  # Still not an unwinding fail
-    end
+    error("onTestSet NYI $inst")
+    return false
 end
 
 "onNotSet"
 function onInst(inst::NotSetInst, vm::VMState)::Bool
     nomatch = true
-    this = thischar(vm)
-    if this !== nothing
-        code = UInt32(this)
-        if code < 128 && inst[code + 1]
+    byte = thisbyte(vm)
+    if byte !== nothing
+        low, high = vm.program[vm.i+1], vm.program[vm.i+2]
+        if byte < 0x40 && low[byte + 1]
+            nomatch = false
+        elseif byte < 0x80 && high[(byte & 0b00111111) + 1]
             nomatch = false
         end
     end
     if !nomatch
         updatesfar!(vm)
-        vm.i += 1    # NOTE this depends on only two kinds of SetInst!
+        vm.i += 3    # NOTE this depends on only two kinds of SetInst!
         return false
     else
         vm.i += inst.l
