@@ -94,7 +94,7 @@ struct CharInst <: Instruction
     op::Opcode
 end
 CharInst(c::AbstractChar) = CharInst(padout(Char(c))..., LARRY, ncodeunits(c), IChar)
-
+CharInst(c::UInt8) = CharInst(c, 0, 0, 0, LARRY, 1, IChar)
 struct NotCharInst <: Instruction
     one::UInt8
     two::UInt8
@@ -181,13 +181,13 @@ struct LeadMultiInst <: Instruction
 end
 LeadMultiInst(l::Integer) = LeadMultiInst(Int32(l), LARRY, CURLY, ILeadMulti)
 
-struct ByteInst <: Instruction
+struct LeadByteInst <: Instruction
     l::Int32
     larry::UInt16
     b::UInt8
     op::Opcode
 end
-ByteInst(b::UInt8, l::Integer) = ByteInst(Int32(l), LARRY, b, IByte)
+LeadByteInst(b::UInt8, l::Integer) = LeadByteInst(Int32(l), LARRY, b, IByte)
 
 struct BehindInst <: Instruction
     n::UInt32
@@ -515,7 +515,7 @@ function build(patt::PChar, code::IVector=Inst())::IVector
 end
 
 function build(patt::PByte, code::IVector=Inst())::IVector
-    push!(code, ByteInst(patt.val, 1))
+    push!(code, CharInst(patt.val))
     return code
 end
 
@@ -1294,7 +1294,7 @@ function encode_multibyte_set!(c::IVector, bvec::Union{Bits{Int128},Nothing}, pr
         elseif elem isa Pair
             if elem.first isa UInt8
                 l = sites[elem.second] - idx
-                push!(c, ByteInst(elem.first, l))
+                push!(c, LeadByteInst(elem.first, l))
             end
         elseif elem == OpFail
             if failidx === nothing

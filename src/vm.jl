@@ -263,7 +263,7 @@ function unwindpred!(vm::VMState)
     # Which we can check with the stack instruction register,
     # Conveniently enough
     while vm.program[vm.ti].op ≠ IPredChoice
-        popframe!(vm)
+        dropframe!(vm)
     end # until we've left the predicate on the stack
     vm.failtag = 0
     vm.sfar = vm.s
@@ -497,8 +497,8 @@ function onInst(inst::NotSetInst, vm::VMState)::Bool
     end
 end
 
-"onByte"
-function onInst(inst::ByteInst, vm::VMState)::Bool
+"onLeadByte"
+function onInst(inst::LeadByteInst, vm::VMState)::Bool
     byte = thisbyte(vm)
     if byte === nothing
         updatesfar!(vm)

@@ -67,7 +67,7 @@ function generate(set::PSet)::String
         inst = c[off]
         # println("$off: ", inst)
         # println("   $countstack  $byte  $charstack")
-        if inst isa ByteInst
+        if inst isa LeadByteInst
             push!(charstack, inst.b)
             byte += 1
             off += inst.l + countstack[byte]
