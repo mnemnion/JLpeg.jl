@@ -3,16 +3,30 @@
 
 "A kind of capture"
 @enum CapKind::UInt8 begin
-    Cposition   # ✅ Captures the empty string to record an offset
+    Csimple     # [✅] Captures a substring of the region matched
+    Csymbol     # [✅] Captures its match as a pair `:symbol => "match"` (:symbol can be a string)
+    Cgroup      # [✅] Groups all its captures into a Vector.
+    Cposition   # [✅] Captures the empty string to record an offset
     Cconst      # [✅] Captures provided constants into the capture vector
-    Csimple     # ✅ captures a substring of the region matched
-    Crange      # ✅ captures a UnitRange [first:last] of region
-    Caction     # [✅] an action taken on a successful match.
-    Csymbol     # ✅ captures its match as a pair `:symbol => "match"` (:symbol can be a string)
-    Ctest       # [✅] a runtime test of the captured substring
-    Cvm         # [✅] a runtime test receiving the full VMState
-    Cgroup      # ✅ groups all its captures into a Vector.
+    Crange      # [✅] Captures a UnitRange [first:last] of region
+    Caction     # [✅] An action taken on a successful match.
+    Ctest       # [✅] A runtime test of the captured substring
+    Cvm         # [✅] A runtime test receiving the full VMState
 end
+
+const CapKindDocs = Dict(
+    Csimple =>      "Captures a substring of the region matched",
+    Csymbol =>      "Captures its match as a pair `:symbol => \"match\"` (:symbol can be a string)",
+    Cgroup =>       "Groups all its captures into a Vector.",
+    Cposition =>    "Captures the empty string to record an offset",
+    Cconst =>       "Captures provided constants into the capture vector",
+    Crange =>       "Captures a UnitRange [first:last] of region",
+    Caction =>      "An action taken on a successful match.",
+    Ctest =>        "A runtime test of the captured substring",
+    Cvm =>          "A runtime test receiving the full VMState",
+)
+
+Docs.getdoc(ck::CapKind) = CapKindDocs[ck]
 
 "A Vector of `Instruction`s representing a complete pattern."
 const IVector = Vector{Instruction}

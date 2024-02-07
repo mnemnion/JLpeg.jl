@@ -6,6 +6,7 @@ struct StackFrame
     s::UInt32  # String index
     c::UInt32  # Capture level
     m::UInt16  # Mark level
+               # One byte left. Left recursion?
     p::Bool    # Predicate status
 end
 
@@ -126,7 +127,7 @@ end
 "Pop a stack frame. Returns a tuple (i, s, c, p)"
 function popframe!(vm::VMState)::Tuple{Union{Int32,Nothing},UInt32,UInt32,UInt16,Bool}
     if !vm.t_on
-        return nothing, 0x00000000, 0x00000000, 0x0000   , false
+        return nothing, 0x00000000, 0x00000000, 0x0000, false
     end
     if isempty(vm.stack)
         vm.t_on = false
@@ -139,6 +140,21 @@ function popframe!(vm::VMState)::Tuple{Union{Int32,Nothing},UInt32,UInt32,UInt16
 end
 
 @inline
+"Drop a call stack frame."
+function dropframe!(vm::VMState)::Bool
+    if !vm.t_on
+        return false
+    end
+    if isempty(vm.stack)
+        vm.t_on = false
+        return true
+    end
+    frame = pop!(vm.stack)
+    vm.ti, vm.ts, vm.tc, vm.tm, vm.tp = frame.i, frame.s, frame.c, frame.m, frame.p
+    return true
+end
+
+@inline
 "Update the top stack frame."
 function updatetop_s!(vm::VMState)
     vm.ts = vm.s
@@ -147,14 +163,14 @@ end
 
 @inline
 "Height of the capture stack."
-function lcap(vm::VMState)
-    return UInt16(length(vm.cap))
+function lcap(vm::VMState)::UInt16
+    return length(vm.cap)
 end
 
 @inline
 "Height of the mark stack"
-function mcap(vm::VMState)
-    return UInt16(length(vm.mark))
+function mcap(vm::VMState)::UInt16
+    return length(vm.mark)
 end
 
 @inline
@@ -224,20 +240,14 @@ end
 @inline
 "Unwind the stacks on a match failure"
 function failmatch!(vm::VMState)
+    while vm.ts == 0 && dropframe!(vm)
+        # pop until we have a subject pointer, or exhaust stack
+    end
     if !vm.t_on
         vm.running = false
         vm.matched = false
-        return
-    end
-    i, s, c, m, p = popframe!(vm)
-    while s == 0 # return from calls
-        i, s, c, m, p = popframe!(vm)
-        if i === nothing break end
-    end # until we find a choice frame or exhaust the stack
-    if i === nothing
-        vm.running = false
-        vm.matched = false
     else
+        i, s, c, m, p = popframe!(vm)
         vm.s = s::UInt32
         vm.i = i
         vm.inpred = p
@@ -323,7 +333,7 @@ end
 
 "onChar"
 function onInst(inst::CharInst, vm::VMState)::Bool
-    s, match = nchars(inst, vm)
+    s, match = @inline nchars(inst, vm)
     if match
         vm.i += 1
         vm.s = s
@@ -336,7 +346,7 @@ end
 
 "onTestChar"
 function onInst(inst::TestCharInst, vm::VMState)::Bool
-    _, match = nchars(inst, vm)
+    _, match = @inline nchars(inst, vm)
     if match
         vm.i += 1
         return true
@@ -348,7 +358,7 @@ end
 
 "onNotChar"
 function onInst(inst::NotCharInst, vm::VMState)::Bool
-    _, match = nchars(inst, vm)
+    _, match = @inline nchars(inst, vm)
     if match
         updatesfar!(vm)
         return false
@@ -368,16 +378,13 @@ function nchars(inst::Instruction, vm::VMState)::Tuple{UInt32,Bool}
     subject = vm.subject
     this = codeunit(subject, s)
     n = inst.nchar
-    match = true
-    if n === 0x01
-        match &= inst.one === this
-    elseif n === 0x02
-        match &= inst.one === this
+    match = inst.one === this
+    !match && return s, false
+    if n === 0x02
         s += 1
         s > top && return s, false
         match &= inst.two === codeunit(subject, s)
     elseif n === 0x03
-        match &= inst.one === this
         s += 1
         s > top && return s, false
         match &= inst.two === codeunit(subject, s)
@@ -385,7 +392,6 @@ function nchars(inst::Instruction, vm::VMState)::Tuple{UInt32,Bool}
         s > top && return s, false
         match &= inst.three === codeunit(subject, s)
     elseif n === 0x04
-        match &= inst.one === this
         s += 1
         s > top && return s, false
         match &= inst.two === codeunit(subject, s)

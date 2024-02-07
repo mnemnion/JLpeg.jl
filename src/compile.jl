@@ -118,6 +118,7 @@ struct TestCharInst <: Instruction
 end
 TestCharInst(c::AbstractChar, l::Integer) = TestCharInst(padout(Char(c))..., Int16(l), CURLY, ITestChar)
 
+"pad the bytes of a Char out to 4"
 function padout(c::Char)::Tuple{UInt8,UInt8,UInt8,UInt8}
     cvec = codeunits(string(c))
     if sizeof(cvec) == 1
