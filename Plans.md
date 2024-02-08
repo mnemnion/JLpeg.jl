@@ -600,15 +600,21 @@ One tricky part is predicates, and it isn't that tricky, just brute-force it:
 for `!`, generate a token, test it, continue, for `~`, use the lookahead as the
 generator, then apply the second rule.
 
-Another, trickier one, is `Anow` and Checks with a lambda, those can call for
+Another, trickier one, is `Q`, and `K` with a lambda, those can call for
 backtracking.  I might insist on extra data being provided for these, captures
 weren't intended to be executed (no need) but it's tractable to provide input to a
-Check (or, with more work, an Anow) which it will accept, and restrict emission of
-that pattern to acceptable strings (no need at that point to include the checks,
-marks, or action).  The idea is to be able to generate valid strings which another
+Check (or, with more work, a Q) which it will accept, and restrict emission of that
+pattern to acceptable strings (no need at that point to include the checks, marks, or
+action). We can work backward on the builtins, since it's easy enough to synthesize a
+string which will always succeed (though we have to then _match_ that string on the
+pattern which would generate it: if this fails, we've found a rule which can't
+succeed, since the checking postcondition can never arise if the pattern precondition
+never matches).  The idea is to be able to generate valid strings which another
 parser will accept, so it's important to support this kind of out-of-band business,
-even if it calls for extra work on the part of the user.  Run-time checks are
-supposed to be unusual, so I can punt on this a bit.
+even if it calls for extra work on the part of the user.  Checks and queries based
+on a custom function are enough of an edge case to handle last, if at all, the perfect
+shouldn't be the enemy of the good here.  They're almost certainly impossible to
+satisfy with perfect generality.
 
 I just think it would be funny to build a cheesy math parser in the demo, and then
 instead of parsing an expression, generate one. There are actually useful things to
@@ -620,6 +626,14 @@ This is the easiest way to demonstrate that the Unicode sets aren't producing an
 garbage or characters that obviously don't belong to the set (which, as it turns out,
 they were).
 
+#### Structure
+
+We want an abstract type `PatternGenerator` and subtypes: `GSet` for `PSet`, and so
+on. `generator(p::Pattern)` returns the entire pattern converted to a generator,
+which can be called with an optional randomness seed and IObuffer.
+
+#### Tasklist
+
 - [#]  Generate Primitives
   - [X]  Generate PSets
     - [X]  Full generator
@@ -629,6 +643,8 @@ they were).
     - [ ]  Random version should produce Unicode characters, some restricted ranges.
     - [ ]  Careful with this on the instruction level, many/most AnyInst(1) will be
            following a TestSet or TestChar, which of course we must generate instead.
+           This is a good reason to be creating separate generators, rather than a
+           different sort of bytecode interpreter. There are several of those.
 - [ ] Generate repetition
   - [ ]  "full reps" can expand every member within a set (when allowed, aka n ≥ 0)
   - [ ]  It would be fun to special case S"AZ"^+n, S"az"^+n, and variations, such
