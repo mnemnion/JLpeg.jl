@@ -323,7 +323,7 @@ soak up our match), the body, the Commit. If a) and b) are true, we get the test
 with a jump to the next option, because we don't have to backtrack: once we're in the
 money, we have to succeed or fail.
 
-Note (this being the thing I finally figure out) that since choice is ordered, we
+Note (this being the thing I finally figured out) that since choice is ordered, we
 only have to check each subsequent choice against the remaining headsets. So if '1'
 is the leadset for choices 1 and 3, 1 has to be choice/commit, but 3 can be test/jump.
 

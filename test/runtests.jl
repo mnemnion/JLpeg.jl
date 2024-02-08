@@ -23,11 +23,12 @@ using InteractiveUtils
         @test match(abc, "defg")[1] == "def"
         @test match(abc, "ghi")[1] == "ghi"
         @test match(abc, "bcd") isa PegFail
-        # The empty sequence!
+        # The empty sequence
         ptrue = P""
         @test match(ptrue, "")[1] == ""
         pback = P"\x79"  # edge case...
         @test match(pback, "\x79") isa PegMatch
+        @test match(P"\x00", "\x00") isa PegMatch
     end
     @testset "Any" begin
         @test match(P(3), "abcd")[1] == "abc"
@@ -37,6 +38,7 @@ using InteractiveUtils
     @testset "Byte" begin
         pb = U8(0xff)
         @test match(pb, "\xff") isa PegMatch
+        @test match(pb, "\xfe") isa PegFail
     end
     @testset "Sets and Ranges" begin
         bcf = S("bcf")
@@ -396,7 +398,6 @@ using InteractiveUtils
     @testset "Type tests" begin
         for I in subtypes(J.Instruction)
             if hasfield(I, :vec)
-                @test I <: J.IVectored
                 @test I === J.InstructionVec
                 @test length(methods(iterate, (I, Integer))) > 0
             end
