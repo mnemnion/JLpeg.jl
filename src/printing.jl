@@ -145,6 +145,16 @@ function inst_pieces(inst::HoldInst, ::Integer)::Vector{String}
     ["HOLD INSTRUCTION → ", " $(inst.op)"]
 end
 
+function inst_pieces(inst::CharInst, ::Integer)::Vector{String}
+    line = ["$(inst.op) "]
+    ch::UInt32 = ((UInt32(inst.one) << 24)
+                 + (UInt32(inst.two) << 16)
+                 + (UInt32(inst.three) << 8)
+                 + inst.four)
+    push!(line, string(reinterpret(Char, ch)))
+    return line
+end
+
 "Vector of instruction string fragments"
 function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
     if inst == OpNoOp || typeof(inst) == InstructionVec

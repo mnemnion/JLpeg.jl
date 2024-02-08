@@ -6,13 +6,21 @@
 # TODO this needs to take keyword options with defaults, examples:
 # full=true, PSets will generate the full set in order
 
-# Status: this combines checking the validity of the MultiSet code (and in fact
-# surfaced several bugs) with generating from a Set.  I don't expect the generator
-# architecture to run on Instructions, but rather, raw Patterns (or rather an appropriate
-# transmutation of them, with an eye towards ease, not speed: an interpreter, not a VM).
+# Status: this conflates "generating characters from a Set" with "confirming that the
+# multiset code is valid".  The generator code is unwritten except for this one method,
+# but the focus will be on generating random examples of the pattern, and for Sets,
+# expanding them into a Vector of the Chars and randomly sampling that is much simpler than
+# modifying this code to return a random character would be.
 #
-# So I want to update this code when the transition to multi-instruction Sets is complete,
-# but will also tear this out when the work on generators begins in earnest.
+# It also makes sense for a generator to receive an IOBuffer, rather than returning String bits.
+# We'll want to pass an IOBuffer to the generators and let them feed it, and we need some way to
+# seed the randomness so that generation can be consistent between calls, when desired.
+#
+# So the ultimate fate of this code is unclear. It's very unlikely I'll make further changes to the
+# Set compiler or bytecode, but if I do, this code will come into play immediately.
+#
+# Might end up living in the test framework for JLpegUnicode, which is the suite which really puts Sets
+# through their paces.
 
 function generate(patt::Pattern)::String
     error("Not yet implemented for $(typeof(patt))")
@@ -113,7 +121,7 @@ end
 function _generateHigh(buff::IOBuffer, inst::InstructionVec)
     for b in inst
         if b isa UInt8
-            write(buff, b | 0x01000000)
+            write(buff, b | 0b01000000)
         end
     end
 end
