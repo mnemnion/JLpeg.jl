@@ -191,7 +191,7 @@ function inst_pieces(inst::Instruction, off::Integer)::Vector{String}
 end
 
 "String for Set Vector"
-function printset(vec::IVectored)::String
+function printset(vec::InstructionVec)::String
     chars = bitvector_to_compact_repr(vec)
     str = "{"
 
@@ -201,7 +201,7 @@ function printset(vec::IVectored)::String
 end
 
 "String for MultSet Vector"
-function bitvector_to_compact_repr(bitvec::IVec64)::Vector{String}
+function bitvector_to_compact_repr(bitvec::InstructionVec)::Vector{String}
     fragments = String[]
     start_idx = 0
     end_idx = 0
@@ -244,73 +244,6 @@ function bitvector_to_compact_repr(bitvec::IVec64)::Vector{String}
     return fragments
 end
 
-"""
-    bitvector_to_compact_repr(bitvec::BitVector)
-
-Shows a set while collapsing ranges.
-"""
-function bitvector_to_compact_repr(bitvec::IVec128)
-    fragments = String[]
-    start_idx = 0
-    end_idx = 0
-    escaped_chars = Dict(
-        '\n' => "\\n",  # newline
-        '\t' => "\\t",  # horizontal tab
-        '\r' => "\\r",  # carriage return
-        '\b' => "\\b",  # backspace
-        '\f' => "\\f",  # form feed
-        '\\' => "\\\\", # backslash
-        '\"' => "\\\"", # double quote
-        '\'' => "\\'"   # single quote
-    )
-    function _encode(i::Integer)
-        i -= 1
-        c = Char(i)
-        if haskey(escaped_chars, c)
-            escaped_chars[c]
-        elseif i ≤ 31
-            "\\x" * string(i, base=16)
-        elseif c == ' '
-            "\" \""
-        else
-            string(c)
-        end
-    end
-    for i in eachindex(bitvec)
-        if bitvec[i]
-            if start_idx == 0
-                start_idx = i
-            end
-            end_idx = i
-        elseif start_idx != 0
-            # End of a sequence
-            if end_idx - start_idx >= 2
-                # Three or more characters in succession
-                push!(fragments, "$(_encode(start_idx))-$(_encode(end_idx))")
-            else
-                # Individual characters
-                for j in start_idx:end_idx
-                    push!(fragments, _encode(j))
-                end
-            end
-            start_idx = 0
-            end_idx = 0
-        end
-    end
-
-    # Handle the case where the sequence reaches the end of the BitVector
-    if start_idx != 0
-        if end_idx - start_idx >= 2
-            push!(fragments, "$(_encode(start_idx))-$(_encode(end_idx))")
-        else
-            for j in start_idx:end_idx
-                push!(fragments, string(_encode(j)))
-            end
-        end
-    end
-
-    return fragments
-end
 
 # VMState printing helpers
 

@@ -323,10 +323,6 @@ end
 # ## Vector Ops
 #
 
-const IVectored = Union{SetInst,NotSetInst,TestSetInst,MultiVecInst,LeadMultiInst,InstructionVec}
-const IASCIISet = Union{SetInst,NotSetInst,TestSetInst}
-const IVec128 = Union{SetInst,NotSetInst,TestSetInst}
-const IVec64 = Union{MultiVecInst,LeadMultiInst,InstructionVec}
 
 # Code borrowed from BitPermutations.jl for converting vector instructions
 # into bit types
@@ -357,53 +353,14 @@ See also: https://github.com/JuliaLang/julia/issues/30674.
 
 # #/ borrow
 
-function Base.getindex(inst::IVec128, i::Integer)
-    @boundscheck i ≤ 128 || throw(BoundsError)
-    u = one(Int128) << shift_safe(Int128, i - 1)
-    return !iszero(inst.vec & u)
-end
-
 @inline
-function Base.getindex(inst::IVec64, i::Integer)
+function Base.getindex(inst::InstructionVec, i::Integer)
     @boundscheck i ≤ 64 || throw(BoundsError)
     u = one(Int64) << shift_safe(Int64, i - 1)
     return !iszero(inst.vec & u)
 end
 
-Base.keys(::IVec64) = 1:64
-Base.keys(::IVec128) = 1:128
-
-
-function Base.iterate(inst::IASCIISet, i::Integer)
-    i += 1
-    i > 128 && return nothing
-    if inst[i]
-        return UInt8(i-1), i
-    else
-        return false, i
-    end
-end
-
-function Base.iterate(inst::LeadMultiInst, i::Integer)
-    i += 1
-    i > 128 && return nothing
-
-    if @inbounds inst[i]
-        return UInt8(i-1) | 0b11000000, i
-    else
-        return false, i
-    end
-end
-
-function Base.iterate(inst::MultiVecInst, i::Integer)
-    i += 1
-    i > 64 && return nothing
-    if @inbounds inst[i]
-        return UInt8(i-1) | 0b10000000, i
-    else
-        return false, i
-    end
-end
+Base.keys(::InstructionVec) = 1:64
 
 function Base.iterate(inst::InstructionVec, i::Integer)
     i += 1
@@ -415,9 +372,9 @@ function Base.iterate(inst::InstructionVec, i::Integer)
     end
 end
 
-Base.iterate(inst::IVectored) = iterate(inst, 0)
+Base.iterate(inst::InstructionVec) = iterate(inst, 0)
 
-Base.count_ones(inst::IVectored) = count_ones(inst.vec)
+Base.count_ones(inst::InstructionVec) = count_ones(inst.vec)
 
 # # #
 

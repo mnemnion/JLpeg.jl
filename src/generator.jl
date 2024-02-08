@@ -31,16 +31,18 @@ function generate(set::PSet)::String
     start = 1
     leadcount = nothing
     if c[1].op == ISet
-        _generateISet(buff, c[1])
+        _generateLow(buff, c[2])
+        _generateHigh(buff, c[3])
         return String(take!(buff))
-        start += 1
+        start += 3
     elseif c[1].op == ILeadSet
-        _generateISet(buff, c[1])
-        start += 1
+        _generateLow(buff, c[2])
+        _generateHigh(buff, c[3])
+        start += 3
     end
     if c[start].op == ILeadMulti
-        leadcount = count_ones(c[start])
-        start += 1
+        leadcount = count_ones(c[start + 1])
+        start += 2
     end
     if leadcount === nothing
         leadcount = 0
@@ -74,7 +76,7 @@ function generate(set::PSet)::String
         elseif inst isa MultiVecInst
             # dbgcount += 1
             # println("   $dbgcount  $countstack  $byte  $charstack  $off")
-            _generateMultiVec(buff, charstack, inst)
+            _generateMultiVec(buff, charstack, c[off + 1])
             empty!(charstack)
             countstack[byte - 1] += 1
             off = start + countstack[1]
@@ -99,7 +101,8 @@ function generate(set::PSet)::String
     return String(take!(buff))
 end
 
-function _generateISet(buff::IOBuffer, inst::Instruction)
+
+function _generateLow(buff::IOBuffer, inst::InstructionVec)
     for b in inst
         if b isa UInt8
             write(buff, b)
@@ -107,15 +110,24 @@ function _generateISet(buff::IOBuffer, inst::Instruction)
     end
 end
 
-function _generateMultiVec(buff::IOBuffer, charstack::Vector{UInt8}, inst::MultiVecInst)
-    # stack = UInt8[]
+function _generateHigh(buff::IOBuffer, inst::InstructionVec)
     for b in inst
         if b isa UInt8
+            write(buff, b | 0x01000000)
+        end
+    end
+end
+
+function _generateMultiVec(buff::IOBuffer, charstack::Vector{UInt8}, inst::InstructionVec)
+    #stack = UInt8[]
+    for b in inst
+        if b isa UInt8
+            b = b | 0x80
             # append!(stack, charstack)
             # push!(stack, b)
             write(buff, charstack...)
             write(buff, b)
         end
     end
-    # println(String(stack))
+    # println(stack)
 end
