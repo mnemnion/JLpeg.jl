@@ -372,34 +372,28 @@ end
 function nchars(inst::Instruction, vm::VMState)::Tuple{UInt32,Bool}
     s = vm.s
     top = vm.top
-    if s > top
+    n = inst.nchar
+    if s + n - 1 > top
         return s, false
     end
     subject = vm.subject
     this = codeunit(subject, s)
-    n = inst.nchar
     match = inst.one === this
     !match && return s, false
     if n === 0x02
         s += 1
-        s > top && return s, false
         match &= inst.two === codeunit(subject, s)
     elseif n === 0x03
         s += 1
-        s > top && return s, false
         match &= inst.two === codeunit(subject, s)
         s += 1
-        s > top && return s, false
         match &= inst.three === codeunit(subject, s)
     elseif n === 0x04
         s += 1
-        s > top && return s, false
         match &= inst.two === codeunit(subject, s)
         s += 1
-        s > top && return s, false
         match &= inst.three === codeunit(subject, s)
         s += 1
-        s > top && return s, false
         match &= inst.four === codeunit(subject, s)
     end
     return s + 1, match
