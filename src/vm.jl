@@ -318,6 +318,11 @@ function onInst(any::AnyInst, vm::VMState)::Bool
         updatesfar!(vm)
         return false
     end
+    vm.i += 1
+    if any.n == 1
+        vm.s = nextind(vm.subject, vm.s)
+        return true
+    end
     idx = vm.s
     for i in any.n:-1:1
         idx = nextind(vm.subject, idx)
@@ -327,7 +332,6 @@ function onInst(any::AnyInst, vm::VMState)::Bool
         end
     end
     vm.s = idx
-    vm.i += 1
     return true
 end
 
@@ -362,9 +366,9 @@ function onInst(inst::NotCharInst, vm::VMState)::Bool
     if match
         updatesfar!(vm)
         return false
-    else
+    else  # predicate, doesn't advance subject pointer
         vm.i += 1
-        return true  # Not an unwinding fail
+        return true
     end
 end
 
