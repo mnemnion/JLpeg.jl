@@ -1,5 +1,9 @@
 # JLpeg: Pattern Matching and Parsing For Julia
 
+[![Stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://mnemnion.github.io/JLpeg.jl/stable/)
+[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://mnemnion.github.io/JLpeg.jl/dev/)
+[![Build Status](https://github.com/mnemnion/JLpeg.jl/actions/workflows/CI.yml/badge.svg?branch=trunk)](https://github.com/mnemnion/JLpeg.jl/actions/workflows/CI.yml?query=branch%3Atrunk)
+
 JLpeg provides a fast PEG engine for matching patterns in strings, using a bytecode
 virtual machine based on the pioneering work of [Roberto
 Ierusalimschy](https://www.inf.puc-rio.br/~roberto/docs/peg.pdf).
