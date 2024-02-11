@@ -29,6 +29,8 @@ makedocs(
 deploydocs(
     repo = "github.com/mnemnion/JLpeg.jl.git",
     branch="gh-pages",
+    devurl="dev",
+    versions=["stable" => "v^", "v#.#"],
 )
 
 # Documenter can also automatically deploy documentation to gh-pages.
