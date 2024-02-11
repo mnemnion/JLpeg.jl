@@ -95,7 +95,7 @@ function Base.show(io::IO, ::MIME"text/plain", patt::PGrammar)
         end
         append!(line, frags)
         push!(line, label)
-        if inst.op == ICall
+        if !(inst isa InstructionVec) && inst.op == ICall
             loc = idx + inst.l
             if haskey(mapsite, loc)
                 push!(line, " →")
@@ -151,7 +151,12 @@ function inst_pieces(inst::CharInst, ::Integer)::Vector{String}
                  + (UInt32(inst.two) << 16)
                  + (UInt32(inst.three) << 8)
                  + inst.four)
-    push!(line, string(reinterpret(Char, ch)))
+    char = reinterpret(Char, ch)
+    if Int(char) ≤ 31
+        push!(line, repr(char))
+    else
+        push!(line, string(char))
+    end
     return line
 end
 

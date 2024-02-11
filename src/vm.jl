@@ -195,7 +195,7 @@ end
 "Push a CapFrame."
 function pushcap!(vm::VMState, inst::Instruction)
     if inst.op == ICloseCapture
-        top = last(vm.cap)
+        top = vm.cap[end]
         if top.inst.op == IOpenCapture
             @assert inst.tag == top.inst.tag "mismatched tags in capture push"
             vm.cap[end] = CapFrame(vm.s, FullCaptureInst(inst.kind, vm.s - top.s, inst.tag))
@@ -250,9 +250,9 @@ function failmatch!(vm::VMState)
         i, s, c, m, p = popframe!(vm)
         vm.s = s::UInt32
         vm.i = i
-        vm.inpred = p
         trimcap!(vm, c::UInt32)
         trimmark!(vm, m::UInt16)
+        vm.inpred = p
     end
 end
 
@@ -319,7 +319,7 @@ function onInst(any::AnyInst, vm::VMState)::Bool
         return false
     end
     vm.i += 1
-    if any.n == 1
+    if any.n === 0x0001
         vm.s = nextind(vm.subject, vm.s)
         return true
     end
@@ -539,7 +539,7 @@ function onInst(inst::LeadMultiInst, vm::VMState)::Bool
         return false
     end
     mask = vm.program[vm.i + 1]
-    # Must check for 0b11xxxxxx or false positives from malformed data
+    # Must check for 0b11xxxxxx or we'd get false positives from malformed data
     if (byte & 0xc0 == 0xc0) && @inbounds mask[(byte & 0b00111111) + UInt8(1)]
         vm.i += 2
         return true

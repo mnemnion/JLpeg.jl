@@ -496,15 +496,14 @@ function build(patt::PCall, code::IVector=Inst())::IVector
 end
 
 function build(patt::PBehind, code::IVector=Inst())::IVector
-    @assert length(patt.val) == 1 "too many patterns in PBehind"
-    len = fixedlen(patt[1])
+    len = fixedlen(only(patt))
     if len === false
        throw(PegError("in B(patt), patt must be of fixed length, not a $(typeof(patt.val[1]))"))
     elseif len == 0  # Return the pattern
-        return build(patt.val[1], code)
+        return build(only(patt), code)
     end
     push!(code, BehindInst(len))
-    code = build(patt[1], code)
+    code = build(only(patt), code)
     return code
 end
 
@@ -529,10 +528,9 @@ function build(patt::PSet, code::IVector=Inst())::IVector
 end
 
 function build(patt::PAnd, code::IVector=Inst())::IVector
-    @assert length(patt.val) == 1 "enclosing rule PAnd has more than one child"
     push!(code, HoldInst(IPredChoice))
     hold = length(code)
-    code = build(patt[1], code)
+    code = build(only(patt), code)
     l = length(code) - hold
     code[hold] = PredChoiceInst(l)
     push!(code, BackCommitInst(2), OpFail)
@@ -540,13 +538,12 @@ function build(patt::PAnd, code::IVector=Inst())::IVector
 end
 
 function build(patt::PNot, code::IVector=Inst())::IVector
-    @assert length(patt.val) == 1 "enclosing rule PNot has more than one child"
-    template = build(patt[1])
+    template = build(only(patt))
     # TODO We can remove captures from PNot patterns,
     # which never succeed (except match-time captures),
     # but this is unlikely to occur until we inline simple calls (which we should)
     #
-    # We can turn ASCII sets into INotSet, which can
+    # We turn ASCII sets into INotSet, which can
     # succeed against multibyte chars
     if length(template) == 3 && template[1].op == ISet
         push!(code, NotSetInst(template[1].l), template[2], template[3])
@@ -582,7 +579,7 @@ function build(patt::PStar, code::IVector=Inst())::IVector
     # bad things can happen when val is also a PStar, specifically
     # when the inner is optional, e.g. ("ab"?)*, so we check for this
     # and fix it when we need to.
-    p = patt[1]
+    p = only(patt)
     if typeof(p) == PStar && p.n ≤ 0
         if p.n ≤ -1 && (patt.n == 0 || patt.n == 1)
             # "As many optionals as you want, as long as you match one" aka P^0
@@ -667,13 +664,13 @@ function build(patt::PChoice, code::IVector=Inst())::IVector
 end
 
 function build(patt::PCapture, code::IVector=Inst())::IVector
-    # Special-case Cp()
-    if patt.kind == Cposition
-        full = FullCaptureInst(Cposition, 0, patt.tag)
+    # Special-case Cp() & Cc(...)
+    if patt.kind == Cposition || patt.kind == Cconst
+        full = FullCaptureInst(patt.kind, 0, patt.tag)
         push!(code, full)
         return code
     end
-    capture = build(patt[1])
+    capture = build(only(patt))
     # If patt[1] is fixedlen, and not a group, we use FullCaptureInst
     if patt.kind ≠ Cgroup
         len = fixedlen(patt[1])
