@@ -756,12 +756,38 @@ The main semantic change is one added instruction, the complexity is in handling
 captures.  A `WinCommitInst` first does an ordinary Commit, popping its own choice
 frame, but before it jumps to the label, it updates the new top frame `.ts` and
 `.tc`, and uses a second label to update `.ti` as well (this will include marks and
-left recursion once those are added). We've accepted a 16-byte instruction width as
-standard when we indulge in [Optimizing the VM](#optimal-vm), this would be a nominal
-12 with mandatory padding, two labels and an opcode.
+left recursion, once those are added). LabelInst, which CommitInst is a member of,
+have a free 16 bit slot (and an 8 bit slot for that matter), and since this would be
+coded as an offset-to-the-offset, this is more than enough.  I can imagine JLpeg
+programs with a total length of more than 65536 instructions, but not one where a
+single update during a prefix-matched parse changes the offset by more than 32767 or
+-32786 instructions.
 
 That way, if the longer rule fails, it keeps the advanced subject pointer and cap
 stack, and just jumps where e.g. `seq` would have gone anyway.
+
+This will make peepholing interesting though, because we'll want to optimize the jump
+on a WinCommitInst based on where it sends the Choice it's paired with, which is
+surely deducible from the bytecode but not trivially.
+
+Question to answer: am I going to be able to guarantee that the choice frames are all
+adjacent to each other, with no intervening call frames?  That is definitely not a
+property which we have now.  But I think it falls out of the prefix matching.
+
+Consider: with `:alt, :seq, :element`, we currently push the `:alt` choice frame in
+`:expr`, then call `:alt`, push the `:seq` choice frame, call `:element`, and
+backtrack over those rules several times over if we don't get a "|".  With the prefix
+matching, we push `:alt, :seq, :element` choice frames, then jump to `:element`.
+`:element` failing has to fail all those, but if `:element` succeeds, we drop the
+call frame on `return`, drop the `:element` choice frame on WinCommit, which updates
+the `:seq` frame to point at the element-win condition. `:seq` has to fail twice,
+succeeding updates the `:alt` jump to point at the `:seq` win, and `:alt` succeeding
+is just an ordinary `:commit`, with the unconditional jump to an ordinary CloseCapture.
+
+If we can avoid intervening call frames (looks like it) we don't have to go looking
+for the choice frame we're modifying, it's in the register.  That would be ideal.
+
+#### Captures
 
 We need to be careful with captures though. In the above code, as currently
 implemented, failing to find a `S"|/"` will unwind the capture stack, dropping the
@@ -807,9 +833,28 @@ remind myself no, it's the same amount of work being done in a different order. 
 isn't the sort of thing I'd do if it wasn't useful, there are some weird bits, we
 still need the operation stac
 
-Cheap to code, for the VM, too. A WinCommit points the Choice at a new label, we just make that
-location our special CloseCapture (a `LidCaptureInst`, let's say). It has its own
-opcode and we can therefore include the final jump in the instruction.
+Cheap to code, for the VM, too. A WinCommit points the Choice at a new label, we just
+make that location our special CloseCapture (a `LidCaptureInst`, let's say). It has
+its own opcode and we can therefore include the final jump in the instruction.
 
 Clearly the Stay Winning optimization is going to be the last thing we add.  I'll
 want to benchmark it, for one thing.
+
+Another thought here: We have UInt16 worth of unused instruction space in
+CaptureInst, one larry, if you'll indulge my whimsy.  That allows for a special tag
+which opens a capture which can be closed in several ways: we use the larry to carry
+a second tag which is used to retrieve the action of closing.  This is promising I
+think, because we don't need special jump instructions to pseudo-close the captures.
+As an illustration, with `:seq, :alt, :element`, we open it with a unique tag, and
+use WinCommitInst as before to target unique captures, all of which close the open
+capture, but with differing larry-tags.  We can even rewrite this into a FullCapture
+if the open and close end up next to each other, just use the larry tag instead of the
+normal tag to write the full capture.  Yeah this is obviously the way to go, and one of
+the tags (it should be the longest) can be a normal close.  That only helps because it
+means we don't have to make up a virtual tag, instead using a different opcode for the
+CloseCaptureInsts where the larry-tag applies. A `TaggedCloseCaptureInst`.
+
+Can't really beat that, can we. No bloat on the capture stack at all, no significant
+changes to the capture algorithm, just adding a conditional branch for
+`TaggedCloseCaptureInst` and a different dispatch for the full-capture optimization when
+pussing a `TaggedCloseCaptureInst` onto the capstack.
