@@ -578,6 +578,11 @@ Also useful for e.g. iterating over a large XML or JSON file: deep recursion is
 unusual, but the structure means that any interruption before the final closing
 element would fail the match in an ordinary PEG parser.
 
+This is fairly easy to do: we're in a `while` loop, so just `break` on the instruction.
+Then check `vm.running`, if it's still true, follow the `onsuspend` codepath.
+
+Proposal is
+
 ### String generation
 
 This has been on the long-term plan for a long time, and debugging the MultiSets got
@@ -777,7 +782,7 @@ property which we have now.  But I think it falls out of the prefix matching.
 Consider: with `:alt, :seq, :element`, we currently push the `:alt` choice frame in
 `:expr`, then call `:alt`, push the `:seq` choice frame, call `:element`, and
 backtrack over those rules several times over if we don't get a "|".  With the prefix
-matching, we push `:alt, :seq, :element` choice frames, then jump to `:element`.
+matching, we push `:alt, :seq, :element` choice frames, then call to `:element`.
 `:element` failing has to fail all those, but if `:element` succeeds, we drop the
 call frame on `return`, drop the `:element` choice frame on WinCommit, which updates
 the `:seq` frame to point at the element-win condition. `:seq` has to fail twice,
@@ -858,3 +863,7 @@ Can't really beat that, can we. No bloat on the capture stack at all, no signifi
 changes to the capture algorithm, just adding a conditional branch for
 `TaggedCloseCaptureInst` and a different dispatch for the full-capture optimization when
 pussing a `TaggedCloseCaptureInst` onto the capstack.
+
+...This only works if the captures aren't nested, which they are more-or-less by
+definition.  There may be a few cases where this isn't true, but not enough to make
+it worth it.  Bugger all.  I suppose the original solution wasn't so bad...
