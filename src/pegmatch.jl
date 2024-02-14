@@ -36,6 +36,18 @@ function Base.getindex(m::PegCapture, i::PegKey)
     end
 end
 
+function Base.haskey(m::PegCapture, i::PegKey)
+    if i isa Integer
+        return 0 < i ≤ length(m.captures)
+    end
+    for cap ∈ m.captures
+        if cap isa Pair && cap.first == i
+            return true
+        end
+    end
+    return false
+end
+
 """
     PegMatch <: AbstractMatch
 
@@ -121,6 +133,9 @@ function _getidx(capture::PegCapture)
         end
     end
 end
+
+Base.haskey(m::PegMatch, i::PegKey) = haskey(m.captures, i)
+Bsae.haskey(m::PegCap, i::Any) = false
 
 """
     Base.keys(m::PegMatch)::Vector
