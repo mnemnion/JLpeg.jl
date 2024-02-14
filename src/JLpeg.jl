@@ -25,6 +25,7 @@ include("compile.jl")
 include("generator.jl")
 include("pegmatch.jl")
 include("vm.jl")
+include("matching.jl")
 include("printing.jl")
 include("grammar.jl")
 using JLpeg.GrammarMacros
