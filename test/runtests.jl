@@ -304,6 +304,16 @@ using InteractiveUtils
         @test collect(enumerate(mix)) == [(1, "a"), (2, "b"), (3, "c")]
         @test collect(pairs(mix)) == [1 => "a", :b => "b", 3 => "c"]
         @test collect(mix) == ["a", "b", "c"]
+        @test haskey(mix, :b) === true
+        @test haskey(mix, pmix) === false
+        @test haskey(mix, 2) === true
+        @test haskey(mix, 5) === false
+        mxcap = mix.captures
+        @test haskey(mxcap, :b) === true
+        @test haskey(mxcap, match) === false
+        @test haskey(mxcap, 0) === false
+        @test haskey(mxcap, 3) === true
+        @test haskey(mxcap, 2) === true
     end
     @testset "Throws" begin
         pthrow = P"123" * (P"abc" | T(:noletter))

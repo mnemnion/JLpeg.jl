@@ -135,7 +135,7 @@ function _getidx(capture::PegCapture)
 end
 
 Base.haskey(m::PegMatch, i::PegKey) = haskey(m.captures, i)
-Bsae.haskey(m::PegCap, i::Any) = false
+Base.haskey(m::PegCap, i::Any) = false
 
 """
     Base.keys(m::PegMatch)::Vector
