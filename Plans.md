@@ -84,6 +84,11 @@ The hitlist:
          but if `i` is the first or last character, one of them will be empty.
   - [ ]  Refactor color printing to use `printstyled`.
   - [X]  Highlight PegFail on a space with background red.
+  - [ ]  Add a tree-printer for patterns which shows _what_ they are.  This probably
+         relates to having a compiler which turns patterns into a canonical string form.
+         I wonder if I can find a good line-breaking algorithm for laying out complex
+         rules with acceptable quality. That would be nice, losing a month of my life
+         to implementing it from scratch, not so much.
 - [X]  "Modularize" the @grammar code so that users don't get unexpected results if they
        define, say, `compile!` (humorous example) and try to use it as a variable name.
 - [ ]  Documenter stuff
@@ -450,6 +455,12 @@ like a Trie, but where adding a rule as a choice applies the required comparison
 rules and maintains references into the original Pattern, prevents runaway recursion,
 and so on.
 
+Something else we want to figure out is if choices may be freely rearranged, or if
+not, which subset can be moved where.  I discuss some reasons to have this insight in
+the [Stay Winning](#stay-winning) docs.  This already arises in Choice optimization,
+because we don't need Choice/Commit pairs if all the headsets of a PChoice are disjoint,
+so it's a matter of generalizing that in the context of prefix matching.
+
 ### Relabeling Bytecode
 
 Status: this is almost entirely pointless. `OpNoOp` shows up almost entirely
@@ -581,7 +592,14 @@ element would fail the match in an ordinary PEG parser.
 This is fairly easy to do: we're in a `while` loop, so just `break` on the instruction.
 Then check `vm.running`, if it's still true, follow the `onsuspend` codepath.
 
-Proposal is
+We'll want two versions of yield: both return any captures in the pattern which
+triggers the action, but one of them copies the captures off the stack, and the other
+removes them. I'm thinking about yielding from a JSON parse when a particular rule is
+met: usually you'd want to leave the captures on the stack, otherwise you get a weird
+final result where anything you yielded is missing from the parse.
+
+Also, this does mean we need to return the VM itself, so it can be restarted if
+desired, and provide a way to do so.
 
 ### String generation
 
@@ -799,29 +817,16 @@ implemented, failing to find a `S"|/"` will unwind the capture stack, dropping t
 captured :seq, which is what we want to avoid.  So it isn't legal to update the
 `:alt` choice frame with a new capture height, because that will strand an opencapture.
 
-[CaptureCommits](#capturecommitinst) don't help here, because they add a frame to the
-capture height.
+[CaptureCommits](#capturecommitinst) don't help here, because they still add a frame
+to the capture height.
 
-But, we could add a special kind of fail instruction. Every failable pattern comes
-with a test form, the fail could have the tag of the capture to slip out of the stack
-during unwind.  I don't like this on first glance: it complicates unwinding, not
-necessarily making it slower, but now we have two ways to change the `lcap`, not one,
-and the height of the capture frame is stored in any choice frame, so we'd have to
-reason fairly carefully about whether and how this is legal. Intuitively it's
-acceptable, because it doesn't change any values below the one we're removing.  This
-would also complicate coding of differentiating patterns, which can include lookahead.
-
-I earlier had notes about leaving a stranded frame and marking that as a possibility,
-but that would just end up being backtracking with extra steps, or allocation of
-spurious vectors which have to be spilled.
-
-What should work better: a special closing instruction telling us not to include the
-grouping thus established. That lets us process in linear time, and we retain the
+So we add a special CloseCapture instruction telling us not to include the grouping
+thus established. That lets us process in linear time, and we retain the
 nested-capture property.
 
 I think this ends up being pretty cheap in practice. We open a group, a lot of the
 time it's empty, the rest of the time we just append it to the existing group.  We
-can even have a spare-parts stack to stick the emptied Vector for a later group
+can even have a spare-parts stack to stick the emptied PegCapture for a later group
 capture, that spares some of the allocation pressure, and it's not even branching:
 it's just `cap = pop!(groupstack); append!(captures, cap); empty!(cap); push!(cap,
 groupbuffer)`.  That's gotta be cheaper than backtracking, especially with some of
@@ -832,15 +837,24 @@ Or even better: we simply create the captures on their own Vector, then slice it
 at the end. We end up with one stack of data, and another stack of Tuples with index
 references into the data and what to do with it. For fake groups the answer is
 nothing. No extra group stack either, we push open captures as a tuple of the capture
-and its index into the group vector, and when we get a fake close, we can O(1)
- replace it with a sentinel value. Two passes always sounds like more work, I have to
-remind myself no, it's the same amount of work being done in a different order. It
-isn't the sort of thing I'd do if it wasn't useful, there are some weird bits, we
-still need the operation stac
+and its index into the group stack, and when we get a fake close, we can O(1) replace
+it with a sentinel value.  Then when we've processed all captures, we iterate the
+tuples and carve up the string.
 
-Cheap to code, for the VM, too. A WinCommit points the Choice at a new label, we just
-make that location our special CloseCapture (a `LidCaptureInst`, let's say). It has
-its own opcode and we can therefore include the final jump in the instruction.
+This is somewhat more allocation and overhead, but with LidCaptures, it's essential.
+It isn't the sort of thing I'd do if it wasn't useful, but if it lets us do
+prefix-matching without backtracking, worth it.  Also a nice architecture for adding
+annotating-captures once StyledStrings are broadly available, because it separates
+the logic of arranging captures from the logic of creating the actual PegMatch,
+letting us plug in a different function which instead creates an annotated string.
+Given both of those things, I count the extra overhead to be worthwhile.  The current
+code also makes PegCaptures and throws them away sometimes, a condition we can detect
+and prevent by separating the organizing and building phases of capturing.
+
+This approach is cheap to code for the VM as well. A WinCommit points the Choice at a
+new label, we just make that location our special CloseCapture (a `LidCaptureInst`,
+let's say). It has its own opcode and we can therefore include the final jump in the
+instruction.
 
 Clearly the Stay Winning optimization is going to be the last thing we add.  I'll
 want to benchmark it, for one thing.
@@ -864,6 +878,65 @@ changes to the capture algorithm, just adding a conditional branch for
 `TaggedCloseCaptureInst` and a different dispatch for the full-capture optimization when
 pussing a `TaggedCloseCaptureInst` onto the capstack.
 
-...This only works if the captures aren't nested, which they are more-or-less by
-definition.  There may be a few cases where this isn't true, but not enough to make
-it worth it.  Bugger all.  I suppose the original solution wasn't so bad...
+However, this only works if the captures aren't nested, which they often will be.
+So this is a supplement, not a replacement, for the LidCommit.
+
+I already have a case where prefix-matching could use the "larry tagged" pattern, the
+code I added to `re` which makes it dog slow: this tries to match every possible
+action suffix, so it can wrap them in a distinct group for easier code
+transformation.  This is also an example of where the absence of Stay Winning makes
+the code do so much backtracking that I expect I'll just accept the slightly more
+awkward parse tree, at least until I implement this whole feature.
+
+It currently looks like this:
+
+```julia
+    :action       ←  :fncall | :test | :throw | :fast_fwd
+
+    :fncall       ⟷  :suffix * ("|>" | "<|") * :S * (:name,)
+    :test         ⟷  :suffix * "|?" * :S * (:name,)
+    :throw        ⟷  :suffix * "%" * :S * (:name,)
+    :fast_fwd     ⟷  [:suffix, :first] * ">>" * :S * :expr
+```
+
+Where `⟷` is the shorthand for "match rule, make group with rule's name".
+
+So clearly, `:action` could start a group capture which could be matched by any of
+the choices.  They're mutually-exclusive, so this pattern would work.  `:fast_fwd`
+needs a lid.  While pushing a LidCapture should obviously delete the pair if the
+brace is on the top of the stack, `:suffix` has captures, so that wouldn't apply here
+(and in fact I expect that situation to be rare, given the very nature of the
+prefix-matching optimization).  So the idea isn't completely insane, in fact I think
+we strongly prefer to have it.  The lids could delete some of the captures, but how
+much extra cruft was on the capture stack would depend on which of these rules ended
+up matching, which isn't great.
+
+Without larry-tagging, this has to push five(!) captures, at most two of which are
+real, so that's between six and eight capture stack frames which are just clogging up
+the flow.  This is exactly the kind of grammar we're trying to allow while recovering
+performance, because it could easily just match suffix and check for the tail pattern,
+except that gives an undesired parse tree.  It turns out that the mutually-exclusive
+case of interactions between prefix matching and captures does occur "in the wild".
+
+To really get optimal performance for the grammar as-written, we need to recognize
+that all four rules can in fact be tried in any order, because the suffix is
+disjoint.  The whole point of this is to not burden the grammar writing with a need
+to understand the execution of the grammar in that level of detail.  Anyway, since we
+can move the `:fast_fwd` rule to the front, we should, so that we only have to handle
+putting a lid on it within the first rule. After that, we only have to use a larry-tagged
+close rule to complete the capture which applies across all of them.
+
+It's a pretty extensive rewrite though. One way to do it is to convert `">>"` into
+`(~">>" * Close() * 2) | Lid() * WinCommit() ...`.  Though given the mandatory
+rewrite of captures to allow the Lid thing to work at all, we might be free to use
+the CaptureCommit optimzation with Cgroup after all, in which case we don't need an
+OpenCapture frame for `:first` at all. Still involves converting the "pivot" into
+lookahead either way.
+
+My instinct at the moment is that having groups CaptureCommits, which introduces
+backtracking (and not just index-and-mutate) into the capture-grouping stage, won't
+pay off.  We'd need some heuristic for when the nesting is shallow enough to be worth
+it, and it's surely a losing proposition to rely exclusively on group CaptureCommits
+instead of having lids.  It's clearly better to use larry-tagging over lids when
+that's possible, but I don't think we'd squeeze many cycles out of having yet another
+way to handle it.
