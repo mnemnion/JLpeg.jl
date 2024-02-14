@@ -70,8 +70,8 @@ character.  `s` must be two codepoints long, and the first must be lower-valued 
 the second.  Both must be valid UTF-8.
 """
 function R(str::AbstractString)
-    if length(str) > 2
-        throw(PegError("Range must be two characters: $char"))
+    if length(str) ≠ 2
+        throw(PegError("Range must be two characters: '$str'"))
     end
     a, b = first(str), str[nextind(str, 1)]
 
@@ -485,10 +485,10 @@ inv(a::Any) = Base.inv(a)
 # Conversions
 |(a::PSet, b::PSet)            = PSet(a.val ∪ b.val)
 |(a::PSet, b::PSet, c::Any...) = |(PSet(a.val ∪ b.val), c...)
-|(a::PChar, b::PSet)            = PSet(b.val ∪ a.val)
-|(a::PChar, b::PSet, c::Any...) = |(PSet(b.val ∪ a.val), c...)
-|(a::PSet, b::PChar)            = PSet(a.val ∪ b.val)
-|(a::PSet, b::PChar, c::Any...) = |(PSet(a.val ∪ b.val), c...)
+|(a::PChar, b::PSet)            = PSet(push!(copy(b.val), a.val))
+|(a::PChar, b::PSet, c::Any...) = |(a | b, c...)
+|(a::PSet, b::PChar)            = PSet(push!(copy(a.val), b.val))
+|(a::PSet, b::PChar, c::Any...) = |(a | b, c...)
 
 -(a::Pattern, b::Pattern)        = PDiff(a, b)
 # Sets we can optimize
