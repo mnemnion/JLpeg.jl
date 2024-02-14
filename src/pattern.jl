@@ -1,48 +1,5 @@
 # Patterns for JLpeg parser engine
 
-
-"A kind of capture"
-@enum CapKind::UInt8 begin
-    Csimple     # [✅] Captures a substring of the region matched
-    Csymbol     # [✅] Captures its match as a pair `:symbol => "match"` (:symbol can be a string)
-    Cgroup      # [✅] Groups all its captures into a Vector.
-    Cposition   # [✅] Captures the empty string to record an offset
-    Cconst      # [✅] Captures provided constants into the capture vector
-    Crange      # [✅] Captures a UnitRange [first:last] of region
-    Caction     # [✅] An action taken on a successful match.
-    Ctest       # [✅] A runtime test of the captured substring
-    Cvm         # [✅] A runtime test receiving the full VMState
-end
-
-const CapKindDocs = Dict(
-    Csimple =>      "Captures a substring of the region matched",
-    Csymbol =>      "Captures its match as a pair `:symbol => \"match\"` (:symbol can be a string)",
-    Cgroup =>       "Groups all its captures into a Vector.",
-    Cposition =>    "Captures the empty string to record an offset",
-    Cconst =>       "Captures provided constants into the capture vector",
-    Crange =>       "Captures a UnitRange [first:last] of region",
-    Caction =>      "An action taken on a successful match.",
-    Ctest =>        "A runtime test of the captured substring",
-    Cvm =>          "A runtime test receiving the full VMState",
-)
-
-Docs.getdoc(ck::CapKind) = CapKindDocs[ck]
-
-"A Vector of `Instruction`s representing a complete pattern."
-const IVector = Vector{Instruction}
-
-"A Vector of `Pattern`s."
-
-const PVector = Vector{Pattern}
-
-"""
-    AuxDict = Dict{Symbol, Any}
-
-The `.aux` field of any compound `Pattern`, contains the auxiliary data
-needed to correctly compile the pattern.
-"""
-const AuxDict = Dict{Symbol, Any}
-
 function Inst()
     IVector(undef, 0)
 end
@@ -164,6 +121,7 @@ struct PCall <: Pattern
     aux::AuxDict
     ref::Pattern
 end
+
 """
 PCall(patt::POpenCall, ref::Pattern)
 
@@ -202,7 +160,6 @@ function PGrammar(start::PRule, rest::Vararg{PRule})
     append!(val, rest)
     PGrammar(val, Inst(), start_sym, Dict())
 end
-
 
 """
 Global count of capture pattern tags.
