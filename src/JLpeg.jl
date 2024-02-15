@@ -1,6 +1,7 @@
 
 module JLpeg
 
+using Markdown
 using BitPermutations
 using OrderedCollections
 using InteractiveUtils

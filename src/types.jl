@@ -101,15 +101,15 @@ end
 
 "A kind of capture"
 @enum CapKind::UInt8 begin
-    Csimple     # [✅] Captures a substring of the region matched
-    Csymbol     # [✅] Captures its match as a pair `:symbol => "match"` (:symbol can be a string)
-    Cgroup      # [✅] Groups all its captures into a Vector.
-    Cposition   # [✅] Captures the empty string to record an offset
-    Cconst      # [✅] Captures provided constants into the capture vector
-    Crange      # [✅] Captures a UnitRange [first:last] of region
-    Caction     # [✅] An action taken on a successful match.
-    Ctest       # [✅] A runtime test of the captured substring
-    Cvm         # [✅] A runtime test receiving the full VMState
+    Csimple     # Captures a substring of the region matched
+    Csymbol     # Captures its match as a pair `:symbol => "match"` (:symbol can be a string)
+    Cgroup      # Groups all its captures into a Vector.
+    Cposition   # Captures the empty string to record an offset
+    Cconst      # Adds provided constants to the capture vector
+    Crange      # Captures a UnitRange [first:last] of region
+    Caction     # An action taken on a successful match.
+    Ctest       # A runtime test of the captured substring
+    Cvm         # A runtime test receiving the full VMState
 end
 
 const CapKindDocs = Dict(
@@ -124,4 +124,44 @@ const CapKindDocs = Dict(
     Cvm =>          "A runtime test receiving the full VMState",
 )
 
-Docs.getdoc(ck::CapKind) = CapKindDocs[ck]
+Docs.getdoc(ck::CapKind) = Markdown.parse(CapKindDocs[ck])
+
+const InstructionDocs = Dict(
+    IIllegal =>    "To catch problems with erroneously reinterpreting vector sets.",
+    IAny =>        "Match any n characters, or fail.",
+    IChar =>       "Match one UTF-8 character, or fail.",
+    ISet =>        "Match ASCII character in set, and jump to `.l`, Non-failing.",
+    IByte =>       "Match the next byte at vm.s, or fail.",
+    IMultiVec =>   "Match a set of end bytes of multibyte char and jump to `.l`, or fail.",
+    ILeadMulti =>  "Match valid first bytes in a UTF-8 set. Non-failing.",
+    ITestAny =>    "Match any n characters, or jump to `.l`",
+    ITestChar =>   "Match one UTF-8 character, or jump to `.l`",
+    ITestSet =>    "Match a Bitvector-encoded set of ASCII characters, or jump to `.l`.",
+    INotSet =>     "Fails if a characterm matches the ASCII set. Doesn't advance `s`.",
+    INotChar =>    "Match if one UTF-8 char does not match, or fail.",
+    IBehind =>     "Walk back 'n' characters, fail if this is not possible.",
+    IReturn =>     "Return from a rule.",
+    IEnd =>        "End of pattern.",
+    IChoice =>     "Stack a choice; next fail will jump to `.l`.",
+    IPredChoice => "Stack a choice and set predicate flag to `true`.",
+    IJump =>       "Jump to `.l`.",
+    ICall =>       "Stack a call frame and call rule at `.l`.",
+    ICommit =>     "Pop stack frame and jump to `.l`.",
+    IPartialCommit => "Update top choice to current position and jump.",
+    IBackCommit => "Backtrack like 'fail' but jump to its own `.l`.",
+    IFailTwice =>  "Pop one choice and then fail.",
+    IFail =>       "Unwind stacks to last choice frame and jump to saved offset.",
+    IFullCapture => "Complete capture of last `.n` chars.",
+    IOpenCapture => "Start a capture.",
+    ICloseCapture => "Close a capture.",
+    ICloseRunTime => "Close a runtime action.",
+    IThrow =>      "Fails with a given label.",
+    IThrowRec =>   "Fails with a given label and call rule at `.l`.",
+    IOpenMark =>   "Begin a marked region.",
+    ICloseMark =>  "Close a marked region.",
+    ICheckMark =>  "Close a marked region and check it against rule `.tag`.",
+    INoOp =>       "To fill empty slots left by optimizations.",
+    IOpenCall =>   "Call rule number 'key' (must be closed to a ICall).",
+)
+
+Docs.getdoc(op::Opcode) = Markdown.parse(InstructionDocs[op])
