@@ -163,7 +163,7 @@ end
 
 @inline
 "Height of the capture stack."
-function lcap(vm::VMState)::UInt16
+function lcap(vm::VMState)::UInt32
     return length(vm.cap)
 end
 
