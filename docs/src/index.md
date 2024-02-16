@@ -360,14 +360,14 @@ which we will describe in some detail in this section.
 
 | [✅]  | Action               | Consequence                                       |
 |------|-----------------------|:--------------------------------------------------|
-| [✅] | `A(patt, λ)`,         | captures the return value of `λ`, as applied      |
+| [✅] | `A(patt, λ)`,         | Captures the return value of `λ`, as applied      |
 | [✅] | `patt <\| λ`          | to the captures in `patt`                         |
-| [✅] | `Q(patt, λ)`          | tests the substring of `patt` with `λ(str)::Bool` |
-| [✅] | `Avm!(patt, λ)`       | if `patt` matches, calls `λ(vm)::Bool`            |
+| [✅] | `Q(patt, λ)`          | Tests the substring of `patt` with `λ(str)::Bool` |
+| [✅] | `Avm!(patt, λ)`       | If `patt` matches, calls `λ(vm)::Bool`            |
 | [✅] | `M(patt, :label)`     | `M`ark a the region of `patt` for later reference |
-| [✅️] | `K(patt, :label, op)` | chec`K` `patt` against the last mark with `op`    |
-| [✅] | `T(:label)`,          | fail the match and throw `:label`                 |
-| [✅] | `patt % :label`       | shorthand for `patt \| T(:label)`                 |
+| [✅️] | `K(patt, :label, op)` | Chec`K` `patt` against the last mark with `op`    |
+| [✅] | `T(:label)`,          | Fail the match and throw `:label`                 |
+| [✅] | `patt % :label`       | Shorthand for `patt \| T(:label)`                 |
 
 The use of `<|` is meant to be mnemonic of [`|>`](@extref
 `Function-composition-and-piping`) for ordinary piping (and shares its
@@ -379,7 +379,9 @@ or if `patt` contains captures, it receives those captures as a [`Vararg`](@extr
 `Core.Vararg`), and the return value is inserted into the capture vector, without
 splatting.  In the current implementation this only happens after a match is
 completed, but future releases may choose to evaluate some captures earlier.
-Accordingly, `λ` passed to `A` should be free of side effects.
+Accordingly, `λ` passed to `A` should be free of side effects.  To stress a point,
+`A` already has group-capture semantics, so in patterns like `[patt] <| λ`, `λ` will
+receive a `PegCapture`, not the contents of `[patt]`.
 
 `Q`, a "query" action, happens during the match, as soon as `patt` is matched.  It
 receives the region matched by `patt` as a SubString, and must return a `Bool`, which
@@ -516,7 +518,8 @@ under comparison have already been verified with patterns, so they aren't unknow
 Two, both Julia and JLpeg allow invalid UTF-8 in string types, and while the behavior
 of `length` on invalid UTF-8 is defined, it's borderline useless in this context.
 Three, it would be treated as grapheme length, which it emphatically is not, creating
-code which works sometimes but not consistently.
+code which works sometimes but not consistently.  If you need a length comparison on
+graphemes,
 
 Bespoke comparisons based on some other standard may always be employed as
 user-provided check functions.
@@ -572,7 +575,9 @@ match(longstr, "[==[the equals must balance]=]")
 Lua's long strings are a nice bit of syntax, because they have the enclosure
 property: it is always possible to wrap a literal string as a program string, without
 modifying the string itself, because the equals signs in e.g. `[===[` must be matched
-with `]===]`.  I wish Julia had a string syntax which functions the same way.
+with `]===]`.  I wish Julia had a [string
+syntax](https://github.com/JuliaLang/julia/discussions/53171) which functions the
+same way.
 
 We see that the `:body` rule contains `(!:close * 1)^0`, a pattern which experienced
 PEG users will recognize as matching zero or more characters, so long as the
