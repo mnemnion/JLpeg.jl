@@ -1,5 +1,6 @@
 using BenchmarkTools
 using JLpeg
+import JLpeg.Combinators: *, -, %, |, ^, ~, !, >>, >:, inv
 
 kjv = read("kingjames.txt", String)
 
