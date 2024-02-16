@@ -240,19 +240,19 @@ in context.
 To give an example, this rule:
 
 ```julia
-@rule :a ← "foo" *  [S"123" | "abc"^0]^1
+@rule :a ← "foo" *  [S"123" | "abc"^1]^1
 ```
 
 Is equivalent to this expression:
 
 ```julia
-a = :a ← P("foo") * Cg(S("123") | P("abc")^0)^1
+a = :a ← P("foo") * Cg(S("123") | P("abc")^1)^1
 ```
 
 Although the definitions of the operators and string macros would allow this reduction:
 
 ```julia
-a = :a ← P"foo" * Cg(S"123" | "abc"^0)^1
+a = :a ← P"foo" * Cg(S"123" | P"abc"^1)^1
 ```
 
 Which is a bit less cumbersome (we try).  Note that the `@rule` form doesn't require
@@ -291,6 +291,15 @@ The `@grammar` macro doesn't define variable names for the rules, only the gramm
 name given before the expression block.  The first rule is always the start rule.  As
 the example shows, it doesn't necessarily match the variable name, although of course
 it may.
+
+### @constgrammar and @construle
+
+It's better style, and good for performance, to define global variables as
+[`const`](@extref `const`).  Julia's macro system currently [doesn't
+offer](https://github.com/JuliaLang/julia/issues/34168) a way to determine what scope
+a macro is executing in, so for use in the global scope, JLpeg has the macros
+[`@constgrammar`](@ref) and [`@construle`](@ref), which differ from their cousins
+only in declaring the variable to be constant.
 
 ## Captures
 

@@ -86,6 +86,8 @@ JLpeg.Grammar
 JLpeg.Rule
 JLpeg.@rule
 JLpeg.@grammar
+JLpeg.@construle
+JLpeg.@constgrammar
 ```
 
 ## Dialects

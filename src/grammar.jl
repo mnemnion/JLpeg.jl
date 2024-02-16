@@ -1,7 +1,7 @@
 # Grammar macro module
 module GrammarMacros
 
-export @grammar, @rule
+export @grammar, @rule, @construle, @constgrammar
 
 using ..JLpeg
 import ..JLpeg: ε, ∅
@@ -72,6 +72,31 @@ function wrap_rule(expr::Expr)::Expr
     end
 end
 
+function grammar_builder(name, expr)
+    @capture(expr, begin
+        rules__
+    end)
+    local rs = [wrap_rule(rule) for rule ∈ rules]
+    :($(esc(name)) = Grammar($(rs...)))
+end
+
+function rule_builder(expr::Expr)
+    if @capture(expr, (sym_ ← rulebody_)
+                    | (sym_ ⟷ rulebody_)
+                    | (sym_ <--> rulebody_)
+                    | (sym_ ↔︎ rulebody_)
+                    | (sym_ <-- rulebody_))
+        local r = wrap_rule(expr)
+        if sym isa QuoteNode
+            local name = sym.value
+            return :($(esc(name)) = $r)
+        else
+            error("Illegal rule name (must be :symbol): $sym")
+        end
+    else
+        error("malformed rule in $(expr)")
+    end
+end
 
 """
     @grammar(name, rules)
@@ -117,11 +142,17 @@ PegMatch(["ABC", "123"])
 More extensive examples may be found in the documentation.
 """
 macro grammar(name, expr)
-    @capture(expr, begin
-        rules__
-    end)
-    local rs = [wrap_rule(rule) for rule ∈ rules]
-    :($(esc(name)) = Grammar($(rs...)))
+    grammar_builder(name, expr)
+end
+
+"""
+    @constgrammar name, rules
+
+Identical to [`@grammar`](@ref), but assigns the result to a
+constant.  This is only valid in global scope.
+"""
+macro constgrammar(name, expr)
+    return Expr(:const, grammar_builder(name, expr))
 end
 
 """
@@ -139,21 +170,18 @@ name = @rule :name  ←  "foo" | "bar"
 In terms of scope and variable escaping, `@rule` functions identically to `@grammar`.
 """
 macro rule(expr::Expr)
-    if @capture(expr, (sym_ ← rulebody_)
-                    | (sym_ ⟷ rulebody_)
-                    | (sym_ <--> rulebody_)
-                    | (sym_ ↔︎ rulebody_)
-                    | (sym_ <-- rulebody_))
-        local r = wrap_rule(expr)
-        if sym isa QuoteNode
-            local name = sym.value
-            return :($(esc(name)) = $r)
-        else
-            error("Illegal rule name (must be :symbol): $sym")
-        end
-    else
-        error("malformed rule in $(expr)")
-    end
+    return rule_builder(expr)
+end
+
+"""
+    @construle :name ← pattern...
+
+Identical to [`@rule`](@ref), but assigns the rule to a constant
+variable.  Only legal in the top scope.
+"""
+macro construle(expr::Expr)
+    rule_expr = rule_builder(expr)
+    return Expr(:const, rule_expr)
 end
 
 macro rule(expr::Expr, erest::Expr...)
