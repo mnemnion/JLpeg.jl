@@ -341,7 +341,7 @@ Returned on a failure to `match(patt:Pattern, subject::AbstractString)`.
 """
 struct PegFail
     subject:: String
-    errpos::UInt32
+    errpos::Int
     label::Symbol
 end
 

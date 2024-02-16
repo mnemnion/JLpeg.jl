@@ -294,6 +294,24 @@ function runvm!(vm::VMState)::Bool
     vm.matched
 end
 
+"""
+    runvmcount!(vm::VMState)::Tuple{Int,Bool}
+
+Run the VM while counting the number of instructions taken.
+"""
+function runvmcount!(vm::VMState)::Tuple{Int,Bool}
+    count = 0
+    vm.running = true
+    while vm.running
+        count += 1
+        inst::Instruction = @inbounds vm.program[vm.i]
+        if !onInst(inst, vm)::Bool
+            failmatch!(vm)
+        end
+    end
+    return count, vm.matched
+end
+
 
 """
     onInst(inst::Instruction, vm::VMState)::Bool

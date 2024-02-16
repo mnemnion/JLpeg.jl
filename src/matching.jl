@@ -173,6 +173,22 @@ function Base.match(patt::Pattern, subject::AbstractString, start::Integer)::Uni
 end
 
 """
+    matchandcount(patt::Pattern, subject::AbstractString)
+
+Counts the number of instruction cycles used to run the pattern program, returning it
+as a tuple `(count, result)`, where result is a `PegMatch` or a `PegFail`.
+
+This uses a slower dispatch engine, potentially much slower at some point, as it is
+intended to diagnose problems.  The existence of this function imposes no performance
+burden on ordinary `match`.
+"""
+function matchandcount(patt::Pattern, subject::AbstractString)
+    vm = VMState(patt, subject)
+    count, didmatch = runvmcount!(vm)
+    didmatch ? (count, aftermatch(vm)) : (count, afterfail(vm))
+end
+
+"""
     findfirst(patt::Pattern, string::AbstractString)::Union{Integer, Nothing}
 
 Find the first match of `patt` in `string`. Returns the index at the *end* of the match,

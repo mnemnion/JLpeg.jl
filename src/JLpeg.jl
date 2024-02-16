@@ -13,7 +13,7 @@ import FoldingTrees: TreeMenu, Node
 export P, S, R, B, U8, C, Cg, Cp, Cc, Cr, A, Q, Avm!, T, M, K, CM, CK, Rule, Grammar, Pattern
 export <--, ←, ¬, <|, <-->, ⟷, ↔
 export PegMatch, PegCapture, PegFail, PegError
-export match, compile!, generate
+export match, compile!, generate, matchandcount
 export @P_str, @R_str, @S_str, @grammar, @rule, @construle, @constgrammar
 export re
 
