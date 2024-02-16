@@ -352,15 +352,15 @@ using InteractiveUtils
         @test match(re, "a <- '123'^[1:3] |? run_action") isa PegMatch
         @test match(re, "a <- '123' * ('4'+, :fours)") isa PegMatch
 
-        lpegre = """
+        lpegre = """    # Expresses the grammar of LPeg `re` in JLpeg re syntax
         pattern         <- exp !.
         exp             <- S (grammar | alternative)
 
         alternative     <- seq ('/' S seq)*
         seq             <- prefix*
         prefix          <- '&' S prefix / '!' S prefix / suffix
-        suffix          <- primary S (([+*?]
-                                    / '^' [+-]? num
+        suffix          <- primary S (({+*?}
+                                    / '^' {+-}? num
                                     / '->' S (string / '{}' / name)
                                     / '>>' S name
                                     / '=>' S name) S)*
@@ -381,16 +381,16 @@ using InteractiveUtils
 
         class           <- '[' '^'? item (!']' item)* ']'
         item            <- defined / range / .
-        range           <- . '-' [^]]
+        range           <- . '-' {^]}
 
-        S               <- (%s / '--' [^%nl]*)*   # spaces and comments
-        name            <- [A-Za-z_][A-Za-z0-9_]*
+        S               <- ({ \t\n\v} / '--' {^%nl}*)*   # spaces and comments
+        name            <- (<A-Za-z> / '_') (<A-Za-z0-9> / '_')*
         arrow           <- '<-'
-        num             <- [0-9]+
-        string          <- '"' [^"]* '"' / "'" [^']* "'"
+        num             <- <0-9>+
+        string          <- '"' {^"}* '"' / "'" {^'}* "'"
         defined         <- '%' name
         """
-        @test_skip match(re, lpegre) isa PegMatch
+        @test match(re, lpegre) isa PegMatch
     end
     @testset "MultiSet refactor tests" begin
         emojiascii = (S"😀😆😂🥲" | S"abcd")^1 * !P(1)

@@ -7,7 +7,7 @@ The first dialect, intended, among other things, as a useful
 bootstrap of other dialects.
 """
 @grammar re begin
-    :re           ←  (:grammar | :pattern) * !1
+    :re           ←  :S * (:grammar | :pattern) * !1
     :pattern     ⟷  :expr
     :grammar     ⟷  :rule^1
     :rule        ⟷  (:name, :rulename) * :S * :arrow * :S * [:expr] * :S
@@ -15,7 +15,7 @@ bootstrap of other dialects.
     :alt         ⟷  (:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1
     :seq         ⟷  :element * (:S * :element * :S)^1
 
-    :element      ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :action | :suffix
+    :element      ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :suffix  * !(:act_next) | :action
     :suffix       ←  (([:primary * :S * ( (S"+*?", :kleene)
                                          | "^" * ((S"+-"^-1,) * (:number,), :rep)
                                          | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange]) * :S])
@@ -28,6 +28,7 @@ bootstrap of other dialects.
     :throw        ⟷  :suffix * "%" * :S * (:name,)
     :fast_fwd     ⟷  [:suffix, :first] * ">>" * :S * :expr
 
+    :act_next     ←  "|>" | "<|" | "|?" | "%" | ">>"
 
     :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :range
                       | ["[" * :expr * ","^-1 * :S * (":" * (:name, :groupname))^-1 * :S * "]", :groupcapture]
