@@ -35,7 +35,7 @@ function aftermatch(vm::VMState, start::Integer=1)::PegMatch
         cap = vm.cap[i]
         if cap.inst.op == IOpenCapture
             push!(capstack, cap)
-            if cap.inst.kind == Cgroup
+            if cap.inst.kind == Cgroup || cap.inst.kind == Caction
                 # Push our current captures onto the group stack
                 push!(groupstack, captures)
                 captures = PegCapture()
@@ -47,7 +47,7 @@ function aftermatch(vm::VMState, start::Integer=1)::PegMatch
             # The only distinct value of bcap we use is .s,
             # Which we calculate thus:
             bcap = CapFrame(cap.s - cap.inst.n, cap.inst)
-            if cap.inst.kind == Cgroup # We'll need a cap vector
+            if cap.inst.kind == Cgroup || cap.inst.kind == Caction # We'll need a cap vector
                 push!(groupstack, captures)
                 captures = PegCapture()
             end
