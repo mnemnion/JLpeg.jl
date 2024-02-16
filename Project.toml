@@ -21,6 +21,7 @@ UnitRangesSortedSets = "72c04766-89e7-4306-a268-94416c2640a0"
 
 [compat]
 julia = "1.7"
+UnitRangesSortedSets = "0.1.2"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
