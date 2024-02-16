@@ -145,8 +145,12 @@ macro rule(expr::Expr)
                     | (sym_ ↔︎ rulebody_)
                     | (sym_ <-- rulebody_))
         local r = wrap_rule(expr)
-        local name = sym.value
-        :($(esc(name)) = $r)
+        if sym isa QuoteNode
+            local name = sym.value
+            return :($(esc(name)) = $r)
+        else
+            error("Illegal rule name (must be :symbol): $sym")
+        end
     else
         error("malformed rule in $(expr)")
     end
