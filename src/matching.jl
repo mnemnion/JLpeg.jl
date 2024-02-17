@@ -173,19 +173,18 @@ function Base.match(patt::Pattern, subject::AbstractString, start::Integer)::Uni
 end
 
 """
-    matchandcount(patt::Pattern, subject::AbstractString)
+    matchreport(patt::Pattern, subject::AbstractString)
 
-Counts the number of instruction cycles used to run the pattern program, returning it
-as a tuple `(count, result)`, where result is a `PegMatch` or a `PegFail`.
+Matches `patt` against `subject` using a fully-instrumented VM. This keeps a
+running count of instructions, amount of backtracking, and the number of times
+any given byte in the string is visited.
 
-This uses a slower dispatch engine, potentially much slower at some point, as it is
-intended to diagnose problems.  The existence of this function imposes no performance
-burden on ordinary `match`.
+To state the obvious, this is not intended to be fast at all, it's provided as
+a tool for diagnosing performance bottlenecks in a pattern.
 """
-function matchandcount(patt::Pattern, subject::AbstractString)
+function matchreport(patt::Pattern, subject::AbstractString)
     vm = VMState(patt, subject)
-    count, didmatch = runvmcount!(vm)
-    didmatch ? (count, aftermatch(vm)) : (count, afterfail(vm))
+    result = instrumentedrunvm!(vm)
 end
 
 """

@@ -295,21 +295,28 @@ function runvm!(vm::VMState)::Bool
 end
 
 """
-    runvmcount!(vm::VMState)::Tuple{Int,Bool}
+    instrumentedrunvm!(vm::VMState)
 
-Run the VM while counting the number of instructions taken.
+Fully-instrumented VM run.
 """
-function runvmcount!(vm::VMState)::Tuple{Int,Bool}
-    count = 0
+function instrumentedrunvm!(vm::VMState)
+    count, backtracks = 0, 0
+    s = 0
+    heatmap = zeros(Int, sizeof(vm.subject) + 1)
     vm.running = true
     while vm.running
         count += 1
+        if s > vm.s
+            backtracks += 1
+        end
+        s = vm.s
+        heatmap[vm.s] += 1
         inst::Instruction = @inbounds vm.program[vm.i]
         if !onInst(inst, vm)::Bool
             failmatch!(vm)
         end
     end
-    return count, vm.matched
+    return PegReport(vm.matched, heatmap, backtracks, count, lcap(vm), vm.subject, vm.s)
 end
 
 

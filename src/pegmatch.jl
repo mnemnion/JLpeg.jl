@@ -350,8 +350,8 @@ end
 function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
     print(io, "PegFail(")
     subject, errpos, label = pfail.subject, pfail.errpos, pfail.label
-    # we'll need more for long strings, but as a start
-    if isempty(subject)
+    # TODO cut the string down to a reasonable size
+    @views if isempty(subject)
         print(io, "\"\"")
     elseif errpos == 1
         err = subject[1:1]
@@ -389,4 +389,80 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
         print(io, ", :$label")
     end
     print(io, ")")
+end
+
+
+struct PegReport
+    matched::Bool
+    heatmap::Vector{Int}
+    backtracks::Int
+    count::Int
+    capcount::Int
+    subject::AbstractString
+    max::Int
+end
+
+function normalize_heatmap(vector)
+    # Apply logarithmic scaling and find the maximum value
+    log_vector = log.(vector .+ 1)  # Adding 1 to avoid log(0)
+    max_log_value = maximum(log_vector)
+
+    # Normalize the logarithmic values to be between 0 and 15
+    normalized_values = Int.(round.(15 .* (log_vector ./ max_log_value)))
+
+    return normalized_values
+end
+
+heatmap_colors = [
+    "\033[0;37m",  # White
+    "\033[1;97m",   # Brighter White (bold)
+    "\033[0;34m",  # Blue
+    "\033[1;34m",  # Light Blue
+    "\033[0;36m",  # Cyan
+    "\033[1;36m",  # Light Cyan
+    "\033[1;32m",  # Light Green
+    "\033[0;32m",  # Green
+    "\033[0;33m",  # Yellow
+    "\033[1;93m",  # Brighter Yellow (approximating Orange)
+    "\033[38;5;214m",  # Light Yellow
+    "\033[38;5;208m",  # Orange
+    "\033[0;31m",  # Red
+    "\033[1;31m",  # Light Red
+    "\033[0;35m",  # Magenta (approximating Orange)
+    "\033[1;35m",  # Light Magenta (approximating Orange)
+]
+
+function show_heatmap_string(io::IO, s::AbstractString, heat::Vector{Int})
+    last = -1
+    for (idx, char) in zip(eachindex(s), s)
+        temp = heat[idx]
+        if temp != last
+            print(io, heatmap_colors[temp+1])
+            last = temp
+        end
+        print(io, char)
+    end
+    print(io, "\033[0m")
+end
+
+function with_commas(num::Integer)
+    str = string(num)
+    return replace(str, r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
+end
+
+function Base.show(io::IO, ::MIME"text/plain", pr::PegReport)
+    println(io, "matched? ", pr.matched)
+    if !pr.matched
+        println("% match ", pr.max, "/", sizeof(pr.subject))
+    end
+    count = with_commas(pr.count)
+    println(io, "count: ", count)
+    println(io, "backtracks: ", pr.backtracks)
+    println(io, "capture stack height: ", pr.capcount, '\n')
+    print(io, "legend: ")
+    for c in heatmap_colors
+        print(io, c, "█")
+    end
+    println(io, "\033[0m", " log scale, ", minimum(pr.heatmap), "-", maximum(pr.heatmap), '\n')
+    show_heatmap_string(io, pr.subject, normalize_heatmap(pr.heatmap))
 end
