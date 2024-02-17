@@ -355,7 +355,10 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
         print(io, "\"\"")
     elseif errpos == 1
         err = subject[1:1]
-        if err == " "
+        if err == " " || err == "\t"
+            reverseit = true
+        elseif err == "\n"
+            err = " \n"
             reverseit = true
         else
             reverseit = false
@@ -369,7 +372,10 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
         e1 = prevind(subject, epos)
         e2 = nextind(subject, epos)
         sub1, err, sub2 = subject[1:e1], subject[epos:epos], subject[e2:end]
-        if err == " "
+        if err == " " || err == "\t"
+            reverseit = true
+        elseif err == "\n"
+            err = " \n"
             reverseit = true
         else
             reverseit = false
