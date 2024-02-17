@@ -351,6 +351,7 @@ using InteractiveUtils
         @test match(re, "a <- '123'^[1:3] |> action ") isa PegMatch
         @test match(re, "a <- '123'^[1:3] |? run_action") isa PegMatch
         @test match(re, "a <- '123' * ('4'+, :fours)") isa PegMatch
+        @test match(re, "a <- b1 | b2 | '3b'") isa PegMatch
 
         lpegre = """    # Expresses the grammar of LPeg `re` in JLpeg re syntax
         pattern         <- exp !.

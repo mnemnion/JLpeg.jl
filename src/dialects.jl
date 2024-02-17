@@ -6,7 +6,7 @@
 The first dialect, intended, among other things, as a useful
 bootstrap of other dialects.
 """
-@grammar re begin
+@constgrammar re begin
     :re           ←  :S * (:grammar | :pattern) * !1
     :pattern     ⟷  :expr
     :grammar     ⟷  :rule^1
@@ -45,7 +45,7 @@ bootstrap of other dialects.
     :range        ←  "<" * [(P(1),) * "-" * (P(1),), :range]^1 * ">"
 
     :S            ←  ((S"\t\n\v\r ")^1 | "#" * (!S"\n" * P(1))^0 * "\n")^0
-    :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | "_")^0
+    :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | R"09" | "_")^0
     :arrow        ←  "<-" | "←"
     :number       ←  R"09"^1
     # TODO disallow \n and add a thrown label in :string
