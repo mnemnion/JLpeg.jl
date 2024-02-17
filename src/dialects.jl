@@ -49,5 +49,7 @@ bootstrap of other dialects.
     :arrow        ←  "<-" | "←"
     :number       ←  R"09"^1
     # TODO disallow \n and add a thrown label in :string
-    :string       ←  "\"" * ((!S"\"" * P(1))^0, :string) * "\"" | "'" * ((!S"'" * P(1))^0, :string) * "'"
+    :string       ←  "\"" * ((!S"\"\n" * P(1))^0, :string) * ("\"" % :missing_close_string) |
+                     "'" * ((!S"\n'" * P(1))^0, :string) * ("'" % :missing_close_string)
+    :missing_close_string  ←  "\n" * T(:unexpected_newline)
 end
