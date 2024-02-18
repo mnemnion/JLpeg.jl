@@ -15,7 +15,12 @@ makedocs(
     format    =  Documenter.HTML(),
     modules   =  [JLpeg],
     pages = [
-        "JLpeg Guide" => "index.md",
+        "Introduction" => "index.md",
+        "Manual" => Any[
+            "Patterns and Combination" => "guide/patterns.md",
+            "Captures and Actions" => "guide/captures.md",
+            "Working with Matched Data" => "guide/pegmatch.md",
+        ],
         "reference.md",
         "internals.md",
     ],

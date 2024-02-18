@@ -114,4 +114,5 @@ JLpeg.generate
 
 ```@docs
 JLpeg.matchreport
+JLpeg.PegReport
 ```
