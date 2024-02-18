@@ -300,7 +300,7 @@ end
 Fully-instrumented VM run.
 """
 function instrumentedrunvm!(vm::VMState)
-    count, backtracks = 0, 0
+    count, backtracks, advances = 0, 0, 0
     s = 0
     heatmap = zeros(Int, sizeof(vm.subject) + 1)
     vm.running = true
@@ -308,6 +308,8 @@ function instrumentedrunvm!(vm::VMState)
         count += 1
         if s > vm.s
             backtracks += 1
+        elseif s < vm.s
+            advances += vm.s - s
         end
         s = vm.s
         heatmap[vm.s] += 1
@@ -316,7 +318,7 @@ function instrumentedrunvm!(vm::VMState)
             failmatch!(vm)
         end
     end
-    return PegReport(vm.matched, heatmap, backtracks, count, lcap(vm), vm.subject, vm.s)
+    return PegReport(vm.matched, heatmap, backtracks, vm.s, advances, count, lcap(vm), vm.subject)
 end
 
 

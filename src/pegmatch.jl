@@ -391,31 +391,42 @@ function Base.show(io::IO, ::MIME"text/plain", pfail::PegFail)
     print(io, ")")
 end
 
+"""
+    PegReport
 
+Returned from a call to [`matchreport`](@ref).  Contains statistics gathered from the
+match run.  Included:
+
+- `matched::Bool`    Did the pattern match?
+- `heatmap::Vector`  Number of instructions executed at each byte of the subject.
+- `backtracks::Int`  Count of times the pattern backtracked.
+- `max::Int`         Index of the farthest match.
+- `advances::Int`    The number of bytes advanced. For a linear pattern,
+  `sizeof(subject)`.
+- `count:: Int`      Total number of instructions executed.
+- `capcount::Int`    Number of frames on the capture stack.
+- `subject`          The string the pattern was matched against.
+
+Printing this in the REPL will show a digest of these values, with a logarithmic
+heatmap of the subject string, as a visual indicator of where the pattern spends its
+time.  Reports may also be saved and compared (manually), or added to your test
+suite, to detect performance regressions when a grammar is changed.  A future release
+will use `StyledStrings`, which will allow the colors to easily be customized.
+"""
 struct PegReport
     matched::Bool
     heatmap::Vector{Int}
     backtracks::Int
+    max::Int
+    advances::Int
     count::Int
     capcount::Int
     subject::AbstractString
-    max::Int
-end
-
-function normalize_heatmap(vector)
-    # Apply logarithmic scaling and find the maximum value
-    log_vector = log.(vector .+ 1)  # Adding 1 to avoid log(0)
-    max_log_value = maximum(log_vector)
-
-    # Normalize the logarithmic values to be between 0 and 15
-    normalized_values = Int.(round.(15 .* (log_vector ./ max_log_value)))
-
-    return normalized_values
 end
 
 heatmap_colors = [
     "\033[0;37m",  # White
-    "\033[1;97m",   # Brighter White (bold)
+    "\033[1;97m",  # Brighter White (bold)
     "\033[0;34m",  # Blue
     "\033[1;34m",  # Light Blue
     "\033[0;36m",  # Cyan
@@ -430,7 +441,6 @@ heatmap_colors = [
     "\033[38;5;208m",  # Orange
     "\033[0;31m",  # Red
     "\033[1;31m",  # Light Red
-    "\033[0;35m",  # Magenta (approximating Orange)
     "\033[1;35m",  # Light Magenta (approximating Orange)
 ]
 
@@ -447,30 +457,40 @@ function show_heatmap_string(io::IO, s::AbstractString, heat::Vector{Int})
     print(io, "\033[0m")
 end
 
-function generate_key_for_heatmap(vector)
+function normalize_heatmap(vector)
     # Apply logarithmic scaling and find the maximum value
     log_vector = log.(vector .+ 1)  # Adding 1 to avoid log(0)
     max_log_value = maximum(log_vector)
 
-    # Calculate the bin ranges in the logarithmic scale
-    bin_ranges = [exp(range * max_log_value / 15) - 1 for range in 0:14]
+    # Normalize the logarithmic values to be between 0 and 15
+    normalized_values = Int.(round.(15 .* (log_vector ./ max_log_value)))
 
-    # Initialize the key with an empty vector of UnitRange
+    return normalized_values
+end
+
+function heatmap_ranges(vector)
+    max_vector_value = maximum(vector)
+    max_log_value = log(max_vector_value + 1)
+
+    current_bin = 0
+    current_range_start = 1
     key = UnitRange{Int}[]
 
-    # Set the first range to start from 1
-    push!(key, 1:Int(round(bin_ranges[2])))
+    for value in 1:max_vector_value
+        # Normalize the value
+        normalized_value = Int(round(15 * log(value + 1) / max_log_value))
 
-    # Calculate the ranges for the rest of the bins
-    for i in 2:length(bin_ranges)-1
-        lower_bound = Int(round(bin_ranges[i])) + 1
-        upper_bound = Int(round(bin_ranges[i+1]))
-        push!(key, lower_bound:upper_bound)
+        # Check if the bin has incremented
+        if normalized_value > current_bin
+            # Close the previous range and start a new one
+            push!(key, current_range_start:(value - 1))
+            current_range_start = value
+            current_bin = normalized_value
+        end
     end
-
+    deleteat!(key, 1)
     # Ensure the last range captures the maximum value in the vector
-    last_lower_bound = Int(round(bin_ranges[end])) + 1
-    push!(key, last_lower_bound:maximum(vector))
+    push!(key, current_range_start:max_vector_value)
 
     return key
 end
@@ -480,17 +500,24 @@ function with_commas(num::Integer)
     return replace(str, r"(?<=[0-9])(?=(?:[0-9]{3})+(?![0-9]))" => ",")
 end
 
+function as_percent(value)
+    percentage = Int(round(value * 100))  # Convert to percentage and round
+    string(percentage) * "%"
+end
+
 function Base.show(io::IO, ::MIME"text/plain", pr::PegReport)
     println(io, "matched? ", pr.matched)
     if !pr.matched
         println("% match ", pr.max, "/", sizeof(pr.subject))
     end
+    println(io, "matching ", as_percent((pr.max - 1) / sizeof(pr.subject)))
     count = with_commas(pr.count)
     println(io, "count: ", count)
     println(io, "backtracks: ", pr.backtracks)
+    println(io, "advances: ", pr.advances, ", ", round(pr.advances/sizeof(pr.subject), digits = 1), "X")
     println(io, "capture stack height: ", pr.capcount)
     println(io, "log scale: ", minimum(pr.heatmap), "-", maximum(pr.heatmap), '\n')
-    heatmap_key = generate_key_for_heatmap(pr.heatmap)
+    heatmap_key = heatmap_ranges(pr.heatmap)
     for (c, key) in zip(heatmap_colors, heatmap_key)
         print(io, c, key, "\033[0m|")
     end
