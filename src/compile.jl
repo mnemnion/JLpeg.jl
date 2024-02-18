@@ -587,10 +587,9 @@ end
 
 function addstar!(c::IVector, code::IVector)
     l = length(code)
-    if l == 1 && code[1].op == ISet
+    if l == 3 && code[1].op == ISet
         # Span instruction
-        low, high = makemasks(code[1].vec)
-        push!(c, LeadSetInst(0), low, high)
+        push!(c, LeadSetInst(0), code[2], code[3])
         return
     end
     push!(c, ChoiceInst(l + 2)) # Choice + PartialCommit
