@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Working with Matched Data · JLpeg</title><meta name="title" content="Working with Matched Data · JLpeg"/><meta property="og:title" content="Working with Matched Data · JLpeg"/><meta property="twitter:title" content="Working with Matched Data · JLpeg"/><meta name="description" content="Documentation for JLpeg."/><meta property="og:description" content="Documentation for JLpeg."/><meta property="twitter:description" content="Documentation for JLpeg."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><a class="docs-logo" href="../../"><img src="../../assets/logo.svg" alt="JLpeg logo"/></a><div class="docs-package-name"><span class="docs-autofit"><a href="../../">JLpeg</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Introduction</a></li><li><span class="tocitem">Manual</span><ul><li><a class="tocitem" href="../patterns/">Patterns and Combination</a></li><li><a class="tocitem" href="../captures/">Captures and Actions</a></li><li class="is-active"><a class="tocitem" href>Working with Matched Data</a></li></ul></li><li><a class="tocitem" href="../../reference/">Reference</a></li><li><a class="tocitem" href="../../internals/">Internals</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Manual</a></li><li class="is-active"><a href>Working with Matched Data</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Working with Matched Data</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/mnemnion/JLpeg.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/mnemnion/JLpeg.jl/blob/trunk/docs/src/guide/pegmatch.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Working-With-Matched-Data"><a class="docs-heading-anchor" href="#Working-With-Matched-Data">Working With Matched Data</a><a id="Working-With-Matched-Data-1"></a><a class="docs-heading-anchor-permalink" href="#Working-With-Matched-Data" title="Permalink"></a></h1><p><a href="../../reference/#JLpeg.PegMatch"><code>PegMatch</code></a> implements the interface of AbstractMatch, and as such, it is intentionally structured to be similar to <a href="https://docs.julialang.org/en/v1/base/strings/#Base.RegexMatch"><code>RegexMatch</code></a> from the standard library.  PEGs are a far richer and more sophisticated tool than regexen, however: a named capture might appear many times, captures can be grouped, those groups may have groups, with captures, having names, and so on.</p><p>Our intention is that simple matching will behave in a familiar way, with additional methods provided for more complex scenarios.  Let&#39;s consider a simple rule with some captures.</p><pre><code class="language-julia-repl hljs">julia&gt; @rule :baddate ← (R&quot;09&quot;^[4], :year) * &quot;-&quot; * (R&quot;09&quot;^[2:2],) * &quot;-&quot; * (R&quot;09&quot;^[2], :day);
+
+julia&gt; date = match(baddate, &quot;2024-01-10&quot;)
+PegMatch([:year =&gt; &quot;2024&quot;, &quot;01&quot;, :day =&gt; &quot;10&quot;])</code></pre><p>The rule name is because this is certainly not how you should parse a date!  Note the two equivalent ways of specifying a definite number of repetitions, <code>[2]</code> is preferred.</p><p>Let&#39;s illustrate how to work with this.</p><pre><code class="language-julia-repl hljs">julia&gt; date == [:year =&gt; &quot;2024&quot;, &quot;01&quot;, :day =&gt; &quot;10&quot;]
+true
+
+julia&gt; [:year =&gt; &quot;2024&quot;, &quot;01&quot;, :day =&gt; &quot;10&quot;] == date
+true</code></pre><p>A <a href="../../reference/#JLpeg.PegMatch"><code>PegMatch</code></a> is <a href="https://docs.julialang.org/en/v1/base/math/#Base.%3A%3D%3D"><code>==</code></a> to a <a href="https://docs.julialang.org/en/v1/base/arrays/#Base.AbstractVector"><code>Vector</code></a> with the same contents.  However, note that a <code>PegMatch</code> uses default hash equality:</p><pre><code class="language-julia-repl hljs">julia&gt; hash(date) == hash([:year =&gt; &quot;2024&quot;, &quot;01&quot;, :day =&gt; &quot;10&quot;])
+false</code></pre><p>This is somewhat at variance with <a href="https://docs.julialang.org/en/v1/base/base/#Base.hash">doctrine</a>, but we feel it&#39;s the correct choice here.</p><p>Next, let&#39;s look at iteration and indexing.</p><pre><code class="language-julia-repl hljs">julia&gt; date[:day]
+&quot;10&quot;
+
+julia&gt; date[3]
+&quot;10&quot;
+
+julia&gt; keys(date)
+3-element Vector{Any}:
+  :year
+ 2
+  :day
+
+julia&gt; collect(date)
+3-element Vector{Any}:
+ &quot;2024&quot;
+ &quot;01&quot;
+ &quot;10&quot;
+
+julia&gt; collect(eachindex(date))
+3-element Vector{Int64}:
+ 1
+ 2
+ 3
+
+julia&gt; collect(pairs(date))
+3-element Vector{Pair{A, SubString{String}} where A}:
+ :year =&gt; &quot;2024&quot;
+     2 =&gt; &quot;01&quot;
+  :day =&gt; &quot;10&quot;
+
+julia&gt; collect(enumerate(date))
+3-element Vector{Tuple{Int64, Any}}:
+ (1, &quot;2024&quot;)
+ (2, &quot;01&quot;)
+ (3, &quot;10&quot;)</code></pre><p>Default iteration will get you the matches, <a href="https://docs.julialang.org/en/v1/base/collections/#Base.pairs"><code>pairs</code></a> uses the name of the capture when there is one, if a capture has a name, that can be used to index it, or the position in the Vector.</p><p>So far so good, what happens if a named capture matches more than once?</p><pre><code class="language-julia-repl hljs">julia&gt; @rule :abcs ← ((R&quot;az&quot;^1, :abc) | &quot;123&quot;)^1;
+
+julia&gt; letters = match(abcs, &quot;abc123def123ghi123&quot;)
+PegMatch([:abc =&gt; &quot;abc&quot;, :abc =&gt; &quot;def&quot;, :abc =&gt; &quot;ghi&quot;])
+
+julia&gt; letters[:abc]
+&quot;abc&quot;
+
+julia&gt; keys(letters)
+3-element Vector{Any}:
+  :abc
+ 2
+ 3
+
+julia&gt; collect(pairs(letters))
+3-element Vector{Pair{Symbol, SubString{String}}}:
+ :abc =&gt; &quot;abc&quot;
+ :abc =&gt; &quot;def&quot;
+ :abc =&gt; &quot;ghi&quot;</code></pre><p>As you can see, the <em>first</em> match with that name is the indexable one, and therefore, is the only time <code>:abc</code> appears in <code>keys</code>, while all matches have their name in <code>pairs</code>, or, if anonymous, their index.</p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../captures/">« Captures and Actions</a><a class="docs-footer-nextpage" href="../../reference/">Reference »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Sunday 18 February 2024 19:56">Sunday 18 February 2024</span>. Using Julia version 1.10.1.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
