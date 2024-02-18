@@ -175,16 +175,16 @@ end
 """
     matchreport(patt::Pattern, subject::AbstractString)
 
-Matches `patt` against `subject` using a fully-instrumented VM. This keeps a
+Matches `patt` against `subject` using an instrumented VM. This keeps a
 running count of instructions, amount of backtracking, and the number of times
 any given byte in the string is visited.
 
 To state the obvious, this is not intended to be fast at all, it's provided as
 a tool for diagnosing performance bottlenecks in a pattern.
 """
-function matchreport(patt::Pattern, subject::AbstractString)
+function matchreport(patt::Pattern, subject::AbstractString)::PegReport
     vm = VMState(patt, subject)
-    result = instrumentedrunvm!(vm)
+    return instrumentedrunvm!(vm)
 end
 
 """

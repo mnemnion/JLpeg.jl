@@ -6,7 +6,7 @@
 The first dialect, intended, among other things, as a useful
 bootstrap of other dialects.
 """
-@constgrammar re begin
+@grammar re begin
     :re           ←  :S * (:grammar | :pattern) * !1
     :pattern     ⟷  :expr
     :grammar     ⟷  :rule^1
@@ -15,11 +15,12 @@ bootstrap of other dialects.
     :alt         ⟷  (:seq | :element) * :S * (S"|/" * :S * (:seq | :element))^1
     :seq         ⟷  :element * (:S * :element * :S)^1
 
-    :element      ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :suffix  * !(:act_next) | :action
-    :suffix       ←  (([:primary * :S * ( (S"+*?", :kleene)
+    :element      ←  ["&" * :S * :element, :and] | ["!" * :S * :element, :not] | :suffix * !(:act_next) | :action
+    :suffix       ←  :primary * :S * !S"+*?^" |
+                     ([:primary * :S * ( (S"+*?", :kleene)
                                          | "^" * ((S"+-"^-1,) * (:number,), :rep)
                                          | "^" * ["[" * (:number, :start) * ":" * (:number, :stop) * "]", :reprange]) * :S])
-                     | :primary * :S)
+
 
     :action       ←  :fncall | :test | :throw | :fast_fwd
 
@@ -30,13 +31,12 @@ bootstrap of other dialects.
 
     :act_next     ←  "|>" | "<|" | "|?" | "%" | ">>"
 
-    :primary       ←  ( "(" * [:expr] * ")" | :string | :class | :range
+    :primary       ←  ( (:name, :call) * :S * !(:arrow)
+                      | "(" * [:expr] * ")" | :string | :class | :range
                       | ["[" * :expr * ","^-1 * :S * (":" * (:name, :groupname))^-1 * :S * "]", :groupcapture]
-                      # | "=" * :name  # TODO this is mark/check syntax, support somehow
                       | ("()", :positioncapture)
                       | ["("  * :expr * ((("," * :S)^-1 * ((":" * :name, :capname) % :badcapture) * :S) | :S * "," * :S )^-1  * ")", :capture]
-                      | (".", :any)
-                      | (:name, :call) * :S * !(:arrow) )
+                      | (".", :any))
 
     :class        ←  ("{" * "^" * ((!"}" * 1)^0, :notset) * "}"
                      | "{" * ":" * (:name, :defined) * :S * "}"
@@ -48,8 +48,8 @@ bootstrap of other dialects.
     :name         ←  (R"AZ" | R"az" | "_") * (R"AZ" | R"az" | R"09" | "_")^0
     :arrow        ←  "<-" | "←"
     :number       ←  R"09"^1
-    # TODO disallow \n and add a thrown label in :string
     :string       ←  "\"" * ((!S"\"\n" * P(1))^0, :string) * ("\"" % :missing_close_string) |
                      "'" * ((!S"\n'" * P(1))^0, :string) * ("'" % :missing_close_string)
+
     :missing_close_string  ←  "\n" * T(:unexpected_newline)
 end

@@ -109,3 +109,9 @@ JLpeg aspires to provide a complete set of generators for our patterns. So far, 
 ```@docs
 JLpeg.generate
 ```
+
+## Benchmarking
+
+```@docs
+JLpeg.matchreport
+```
