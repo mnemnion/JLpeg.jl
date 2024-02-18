@@ -419,11 +419,13 @@ heatmap_colors = [
     "\033[0;34m",  # Blue
     "\033[1;34m",  # Light Blue
     "\033[0;36m",  # Cyan
+
     "\033[1;36m",  # Light Cyan
-    "\033[1;32m",  # Light Green
     "\033[0;32m",  # Green
+    "\033[1;32m",  # Light Green
     "\033[0;33m",  # Yellow
     "\033[1;93m",  # Brighter Yellow (approximating Orange)
+
     "\033[38;5;214m",  # Light Yellow
     "\033[38;5;208m",  # Orange
     "\033[0;31m",  # Red
@@ -437,12 +439,40 @@ function show_heatmap_string(io::IO, s::AbstractString, heat::Vector{Int})
     for (idx, char) in zip(eachindex(s), s)
         temp = heat[idx]
         if temp != last
-            print(io, heatmap_colors[temp+1])
+            print(io, heatmap_colors[temp])
             last = temp
         end
         print(io, char)
     end
     print(io, "\033[0m")
+end
+
+function generate_key_for_heatmap(vector)
+    # Apply logarithmic scaling and find the maximum value
+    log_vector = log.(vector .+ 1)  # Adding 1 to avoid log(0)
+    max_log_value = maximum(log_vector)
+
+    # Calculate the bin ranges in the logarithmic scale
+    bin_ranges = [exp(range * max_log_value / 15) - 1 for range in 0:14]
+
+    # Initialize the key with an empty vector of UnitRange
+    key = UnitRange{Int}[]
+
+    # Set the first range to start from 1
+    push!(key, 1:Int(round(bin_ranges[2])))
+
+    # Calculate the ranges for the rest of the bins
+    for i in 2:length(bin_ranges)-1
+        lower_bound = Int(round(bin_ranges[i])) + 1
+        upper_bound = Int(round(bin_ranges[i+1]))
+        push!(key, lower_bound:upper_bound)
+    end
+
+    # Ensure the last range captures the maximum value in the vector
+    last_lower_bound = Int(round(bin_ranges[end])) + 1
+    push!(key, last_lower_bound:maximum(vector))
+
+    return key
 end
 
 function with_commas(num::Integer)
@@ -458,11 +488,12 @@ function Base.show(io::IO, ::MIME"text/plain", pr::PegReport)
     count = with_commas(pr.count)
     println(io, "count: ", count)
     println(io, "backtracks: ", pr.backtracks)
-    println(io, "capture stack height: ", pr.capcount, '\n')
-    print(io, "legend: ")
-    for c in heatmap_colors
-        print(io, c, "█")
+    println(io, "capture stack height: ", pr.capcount)
+    println(io, "log scale: ", minimum(pr.heatmap), "-", maximum(pr.heatmap), '\n')
+    heatmap_key = generate_key_for_heatmap(pr.heatmap)
+    for (c, key) in zip(heatmap_colors, heatmap_key)
+        print(io, c, key, "\033[0m|")
     end
-    println(io, "\033[0m", " log scale, ", minimum(pr.heatmap), "-", maximum(pr.heatmap), '\n')
+    print(io, "\n\n")
     show_heatmap_string(io, pr.subject, normalize_heatmap(pr.heatmap))
 end
